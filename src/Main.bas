@@ -70,6 +70,7 @@ Dim Shared As MenuItem Ptr miUndo, miRedo, miCutCurrentLine, miCut, miCopy, miPa
 Dim Shared As MenuItem Ptr miNumbering, miMacroNumbering, miRemoveNumbering, miProcedureNumbering, miProcedureMacroNumbering, miRemoveProcedureNumbering, miProjectMacroNumbering, miProjectMacroNumberingStartsOfProcedures, miRemoveProjectNumbering, miPreprocessorNumbering, miRemovePreprocessorNumbering, miProjectPreprocessorNumbering, miRemoveProjectPreprocessorNumbering, miOnErrorResumeNext, miOnErrorGoto, miOnErrorGotoResumeNext, miOnLocalErrorGoto, miOnLocalErrorGotoResumeNext, miRemoveErrorHandling
 Dim Shared As MenuItem Ptr dmiNumbering, dmiMacroNumbering, dmiRemoveNumbering, dmiProcedureNumbering, dmiProcedureMacroNumbering, dmiRemoveProcedureNumbering, dmiProjectMacroNumbering, dmiProjectMacroNumberingStartsOfProcedures, dmiRemoveProjectNumbering, dmiPreprocessorNumbering, dmiRemovePreprocessorNumbering, dmiProjectPreprocessorNumbering, dmiRemoveProjectPreprocessorNumbering, dmiOnErrorResumeNext, dmiOnErrorGoto, dmiOnErrorGotoResumeNext, dmiOnLocalErrorGoto, dmiOnLocalErrorGotoResumeNext, dmiRemoveErrorHandling, dmiMake, dmiMakeClean
 Dim Shared As MenuItem Ptr miCode, miForm, miCodeAndForm, miCollapseCurrent, miCollapseAllProcedures, miCollapseAll, miUnCollapseCurrent, miUnCollapseAllProcedures, miUnCollapseAll, miImageManager, miAddProcedure, miFind, miReplace, miFindNext, miFindPrevious, miGoto, miDefine, miToggleBookmark, miNextBookmark, miPreviousBookmark, miClearAllBookmarks, miSyntaxCheck, miCompile, miCompileAll, miBuildBundle, miBuildAPK, miGenerateSignedBundle, miGenerateSignedAPK, miMake, miMakeClean
+Dim Shared As MenuItem Ptr miShowWithFolders, miShowWithoutFolders, miShowAsFolder
 Dim Shared As ToolButton Ptr tbtSave, tbtSaveAll, tbtSyntaxCheck, tbtCompile, tbtUndo, tbtRedo, tbtCut, tbtCopy, tbtPaste, tbtSingleComment, tbtUncommentBlock, tbtFormat, tbtUnformat, tbtCompleteWord, tbtParameterInfo, tbtFind, tbtRemoveFileFromProject, tbtStartWithCompile, tbtStart, tbtBreak, tbtEnd, tbt32Bit, tbt64Bit, tbtUseDebugger, tbtNotSetted, tbtConsole, tbtGUI
 Dim Shared As SaveFileDialog SaveD
 Dim Shared As ReBar MainReBar
@@ -84,20 +85,20 @@ Dim Shared As List Tools, TabPanels, ControlLibraries
 Dim Shared As WStringList GlobalNamespaces, Comps, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalFunctionsHelp, GlobalArgs, AddIns, IncludeFiles, LoadPaths, IncludePaths, LibraryPaths, MRUFiles, MRUFolders, MRUProjects, MRUSessions ' add Sessions
 Dim Shared As WString Ptr RecentFiles, RecentFile, RecentProject, RecentFolder, RecentSession '
 Dim Shared As Dictionary Helps, HotKeys, Compilers, MakeTools, Debuggers, Terminals, OtherEditors, mlKeys, mlCompiler, mlTemplates, mpKeys, mcKeys
-Dim Shared As ListView lvProblems, lvSuggestions, lvSearch, lvToDo
+Dim Shared As ListView lvProblems, lvSuggestions, lvSearch, lvToDo, lvMemory
 Dim Shared As ProgressBar prProgress
 Dim Shared As CommandButton btnPropertyValue
 Dim Shared As TextBox txtPropertyValue, txtLabelProperty, txtLabelEvent
 Dim Shared As ComboBoxEdit cboPropertyValue
-Dim Shared As PopupMenu mnuForm, mnuVars, mnuExplorer, mnuTabs
+Dim Shared As PopupMenu mnuForm, mnuVars, mnuWatch, mnuExplorer, mnuTabs, mnuProcedures
 Dim Shared As ImageList imgList, imgListD, imgListTools, imgListStates
 Dim Shared As TreeListView lvProperties, lvEvents, lvLocals, lvGlobals, lvThreads, lvWatches
 Dim Shared As ToolPalette tbToolBox
 Dim Shared As Panel pnlToolBox
 Dim Shared As TabControl tabLeft, tabRight, tabBottom ', tabDebug
-Dim Shared As TreeView tvExplorer, tvVar, tvThd, tvWch ', tvPrc
+Dim Shared As TreeView tvExplorer, tvVar, tvPrc, tvThd, tvWch
 Dim Shared As TextBox txtOutput, txtImmediate, txtChangeLog ' Add Change Log
-Dim Shared As TabPage Ptr tpProject, tpToolbox, tpProperties, tpEvents, tpOutput, tpProblems, tpSuggestions, tpFind, tpToDo, tpChangeLog, tpImmediate, tpLocals, tpGlobals, tpThreads, tpWatches
+Dim Shared As TabPage Ptr tpProject, tpToolbox, tpProperties, tpEvents, tpOutput, tpProblems, tpSuggestions, tpFind, tpToDo, tpChangeLog, tpImmediate, tpLocals, tpGlobals, tpProcedures, tpThreads, tpWatches, tpMemory
 Dim Shared As Form frmMain
 Dim Shared As Integer tabItemHeight
 Dim Shared As Integer miRecentMax =20 'David Changed
@@ -436,8 +437,8 @@ Function GetBakFileName(ByRef FileName As WString) As UString
 End Function
 
 Function GetExeFileName(ByRef FileName As WString, ByRef sLine As WString) As UString
-	Dim As UString CompileWith = " " & LTrim(sLine)
-	Dim As UString pFileName = FileName
+	Dim As UString CompileWith = " " & Replace(LTrim(sLine), BackSlash, Slash)
+	Dim As UString pFileName = Replace(FileName, BackSlash, Slash)
 	Dim As UString ExeFileName
 	Dim As String SearchChar
 	Dim As Long Pos1, Pos2
@@ -451,7 +452,7 @@ Function GetExeFileName(ByRef FileName As WString, ByRef sLine As WString) As US
 		Pos2 = InStr(Pos1 + 5, CompileWith, SearchChar)
 		If Pos2 > 0 Then
 			ExeFileName = Mid(CompileWith, Pos1 + 5, Pos2 - Pos1 - 5)
-			If CInt(InStr(ExeFileName, ":") = 0) AndAlso CInt(Not StartsWith(ExeFileName, "/")) Then
+			If CInt(InStr(ExeFileName, ":") = 0) AndAlso CInt(Not StartsWith(ExeFileName, Slash)) Then
 				Return GetFolderName(pFileName) + ExeFileName
 			Else
 				Return ExeFileName
@@ -462,7 +463,7 @@ Function GetExeFileName(ByRef FileName As WString, ByRef sLine As WString) As US
 	If Pos1 = 0 Then Pos1 = Len(pFileName) + 1
 	If Pos1 > 0 Then
 		#ifdef __USE_GTK__
-			Pos2 = InStrRev(pFileName, "/")
+			Pos2 = InStrRev(pFileName, Slash)
 			If Pos2 > 0 AndAlso InStr(CompileWith, "-dll") > 0 Then
 				Return Left(pFileName, Pos2) & "lib" & Mid(pFileName, Pos2 + 1, Pos1 - Pos2 - 1) & ".so"
 			Else
@@ -470,7 +471,7 @@ Function GetExeFileName(ByRef FileName As WString, ByRef sLine As WString) As US
 			End If
 		#else
 			If InStr(CompileWith, "-target ") Then
-				Pos2 = InStrRev(pFileName, "\")
+				Pos2 = InStrRev(pFileName, Slash)
 				If Pos2 > 0 AndAlso InStr(CompileWith, "-dll") > 0 Then
 					Return Left(pFileName, Pos2) & "lib" & Mid(pFileName, Pos2 + 1, Pos1 - Pos2 - 1) & ".so"
 				Else
@@ -757,37 +758,18 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 		End If
 		Dim As UShort bFlagErr
 		Dim As Double CompileElapsedTime = Timer
-		'Dim As String TmpStr, TmpStrKey = "@freebasic compiler @copyright @standalone @creating import library @target @backend @compiling @compiling rc @compiling c @assembling @linking @line "
 		#ifdef __USE_GTK__
 			Dim As Integer Fn = FreeFile_
 			If Open Pipe(*PipeCommand For Input As #Fn) = 0 Then
 				While Not EOF(Fn)
 					Line Input #Fn, Buff
 					If Len(Trim(Buff)) <= 1 OrElse StartsWith(Trim(Buff), "|") Then Continue While
-					ThreadsEnter()
-					ShowMessages(Buff, False)
-					ThreadsLeave()
-					'nPos1 = -1
-					'nPos = InStr(Buff, ":")
-					'If nPos < 1 Then nPos = InStr(Buff, " ")
-					'If nPos < 1 Then
-					'	nPos = Len(Buff) + 1
-					'	TmpStr = Buff
-					'Else
-					'	TmpStr = Left(Buff, nPos - 1)
-					'End If
-					'If InStr(Buff, "Error!") Then ERRGoRc = True
-					'nPos1 = InStr(LCase(tmpStrKey), "@" & LCase(TmpStr))
-					'If CBool(nPos1 > 0) OrElse ERRGoRc Then
-					'	ThreadsEnter()
-					'	ShowMessages Str(Time) & ": " &  ML(TmpStr) & " " & Trim(Mid(Buff, nPos))
-					'	ThreadsLeave()
-					'	NumberWarning = 0 : NumberErr = 0 : NumberInfo = 0
-					'Else
+					
 					If Not (StartsWith(Buff, "FreeBASIC Compiler") OrElse StartsWith(Buff, "Copyright ") OrElse StartsWith(Buff, "standalone") OrElse StartsWith(Buff, "target:") _
 						OrElse StartsWith(Buff, "compiling:") OrElse StartsWith(Buff, "compiling C:") OrElse StartsWith(Buff, "assembling:") OrElse StartsWith(Buff, "compiling rc:") _
 						OrElse StartsWith(Buff, "linking:") OrElse StartsWith(Buff, "OBJ file not made") OrElse StartsWith(Buff, "compiling rc failed:") _
 						OrElse StartsWith(Buff, "creating import library:") OrElse StartsWith(Buff, "backend:") OrElse StartsWith(Buff, "Restarting fbc") OrElse StartsWith(Buff, "archiving:") OrElse StartsWith(Buff, "creating:")) Then
+						ShowMessages(Buff, False)
 						bFlagErr = SplitError(Buff, ErrFileName, ErrTitle, iLine)
 						If bFlagErr = 2 Then
 							NumberErr += 1
@@ -805,6 +787,19 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 							'ShowMessages(Buff, False)
 							ThreadsLeave()
 						End If
+					Else
+						Dim As String TmpStr
+						Var nPos = InStr(Buff, ":")
+						If nPos < 1 Then nPos = InStr(Buff, " ")
+						If nPos < 1 Then
+							nPos = Len(Buff) + 1
+							TmpStr = Trim(Buff)
+						Else
+							TmpStr = Trim(Left(Buff, nPos - 1))
+						End If
+						ThreadsEnter()
+						ShowMessages Str(Time) & ": " & ML(TmpStr) & " " & Trim(Mid(Buff, nPos))
+						ThreadsLeave()
 					End If
 				Wend
 			End If
@@ -861,24 +856,13 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 					End If
 					Split sOutput, Chr(10), res()
 					For i As Integer = 0 To UBound(res) 'Copyright
-						ShowMessages(*res(i), False)
 						If Len(Trim(*res(i))) <= 1 OrElse StartsWith(Trim(*res(i)), "|") Then Continue For
 						If InStr(*res(i), Chr(13)) > 0 Then *res(i) = Left(*res(i), Len(*res(i)) - 1)
-						'nPos = InStr(*res(i), ":")
-						'If nPos < 1 Then nPos = InStr(*res(i), " ")
-						'If nPos < 1 Then
-						'	nPos = Len(*res(i)) + 1
-						'	TmpStr = *res(i) '"standalone" ' Hanving ASCii CR
-						'Else
-						'	TmpStr = Left(*res(i), nPos - 1)
-						'End If
-						'nPos1 = InStr(LCase(tmpStrKey), "@" & LCase(TmpStr)) ' so can't with " " for standalone + Chr(13)
-						'If nPos1 > 0 OrElse ERRGoRc Then
-						'ShowMessages Str(Time) & ": " &  ML(TmpStr) & " " & Trim(Mid(*res(i), nPos))
 						If Not (StartsWith(*res(i), "FreeBASIC Compiler") OrElse StartsWith(*res(i), "Copyright ") OrElse StartsWith(*res(i), "standalone") OrElse StartsWith(*res(i), "target:") _
 							OrElse StartsWith(*res(i), "backend:") OrElse StartsWith(*res(i), "compiling:") OrElse StartsWith(*res(i), "compiling C:") OrElse StartsWith(*res(i), "assembling:") _
 							OrElse StartsWith(*res(i), "compiling rc:") OrElse StartsWith(*res(i), "linking:") OrElse StartsWith(*res(i), "OBJ file not made") OrElse StartsWith(*res(i), Space(14)) _
 							OrElse StartsWith(*res(i), "creating import library:") OrElse StartsWith(*res(i), "compiling rc failed:") OrElse StartsWith(*res(i), "Restarting fbc") OrElse StartsWith(*res(i), "creating:") OrElse StartsWith(*res(i), "archiving:") OrElse InStr(*res(i), "ld.exe") > 0) Then
+							ShowMessages(*res(i), False)
 							bFlagErr = SplitError(*res(i), ErrFileName, ErrTitle, iLine)
 							If bFlagErr = 2 Then
 								NumberErr += 1
@@ -893,6 +877,19 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 								lvProblems.ListItems.Item(lvProblems.ListItems.Count - 1)->Text(1) = WStr(iLine)
 								lvProblems.ListItems.Item(lvProblems.ListItems.Count - 1)->Text(2) = *ErrFileName
 							End If
+						Else
+							Dim As String TmpStr 
+							Dim As Integer nPos = InStr(*res(i), ":")
+							If nPos < 1 Then nPos = InStr(*res(i), " ")
+							If nPos < 1 Then
+								nPos = Len(*res(i)) + 1
+								TmpStr = Trim(*res(i))
+							Else
+								TmpStr = Trim(Left(*res(i), nPos - 1))
+							End If
+							ThreadsEnter()
+							ShowMessages Str(Time) & ": " & ML(TmpStr) & " " & Trim(Mid(*res(i), nPos))
+							ThreadsLeave()
 						End If
 						Deallocate res(i): res(i) = 0
 						sOutput = ""
@@ -1237,7 +1234,7 @@ Sub txtOutput_DblClick(ByRef Sender As Control)
 End Sub
 
 Function GetTreeNodeChild(tn As TreeNode Ptr, ByRef FileName As WString) As TreeNode Ptr
-	If tbExplorer.Buttons.Item(3)->Checked Then
+	If tn->Tag AndAlso *Cast(ExplorerElement Ptr, tn->Tag) Is ProjectElement AndAlso Cast(ProjectElement Ptr, tn->Tag)->ProjectFolderType = ProjectFolderTypes.ShowWithFolders Then
 		If EndsWith(FileName, ".bi") Then
 			Return tn->Nodes.Item(0)
 		ElseIf EndsWith(FileName, ".frm") Then
@@ -1256,8 +1253,20 @@ End Function
 
 Sub ClearTreeNode(ByRef tn As TreeNode Ptr)
 	If tn = 0 Then Exit Sub
+	Dim As TabWindow Ptr tb
 	For i As Integer = 0 To tn->Nodes.Count - 1
-		Delete_( Cast(ExplorerElement Ptr, tn->Nodes.Item(i)->Tag))
+		ClearTreeNode(tn->Nodes.Item(i))
+		For jj As Integer = 0 To TabPanels.Count - 1
+			Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
+			For j As Integer = 0 To ptabCode->TabCount - 1
+				tb = Cast(TabWindow Ptr, ptabCode->Tab(j))
+				If tb->tn = tn->Nodes.Item(i) Then
+					tb->tn = 0
+					Exit For
+				End If
+			Next j
+		Next jj
+		If tn->Nodes.Item(i)->Tag <> 0 Then Delete_( Cast(ExplorerElement Ptr, tn->Nodes.Item(i)->Tag)): tn->Nodes.Item(i)->Tag = 0
 	Next
 	tn->Nodes.Clear
 End Sub
@@ -1335,10 +1344,32 @@ Sub ExpandFolder(ByRef tn As TreeNode Ptr)
 		ee1 = New_( ExplorerElement)
 		WLet(ee1->FileName, Files.Item(i))
 		tn1->Tag = ee1
+		Dim As TabWindow Ptr tb
+		For jj As Integer = 0 To TabPanels.Count - 1
+			Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
+			For j As Integer = 0 To ptabCode->TabCount - 1
+				tb = Cast(TabWindow Ptr, ptabCode->Tab(j))
+				If tb->FileName = Files.Item(i) Then
+					tb->tn = tn1
+					Exit For
+				End If
+			Next j
+		Next jj
 	Next i
 End Sub
 
 Sub CloseFolder(ByRef tn As TreeNode Ptr)
+	Dim As TabWindow Ptr tb
+	For jj As Integer = 0 To TabPanels.Count - 1
+		Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
+		For i As Integer = 0 To ptabCode->TabCount - 1
+			tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
+			If tb->ptn = tn Then
+				If Not CloseTab(tb, True) Then Return
+				Exit For
+			End If
+		Next i
+	Next jj
 	ClearTreeNode tn
 	'miSaveProject->Enabled = False
 	'miSaveProjectAs->Enabled = False
@@ -1447,7 +1478,7 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 			tn = tvExplorer.Nodes.Add(NewName & "*", , , "Project", "Project")
 		End If
 		'If tn <> 0 Then
-		If tbExplorer.Buttons.Item(3)->Checked Then
+		If ShowProjectFolders Then
 			tn->Nodes.Add ML("Includes"), "Includes", , "Opened", "Opened"
 			tn->Nodes.Add ML("Forms"), "Forms", , "Opened", "Opened"
 			tn->Nodes.Add ML("Modules"), "Modules", , "Opened", "Opened"  '.  Using "Modules" is better than "Sources"
@@ -1455,7 +1486,6 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 			tn->Nodes.Add ML("Others"), "Others", , "Opened", "Opened"
 			'End if
 		End If
-		tn->SelectItem
 	End If
 	If FileName <> "" Then
 		Dim As TreeNode Ptr tn1, tn2
@@ -1472,7 +1502,7 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 		Else
 			WLet(ppe->FileName, FileName)
 		End If
-		ppe->ProjectIsFolder = inFolder
+		If inFolder Then ppe->ProjectFolderType = ProjectFolderTypes.ShowAsFolder Else ppe->ProjectFolderType = IIf(ShowProjectFolders, 0, 1)
 		tn->Tag = ppe
 		If pFilesList = 0 Then pFiles = @Files Else pFiles = pFilesList
 		Dim As String Parameter
@@ -1686,6 +1716,7 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 		tn->Expand
 	End If
 	'pfProjectProperties->RefreshProperties
+	tn->SelectItem
 	Return tn
 End Function
 
@@ -2214,7 +2245,7 @@ Function SaveAllBeforeCompile() As Boolean
 				For i As Integer = ptabCode->TabCount - 1 To 0 Step -1
 					tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
 					If tb->Modified Then
-						tnP = GetParentNode(tb->tn)
+						tnP = tb->ptn
 						Index = .lstFiles.IndexOfData(tnP)
 						If Index <> -1 Then
 							.lstFiles.InsertItem Index + 1, WSpace(2) & tb->Caption, tb
@@ -2309,7 +2340,7 @@ Function CloseSession() As Boolean
 			For i As Integer = ptabCode->TabCount - 1 To 0 Step -1
 				tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
 				If tb->Modified Then
-					tnP = GetParentNode(tb->tn)
+					tnP = tb->ptn
 					Index = .lstFiles.IndexOfData(tnP)
 					If Index <> -1 Then
 						.lstFiles.InsertItem Index + 1, WSpace(2) & tb->Caption, tb
@@ -2560,7 +2591,7 @@ Sub RemoveFileFromProject
 		Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(j))->tabCode
 		For i As Integer = 0 To ptabCode->TabCount - 1
 			tb = Cast(TabWindow Ptr, ptabCode->Tabs[i])
-			If tb->tn = tn Then
+			If tb->ptn = ptn Then
 				If Not CloseTab(tb) Then Exit Sub
 				Exit For
 			End If
@@ -2656,7 +2687,7 @@ Sub SetAsMain(IsTab As Boolean)
 				ptn->Tag = ppe
 				ptn->ImageKey = "Project"
 				ptn->SelectedImageKey = "Project"
-				ppe->ProjectIsFolder = True
+				ppe->ProjectFolderType = ProjectFolderTypes.ShowAsFolder
 				ChangeMenuItemsEnabled
 			End If
 			If ee <> 0 AndAlso ppe <> 0 Then
@@ -2767,7 +2798,7 @@ Function CloseProject(tn As TreeNode Ptr, WithoutMessage As Boolean = False) As 
 				For i As Integer = ptabCode->TabCount - 1 To 0 Step -1
 					tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
 					If tb->Modified Then
-						tnP = GetParentNode(tb->tn)
+						tnP = tb->ptn
 						If tnP = tn Then
 							.lstFiles.AddItem IIf(bProjectModified, WSpace(2), "") & tb->Caption, tb
 						End If
@@ -2792,31 +2823,41 @@ Function CloseProject(tn As TreeNode Ptr, WithoutMessage As Boolean = False) As 
 			End If
 		End With
 	End If
+	For jj As Integer = 0 To TabPanels.Count - 1
+		Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
+		For i As Integer = 0 To ptabCode->TabCount - 1
+			tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
+			If tb->ptn = tn Then
+				If Not CloseTab(tb, True) Then Return False
+				Exit For
+			End If
+		Next i
+	Next jj
 	For j As Integer = tn->Nodes.Count - 1 To 0 Step -1
 		If tn->Nodes.Item(j)->Nodes.Count = 0 Then
-			For jj As Integer = 0 To TabPanels.Count - 1
-				Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
-				For i As Integer = 0 To ptabCode->TabCount - 1
-					tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
-					If tn->Nodes.Item(j) = tb->tn Then
-						If Not CloseTab(tb, True) Then Return False
-						Exit For
-					End If
-				Next i
-			Next jj
+			'For jj As Integer = 0 To TabPanels.Count - 1
+			'	Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
+			'	For i As Integer = 0 To ptabCode->TabCount - 1
+			'		tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
+			'		If tn->Nodes.Item(j) = tb->tn Then
+			'			If Not CloseTab(tb, True) Then Return False
+			'			Exit For
+			'		End If
+			'	Next i
+			'Next jj
 			If tn->Nodes.Item(j)->Tag <> 0 Then Delete_(Cast(ExplorerElement Ptr, tn->Nodes.Item(j)->Tag))
 		Else
 			For k As Integer = tn->Nodes.Item(j)->Nodes.Count - 1 To 0 Step - 1 '
-				For jj As Integer = 0 To TabPanels.Count - 1
-					Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
-					For i As Integer = 0 To ptabCode->TabCount - 1
-						tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
-						If tn->Nodes.Item(j)->Nodes.Item(k) = tb->tn Then
-							If Not CloseTab(tb, True) Then Return False
-							Exit For
-						End If
-					Next i
-				Next jj
+				'For jj As Integer = 0 To TabPanels.Count - 1
+				'	Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
+				'	For i As Integer = 0 To ptabCode->TabCount - 1
+				'		tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
+				'		If tn->Nodes.Item(j)->Nodes.Item(k) = tb->tn Then
+				'			If Not CloseTab(tb, True) Then Return False
+				'			Exit For
+				'		End If
+				'	Next i
+				'Next jj
 				If tn->Nodes.Item(j)->Nodes.Item(k)->Tag <> 0 Then Delete_(Cast(ExplorerElement Ptr, tn->Nodes.Item(j)->Nodes.Item(k)->Tag))
 			Next k
 		End If
@@ -2949,26 +2990,30 @@ Sub ChangeEnabledDebug(bStart As Boolean, bBreak As Boolean, bEnd As Boolean)
 	miShowNextStatement->Enabled = bEnd
 End Sub
 
-#ifndef __USE_GTK__
-	Sub TimerProc(hwnd As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
-		If fntab < 0 Or fcurlig < 1 Then Exit Sub
-		If source(fntab) = "" Then Exit Sub
-		shwtab = fntab
-		Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-		If tb = 0 OrElse Not EqualPaths(tb->FileName, source(fntab)) Then
-			tb = AddTab(LCase(source(fntab)))
-		End If
-		If tb = 0 Then Exit Sub
-		ChangeEnabledDebug True, False, True
-		CurEC = @tb->txtCode
-		tb->txtCode.CurExecutedLine = fcurlig - 1
-		tb->txtCode.SetSelection fcurlig - 1, fcurlig - 1, 0, 0
-		tb->txtCode.PaintControl
-		SetForegroundWindow frmMain.Handle
-		fntab = 0
-		fcurlig = -1
-	End Sub
+#ifdef __FB_WIN32__
+Sub TimerProc(hwnd As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
+#else
+Sub TimerProc()
 #endif
+	If fntab < 0 Or fcurlig < 1 Then Exit Sub
+	If source(fntab) = "" Then Exit Sub
+	shwtab = fntab
+	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 OrElse Not EqualPaths(tb->FileName, source(fntab)) Then
+		tb = AddTab(LCase(source(fntab)))
+	End If
+	If tb = 0 Then Exit Sub
+	ChangeEnabledDebug True, False, True
+	CurEC = @tb->txtCode
+	tb->txtCode.CurExecutedLine = fcurlig - 1
+	tb->txtCode.SetSelection fcurlig - 1, fcurlig - 1, 0, 0
+	tb->txtCode.PaintControl
+	#ifndef __USE_GTK__
+		SetForegroundWindow frmMain.Handle
+	#endif
+	fntab = 0
+	fcurlig = -1
+End Sub
 
 #if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 	Function TimerProcGDB() As Integer
@@ -3019,54 +3064,123 @@ Sub ChangeTabsTn(TnPrev As TreeNode Ptr, Tn As TreeNode Ptr)
 	Next
 End Sub
 
-Sub WithFolder
-	Dim As TreeNode Ptr tn, tnF, tnI, tnS, tnR, tnO
-	For i As Integer = 0 To tvExplorer.Nodes.Count - 1
-		If tvExplorer.Nodes.Item(i)->ImageKey = "Project" Then
-			tn = tvExplorer.Nodes.Item(i)
-			If tbExplorer.Buttons.Item(3)->Checked Then
-				tnI = tn->Nodes.Add(ML("Includes"), "Includes", , "Opened", "Opened")
-				tnF = tn->Nodes.Add(ML("Forms"), "Forms", , "Opened", "Opened")
-				tnS = tn->Nodes.Add(ML("Modules"), "Modules",, "Opened", "Opened") ' "Modules" is better than "Sources"
-				tnR = tn->Nodes.Add(ML("Resources"), "Resources", , "Opened", "Opened")
-				tnO = tn->Nodes.Add(ML("Others"), "Others", , "Opened", "Opened")
-			End If
-			Dim As TreeNode Ptr tn1, tn2
-			For j As Integer = tn->Nodes.Count - 1 To 0 Step -1
-				If tbExplorer.Buttons.Item(3)->Checked Then
-					If tn->Nodes.Item(j)->Tag <> 0 Then
-						If EndsWith(LCase(tn->Nodes.Item(j)->Text), ".bi") Then '
-							tn1 = tnI
-						ElseIf EndsWith(LCase(tn->Nodes.Item(j)->Text), ".bas") Then  '
-							tn1 = tnS
-						ElseIf EndsWith(LCase(tn->Nodes.Item(j)->Text), ".frm") Then  '
-							tn1 = tnF
-						ElseIf EndsWith(LCase(tn->Nodes.Item(j)->Text), ".rc") Then '
-							tn1 = tnR
-						Else
-							tn1 = tnO
-						End If
-						tn2 = tn1->Nodes.Add(tn->Nodes.Item(j)->Text, , , tn->Nodes.Item(j)->ImageKey, tn->Nodes.Item(j)->ImageKey, True)
-						tn2->Tag = tn->Nodes.Item(j)->Tag
-						ChangeTabsTn tn->Nodes.Item(j), tn2
-						'                        If tn->Expanded Then
-						'
-						'                        End If
-						tn1->Expand
-						tn->Nodes.Remove j
+Declare Sub tvExplorer_NodeExpanding(ByRef Sender As Control, ByRef Item As TreeNode, ByRef Cancel As Boolean)
+
+Dim Shared bNotExpand As Boolean
+Sub ChangeFolderType(Value As ProjectFolderTypes)
+	Dim As TreeNode Ptr tn = tvExplorer.SelectedNode
+	Select Case Value
+	Case ProjectFolderTypes.ShowWithFolders: miShowWithFolders->RadioItem = True: ShowProjectFolders = True
+	Case ProjectFolderTypes.ShowWithoutFolders: miShowWithoutFolders->RadioItem = True: ShowProjectFolders = False
+	Case ProjectFolderTypes.ShowAsFolder: miShowAsFolder->RadioItem = True
+	End Select
+	If tn = 0 Then Exit Sub
+	tn = GetParentNode(tn)
+	If tn = 0 OrElse tn->Tag = 0 Then Exit Sub
+	If tn->ImageKey <> "Project" Then Exit Sub
+	Dim As ProjectElement Ptr ppe = Cast(ProjectElement Ptr, tn->Tag)
+	Dim As ExplorerElement Ptr ee
+	If ppe->ProjectFolderType <> Value Then
+		If ppe->ProjectFolderType = ProjectFolderTypes.ShowAsFolder Then
+			bNotExpand = True
+			ClearTreeNode tn
+			bNotExpand = False
+		End If
+		Dim As TreeNode Ptr tnF, tnI, tnS, tnR, tnO
+		Dim As TreeNode Ptr tn1, tn2
+		If Value = ProjectFolderTypes.ShowWithFolders Then
+			tnI = tn->Nodes.Add(ML("Includes"), "Includes", , "Opened", "Opened")
+			tnF = tn->Nodes.Add(ML("Forms"), "Forms", , "Opened", "Opened")
+			tnS = tn->Nodes.Add(ML("Modules"), "Modules",, "Opened", "Opened") ' "Modules" is better than "Sources"
+			tnR = tn->Nodes.Add(ML("Resources"), "Resources", , "Opened", "Opened")
+			tnO = tn->Nodes.Add(ML("Others"), "Others", , "Opened", "Opened")
+		End If
+		If ppe->ProjectFolderType = ProjectFolderTypes.ShowAsFolder Then
+			tn->Text = tn->Text & ".vfp"
+			WLet(ppe->FileName, *ppe->FileName & Slash & GetFileName(*ppe->FileName) & ".vfp")
+			Dim As String IconName
+			For j As Integer = 0 To ppe->Files.Count - 1
+				ee = New_(ExplorerElement)
+				WLet(ee->FileName, ppe->Files.Item(j))
+				IconName = GetIconName(*ee->FileName, ppe)
+				If Value = ProjectFolderTypes.ShowWithFolders Then
+					If EndsWith(LCase(*ee->FileName), ".bi") Then
+						tn1 = tnI
+					ElseIf EndsWith(LCase(*ee->FileName), ".bas") Then
+						tn1 = tnS
+					ElseIf EndsWith(LCase(*ee->FileName), ".frm") Then
+						tn1 = tnF
+					ElseIf EndsWith(LCase(*ee->FileName), ".rc") Then
+						tn1 = tnR
+					Else
+						tn1 = tnO
 					End If
-				Else
-					For k As Integer = 0 To tn->Nodes.Item(j)->Nodes.Count - 1
-						tn2 = tn->Nodes.Add(tn->Nodes.Item(j)->Nodes.Item(k)->Text, , , tn->Nodes.Item(j)->Nodes.Item(k)->ImageKey, tn->Nodes.Item(j)->Nodes.Item(k)->ImageKey)
-						'?k, tn->Text, tn->Nodes.Item(j)->Text, tn->Nodes.Item(j)->Nodes.Item(k)->Text
-						tn2->Tag = tn->Nodes.Item(j)->Nodes.Item(k)->Tag
-						ChangeTabsTn tn->Nodes.Item(j)->Nodes.Item(k), tn2
-					Next k
-					tn->Nodes.Remove j
+					tn2 = tn1->Nodes.Add(GetFileName(*ee->FileName), , , IconName, IconName, True)
+					tn2->Tag = ee
+				ElseIf Value = ProjectFolderTypes.ShowWithoutFolders Then
+					tn2 = tn->Nodes.Add(GetFileName(*ee->FileName), , , IconName, IconName, True)
+					tn2->Tag = ee
 				End If
 			Next
+			ppe->Files.Clear
+		Else
+			For j As Integer = tn->Nodes.Count - 1 To 0 Step -1
+				If ppe->ProjectFolderType = ProjectFolderTypes.ShowWithoutFolders Then
+					If tn->Nodes.Item(j)->Tag <> 0 Then
+						If Value = ProjectFolderTypes.ShowWithFolders Then
+							If EndsWith(LCase(tn->Nodes.Item(j)->Text), ".bi") Then
+								tn1 = tnI
+							ElseIf EndsWith(LCase(tn->Nodes.Item(j)->Text), ".bas") Then
+								tn1 = tnS
+							ElseIf EndsWith(LCase(tn->Nodes.Item(j)->Text), ".frm") Then
+								tn1 = tnF
+							ElseIf EndsWith(LCase(tn->Nodes.Item(j)->Text), ".rc") Then
+								tn1 = tnR
+							Else
+								tn1 = tnO
+							End If
+							tn2 = tn1->Nodes.Add(tn->Nodes.Item(j)->Text, , , tn->Nodes.Item(j)->ImageKey, tn->Nodes.Item(j)->ImageKey, True)
+							tn2->Tag = tn->Nodes.Item(j)->Tag
+							ChangeTabsTn tn->Nodes.Item(j), tn2
+							'                        If tn->Expanded Then
+							'
+							'                        End If
+							'tn1->Expand
+							tn->Nodes.Remove j
+						ElseIf Value = ProjectFolderTypes.ShowAsFolder Then
+							ppe->Files.Add *Cast(ExplorerElement Ptr, tn->Nodes.Item(j)->Tag)->FileName
+						End If
+					End If
+				ElseIf ppe->ProjectFolderType = ProjectFolderTypes.ShowWithFolders Then
+					For k As Integer = 0 To tn->Nodes.Item(j)->Nodes.Count - 1
+						If Value = ProjectFolderTypes.ShowWithoutFolders Then
+							Dim iIndex As Integer = -1
+							For i As Integer = j + 1 To tn->Nodes.Count - 1
+								If LCase(tn->Nodes.Item(i)->Text) > LCase(tn->Nodes.Item(j)->Nodes.Item(k)->Text) Then
+									iIndex = i
+									Exit For
+								End If
+							Next
+							tn2 = tn->Nodes.Insert(iIndex, tn->Nodes.Item(j)->Nodes.Item(k)->Text, , , tn->Nodes.Item(j)->Nodes.Item(k)->ImageKey, tn->Nodes.Item(j)->Nodes.Item(k)->ImageKey)
+							tn2->Tag = tn->Nodes.Item(j)->Nodes.Item(k)->Tag
+							ChangeTabsTn tn->Nodes.Item(j)->Nodes.Item(k), tn2
+						ElseIf Value = ProjectFolderTypes.ShowAsFolder Then
+							ppe->Files.Add *Cast(ExplorerElement Ptr, tn->Nodes.Item(j)->Nodes.Item(k)->Tag)->FileName
+						End If
+					Next k
+					If Value = ProjectFolderTypes.ShowWithoutFolders Then
+						tn->Nodes.Remove j
+					End If
+				End If
+			Next
+			If Value = ProjectFolderTypes.ShowAsFolder Then
+				tn->Text = GetFileName(GetFolderName(*ppe->FileName, False))
+				WLet(ppe->FileName, GetFolderName(*ppe->FileName, False))
+				tvExplorer_NodeExpanding(tvExplorer, *tn, False)
+			End If
 		End If
-	Next
+	End If
+	ppe->ProjectFolderType = Value
 End Sub
 
 Sub CompileProgram(Param As Any Ptr)
@@ -4251,9 +4365,17 @@ tlockToDo = MutexCreate()
 tlockGDB = MutexCreate()
 tlockSuggestions = MutexCreate()
 
+Sub StartOfLoadFunctions
+	LoadFunctionsCount += 1
+	If LoadFunctionsCount = 1 Then
+		stBar.Panels[2]->Caption = ""
+	End If
+End Sub
+
 Sub EndOfLoadFunctions
 	LoadFunctionsCount -= 1
-	If AutoSuggestions AndAlso LoadFunctionsCount = 0 Then
+	If LoadFunctionsCount = 0 Then
+		stBar.Panels[2]->Caption = ML("IntelliSense fully loaded")
 		Dim As TabWindow Ptr tb
 		For j As Integer = TabPanels.Count - 1 To 0 Step -1
 			Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(j))->tabCode
@@ -4261,9 +4383,11 @@ Sub EndOfLoadFunctions
 				tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
 				If tb Then
 					tb->bExternalIncludesLoaded = False
-					#ifndef __USE_GTK__
-						'PostMessage tb->Handle, EM_SETMODIFY, 0, 0
-					#endif
+					If AutoSuggestions Then
+						#ifndef __USE_GTK__
+							'PostMessage tb->Handle, EM_SETMODIFY, 0, 0
+						#endif
+					End If
 				End If
 			Next i
 		Next j
@@ -4271,7 +4395,7 @@ Sub EndOfLoadFunctions
 End Sub
 
 Sub LoadFunctionsSub(Param As Any Ptr)
-	LoadFunctionsCount += 1
+	StartOfLoadFunctions
 	MutexLock tlock
 	If Not FormClosing Then
 		If Not IncludeFiles.Contains(QWString(Param)) Then LoadFunctions QWString(Param), FilePathAndIncludeFiles, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
@@ -4281,7 +4405,7 @@ Sub LoadFunctionsSub(Param As Any Ptr)
 End Sub
 
 Sub LoadOnlyFilePath(Param As Any Ptr)
-	LoadFunctionsCount += 1
+	StartOfLoadFunctions
 	MutexLock tlock
 	If Not FormClosing Then
 		If Not IncludeFiles.Contains(QWString(Param)) Then LoadFunctions QWString(Param), LoadParam.OnlyFilePath, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
@@ -4291,7 +4415,7 @@ Sub LoadOnlyFilePath(Param As Any Ptr)
 End Sub
 
 Sub LoadOnlyFilePathOverwrite(Param As Any Ptr)
-	LoadFunctionsCount += 1
+	StartOfLoadFunctions
 	MutexLock tlock
 	If Not FormClosing Then
 		LoadFunctions QWString(Param), LoadParam.OnlyFilePathOverwrite, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
@@ -4301,7 +4425,7 @@ Sub LoadOnlyFilePathOverwrite(Param As Any Ptr)
 End Sub
 
 Sub LoadOnlyIncludeFiles(Param As Any Ptr)
-	LoadFunctionsCount += 1
+	StartOfLoadFunctions
 	MutexLock tlock
 	If Not FormClosing Then
 		LoadFunctions QWString(Param), LoadParam.OnlyIncludeFiles, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
@@ -5176,7 +5300,7 @@ stBar.Add ML("Press F1 for get more information")
 stBar.Panels[0]->Width = frmMain.ClientWidth - 600
 stBar.Add "" 'Space(20)
 stBar.Panels[1]->Width = 240
-stBar.Add "" 'Space(20)
+stBar.Add ML("IntelliSense fully loaded")
 stBar.Panels[2]->Width = 160
 stBar.Add "UTF-8 (BOM)"
 stBar.Panels[3]->Width = 80
@@ -5705,8 +5829,21 @@ Sub CreateMenusAndToolBars
 	mnuTabs.Add(ML("Split &Vertically"), "", "SplitVertically", @mClick)
 	
 	'mnuVars.ImagesList = @imgList '<m>
+	mnuVars.Add(ML("Variable Dump"), "", "VariableDump", @mClick)
+	mnuVars.Add(ML("Pointed data Dump"), "", "PointedDataDump", @mClick)
+	mnuVars.Add("-")
 	mnuVars.Add(ML("Show String"), "", "ShowString", @mClick)
 	mnuVars.Add(ML("Show/Expand Variable"), "", "ShowExpandVariable", @mClick)
+	
+	mnuWatch.Add(ML("Memory Dump"), "", "MemoryDumpWatch", @mClick)
+	mnuWatch.Add("-")
+	mnuWatch.Add(ML("Show String"), "", "ShowStringWatch", @mClick)
+	mnuWatch.Add(ML("Show/Expand Variable"), "", "ShowExpandVariableWatch", @mClick)
+	
+	mnuProcedures.Add(ML("Locate procedure (source)"), "", "LocateProcedure", @mClick)
+	mnuProcedures.Add(ML("Toggle sort by module or by procedure"), "", "ToggleSort", @mClick)
+	mnuProcedures.Add("-")
+	mnuProcedures.Add(ML("Enable/disable"), "", "EnableDisable", @mClick)
 	
 	'mnuExplorer.ImagesList = @imgList '<m>
 	miSetAsMain = mnuExplorer.Add(ML("&Set As Main"), "", "SetAsMain", @mClick)
@@ -5900,7 +6037,10 @@ tbExplorer.Align = DockStyle.alTop
 tbExplorer.Buttons.Add , "Add",, @mClick, "AddFilesToProject", , ML("Add"), True
 tbtRemoveFileFromProject = tbExplorer.Buttons.Add(, "Remove", , @mClick, "RemoveFileFromProject", , ML("&Remove"), True, 0)
 tbExplorer.Buttons.Add tbsSeparator
-tbExplorer.Buttons.Add tbsCheck, "Folder", , @mClick, "Folder", , ML("Show Folders"), True
+Var tbFolder = tbExplorer.Buttons.Add(tbsWholeDropdown, "Folder", , @mClick, "Folder", , ML("Show Folders"), True)
+miShowWithFolders = tbFolder->DropDownMenu.Add(ML("Show With Folders"), "", "ShowWithFolders", @mClick, , , True)
+miShowWithoutFolders = tbFolder->DropDownMenu.Add(ML("Show Without Folders"), "", "ShowWithoutFolders", @mClick, , , True)
+miShowAsFolder = tbFolder->DropDownMenu.Add(ML("Show As Folder"), "", "ShowAsFolder", @mClick, , , False)
 
 Sub tbFormClick(ByRef Sender As My.Sys.Object)
 	Var bFlag = Cast(ToolButton Ptr, @Sender)->Checked
@@ -6149,18 +6289,24 @@ Sub tvExplorer_NodeActivate(ByRef Sender As Control, ByRef Item As TreeNode)
 	Next j
 	If Not t Then
 		If ee <> 0 Then
+			frmMain.Cursor = crWait
 			If InStr(WGet(ee->FileName), "\") = 0 AndAlso InStr(WGet(ee->FileName), "/") = 0 AndAlso WGet(ee->TemplateFileName) <> "" Then
 				AddTab WGet(ee->TemplateFileName), True, @Item
 			Else
 				AddTab WGet(ee->FileName), , @Item
 			End If
+			frmMain.Cursor = 0
 		End If
 	End If
 End Sub
 
 Sub tvExplorer_NodeExpanding(ByRef Sender As Control, ByRef Item As TreeNode, ByRef Cancel As Boolean)
-	If Item.ImageKey <> "Opened" Then Exit Sub
+	Dim As ExplorerElement Ptr ee = Item.Tag
+	If ee = 0 OrElse Not FolderExists(*ee->FileName) Then Exit Sub
+	If bNotExpand Then Exit Sub
+	bNotExpand = True
 	ExpandFolder @Item
+	bNotExpand = False
 End Sub
 
 Sub tvExplorer_DblClick(ByRef Sender As Control)
@@ -6216,8 +6362,15 @@ Sub tvExplorer_SelChange(ByRef Sender As TreeView, ByRef Item As TreeNode)
 		'lblLeft.Text = ML("Main Project") & ": " & MainNode->Text
 		mLoadLog = False
 		mLoadToDo = False
+		If ptn->Tag > 0 Then
+			Select Case Cast(ProjectElement Ptr, ptn->Tag)->ProjectFolderType
+			Case ProjectFolderTypes.ShowWithFolders: miShowWithFolders->RadioItem = True
+			Case ProjectFolderTypes.ShowWithoutFolders: miShowWithoutFolders->RadioItem = True
+			Case ProjectFolderTypes.ShowAsFolder: miShowAsFolder->RadioItem = True
+			End Select
+		End If
 		ChangeMenuItemsEnabled
-		If ptn->ImageKey <> "Project" AndAlso ptn->ImageKey <> "MainProject" AndAlso ptn->ImageKey <> "Folder" Then  'David Change For compile Single .bas file Then
+		If ptn->ImageKey <> "Project" AndAlso ptn->ImageKey <> "MainProject" AndAlso ptn->ImageKey <> "Opened" Then  'David Change For compile Single .bas file Then
 			'miSaveProject->Enabled = False
 			'miSaveProjectAs->Enabled = False
 			'miCloseProject->Enabled = False
@@ -7013,9 +7166,17 @@ End Sub
 
 tvVar.Visible = False
 tvVar.Align = DockStyle.alClient
-'tvPrc.Align = DockStyle.alClient
+
+Sub tvPrc_NodeActivate(ByRef Sender As Control, ByRef Item As TreeNode)
+	proc_loc
+End Sub
+
+tvPrc.Align = DockStyle.alClient
+tvPrc.ContextMenu = @mnuProcedures
+tvPrc.OnNodeActivate = @tvPrc_NodeActivate
 tvThd.Visible = False
 tvThd.Align = DockStyle.alClient
+tvWch.ContextMenu = @mnuWatch
 tvWch.Visible = False
 tvWch.Align = DockStyle.alClient
 tvWch.EditLabels = True
@@ -7164,6 +7325,14 @@ lvWatches.OnCellEditing = @lvWatches_CellEditing
 lvWatches.OnCellEdited = @lvWatches_CellEdited
 lvWatches.Nodes.Add
 
+lvMemory.Align = DockStyle.alClient
+lvMemory.ContextMenu = @mnuVars
+lvMemory.Columns.Add ML("Address / delta"), , 150
+lvMemory.Columns.Add ML("Ascii value"), , 150
+lvMemory.StateImages = @imgListStates
+lvMemory.Images = @imgListStates
+
+
 Sub tabRight_Click(ByRef Sender As Control)
 	If tabRight.TabPosition = tpRight And pnlRight.Width = 30 Then
 		ShowRight
@@ -7232,7 +7401,7 @@ tbRight.Parent = @pnlRightPin
 			tbRight.Width = tbRight.Buttons.Item(0)->Width + tbRight.Height - tbRight.Buttons.Item(0)->Height
 			allocation->x = x - tbRight.Width - IIf(tabRight.TabPosition = TabPosition.tpRight, pnlRight.Width - x1 + 1, 0)
 			allocation->y = y
-			allocation->width = tbRight.Width
+			allocation->Width = tbRight.Width
 			allocation->height = tbRight.Height
 			Return True
 		End Function
@@ -7273,7 +7442,7 @@ Sub tabCode_SelChange(ByRef Sender As TabControl, newIndex As Integer)
 '	pLocalFunctions = @tb->Functions
 '	pLocalFunctionsOthers = @tb->FunctionsOthers
 '	pLocalArgs = @tb->Args
-	tb->tn->SelectItem
+	If tb->tn Then tb->tn->SelectItem
 	For i As Integer = 3 To miWindow->Count - 1
 		miWindow->Item(i)->Checked = miWindow->Item(i) = tb->mi
 	Next
@@ -7679,6 +7848,9 @@ Sub tabBottom_SelChange(ByRef Sender As Control, newIndex As Integer)
 	tbBottom.Buttons.Item("RemoveWatch")->Visible = tp = tpWatches
 	tbBottom.Buttons.Item("Update")->Visible = tp = tpGlobals
 	If newIndex = 9 Then tbBottom.Buttons.Item("AddWatch")->State = tbBottom.Buttons.Item("AddWatch")->State Or ToolButtonState.tstWrap
+	If ptabBottom->SelectedTab = tpProcedures Then
+		proc_sh
+	End If
 	If MainNode <> 0 AndAlso MainNode->Text <> "" AndAlso InStr(MainNode->Text, ".") Then
 		If ptabBottom->SelectedTab = tpChangeLog AndAlso CInt(Not mLoadLog) Then ' AndAlso CInt(Not mLoadToDo)
 			If mChangeLogEdited AndAlso mChangelogName<> "" Then
@@ -7793,9 +7965,10 @@ tpChangeLog = ptabBottom->AddTab(ML("Change Log"))
 tpImmediate = ptabBottom->AddTab(ML("Immediate"))
 tpLocals = ptabBottom->AddTab(ML("Locals"))
 tpGlobals = ptabBottom->AddTab(ML("Globals"))
-'tpImmediate = ptabBottom->AddTab(ML("Procedures"))
+tpProcedures = ptabBottom->AddTab(ML("Procedures"))
 tpThreads = ptabBottom->AddTab(ML("Threads"))
 tpWatches = ptabBottom->AddTab(ML("Watches"))
+tpMemory = ptabBottom->AddTab(ML("Memory"))
 tpOutput->Add @txtOutput
 tpProblems->Add @lvProblems
 tpSuggestions->Add @lvSuggestions
@@ -7806,11 +7979,12 @@ tpImmediate->Add @txtImmediate
 tpLocals->Add @lvLocals
 tpLocals->Add @tvVar
 tpGlobals->Add @lvGlobals
-'tpProcedures->Add @tvPrc
+tpProcedures->Add @tvPrc
 tpThreads->Add @lvThreads
 tpThreads->Add @tvThd
 tpWatches->Add @lvWatches
 tpWatches->Add @tvWch
+tpMemory->Add @lvMemory
 ptabBottom->OnClick = @tabBottom_Click
 ptabBottom->OnDblClick = @tabBottom_DblClick
 ptabBottom->OnSelChange = @tabBottom_SelChange
@@ -8170,7 +8344,12 @@ Sub frmMain_Create(ByRef Sender As Control)
 	SetRightClosedStyle iniSettings.ReadBool("MainWindow", "RightClosed", True)
 	tabBottomHeight = iniSettings.ReadInteger("MainWindow", "BottomHeight", tabBottomHeight)
 	SetBottomClosedStyle iniSettings.ReadBool("MainWindow", "BottomClosed", True)
-	tbExplorer.Buttons.Item(3)->Checked = iniSettings.ReadBool("MainWindow", "ProjectFolders", True)
+	ShowProjectFolders = iniSettings.ReadBool("MainWindow", "ProjectFolders", True)
+	If ShowProjectFolders Then
+		miShowWithFolders->RadioItem = True
+	Else
+		miShowWithoutFolders->RadioItem = True
+	End If
 	tbForm.Buttons.Item(0)->Checked = iniSettings.ReadBool("MainWindow", "ToolLabels", True)
 	ChangeUseDebugger iniSettings.ReadBool("MainWindow", "UseDebugger", True)
 	WLet(RecentFiles, iniSettings.ReadString("MainWindow", "RecentFiles", ""))
@@ -8205,7 +8384,7 @@ Sub frmMain_Create(ByRef Sender As Control)
 		windmain = frmMain.Handle
 		htab2    = ptabCode->Handle
 		tviewvar = tvVar.Handle
-		'tviewPrc = tvPrc.Handle
+		tviewprc = tvPrc.Handle
 		tviewthd = tvThd.Handle
 		tviewwch = tvWch.Handle
 		DragAcceptFiles(frmMain.Handle, True)
@@ -8213,7 +8392,7 @@ Sub frmMain_Create(ByRef Sender As Control)
 		windmain = frmMain.Handle
 		'htab2    = ptabCode->Handle
 		tviewvar = @tvVar
-		'tviewPrc = @tvPrc
+		tviewprc = @tvPrc
 		tviewthd = @tvThd
 		tviewwch = @tvWch
 	#endif
@@ -8487,7 +8666,7 @@ Sub frmMain_Close(ByRef Sender As Form, ByRef Action As Integer)
 	iniSettings.WriteInteger("MainWindow", "RightWidth", tabRightWidth)
 	iniSettings.WriteBool("MainWindow", "BottomClosed", GetBottomClosedStyle)
 	iniSettings.WriteInteger("MainWindow", "BottomHeight", tabBottomHeight)
-	iniSettings.WriteBool("MainWindow", "ProjectFolders", tbExplorer.Buttons.Item(3)->Checked)
+	iniSettings.WriteBool("MainWindow", "ProjectFolders", ShowProjectFolders)
 	iniSettings.WriteBool("MainWindow", "ToolLabels", tbForm.Buttons.Item(0)->Checked)
 	iniSettings.WriteBool("MainWindow", "UseDebugger", UseDebugger)
 	iniSettings.WriteInteger("MainWindow", "Subsystem", IIf(tbtConsole->Checked, 1, IIf(tbtGUI->Checked, 2, 0)))
@@ -8614,11 +8793,11 @@ Sub OnProgramQuit() Destructor
 	WDeAllocate(RunArguments)
 	WDeAllocate(Debug32Arguments)
 	WDeAllocate(Debug64Arguments)
-	WDeAllocate(RecentFiles) '
-	WDeAllocate(RecentFile) '
-	WDeAllocate(RecentProject) '
-	WDeAllocate(RecentFolder) '
-	WDeAllocate(RecentSession) '
+	WDeAllocate(RecentFiles) 
+	WDeAllocate(RecentFile) 
+	WDeAllocate(RecentProject) 
+	WDeAllocate(RecentFolder) 
+	WDeAllocate(RecentSession)
 	WDeAllocate(DefaultHelp)
 	WDeAllocate(HelpPath)
 	WDeAllocate(KeywordsHelpPath)

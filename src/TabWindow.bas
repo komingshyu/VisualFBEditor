@@ -73,7 +73,7 @@ Public Sub TabCtl.MoveCloseButtons(ptabCode As TabControl Ptr)
 		#ifndef __USE_GTK__
 			SendMessage(ptabCode->Handle, TCM_GETITEMRECT, tb->Index, CInt(@RR))
 			bVisible = True
-			If ptabCode->UpDownControl.Handle AndAlso CInt(ptabCode->UpDownControl.Visible) AndAlso RR.Right - ScaleX(18) + ScaleX(14) > ptabCode->UpDownControl.Left Then bVisible = False
+			If ptabCode->UpDownControl.Handle AndAlso CInt(ptabCode->UpDownControl.Visible) AndAlso RR.Right - ScaleX(18) + ScaleX(14) > ScaleX(ptabCode->UpDownControl.Left) Then bVisible = False
 			tb->btnClose.Visible = bVisible
 			MoveWindow tb->btnClose.Handle, RR.Right - ScaleX(18), ScaleY(4), ScaleX(14), ScaleY(14), True
 			'If g_darkModeSupported AndAlso g_darkModeEnabled Then
@@ -267,18 +267,36 @@ Function GetTabFromTn(tn As TreeNode Ptr) As TabWindow Ptr
 	Return 0
 End Function
 
+Function ProjectNameSameWithFolder(ptn As TreeNode Ptr) As Boolean
+	If ptn AndAlso ptn->Tag Then
+		Dim As WString Ptr FileName = Cast(ExplorerElement Ptr, ptn->Tag)->FileName
+		If LCase(GetFileName(*FileName)) = LCase(GetFileName(GetFolderName(*FileName, False)) & ".vfp") Then
+			Return True
+		ElseIf FileExists(*FileName & "/" & GetFileName(*FileName) & ".vfp") Then
+			Return True
+		End If
+	End If
+	Return False
+End Function
+
 Sub ChangeMenuItemsEnabled
 	Dim As TreeNode Ptr ptn = GetParentNode(tvExplorer.SelectedNode)
 	Dim bEnabled As Boolean = tvExplorer.Nodes.Count > 0
 	Dim bEnabledTab As Boolean = miWindow->Count > 3
-	Dim bEnabledProject As Boolean = ptn AndAlso (ptn->ImageKey = "Project" OrElse ptn->ImageKey = "MainProject" OrElse ptn->ImageKey = "Folder")
-	miSaveProject->Enabled = bEnabledProject
-	miSaveProjectAs->Enabled = bEnabledProject
-	miCloseProject->Enabled = bEnabledProject
-	miCloseFolder->Enabled = bEnabledProject
-	miExplorerCloseProject->Enabled = bEnabledProject
-	miProjectProperties->Enabled = bEnabledProject
-	miExplorerProjectProperties->Enabled = bEnabledProject
+	Dim bEnabledProject As Boolean = ptn AndAlso (ptn->ImageKey = "Project" OrElse ptn->ImageKey = "MainProject")
+	Dim bEnabledFolderProject As Boolean = ptn AndAlso ((ptn->ImageKey = "Project") OrElse (ptn->ImageKey = "MainProject")) AndAlso CInt(ProjectNameSameWithFolder(ptn))
+	Dim bEnabledProjectAndFolder As Boolean = ptn AndAlso ((ptn->ImageKey = "Project") OrElse (ptn->ImageKey = "MainProject") OrElse (ptn->ImageKey = "Opened"))
+	'tbExplorer.Buttons.Item(3)->Enabled = Not(CBool(ptn > 0) AndAlso CBool(ptn->Tag > 0) AndAlso Cast(ProjectElement Ptr, ptn->Tag)->ProjectIsFolder)
+	miShowWithFolders->Enabled = bEnabledProject
+	miShowWithoutFolders->Enabled = bEnabledProject
+	miShowAsFolder->Enabled = bEnabledFolderProject
+	miSaveProject->Enabled = bEnabledProjectAndFolder
+	miSaveProjectAs->Enabled = bEnabledProjectAndFolder
+	miCloseProject->Enabled = bEnabledProjectAndFolder
+	miCloseFolder->Enabled = bEnabledProjectAndFolder
+	miExplorerCloseProject->Enabled = bEnabledProjectAndFolder
+	miProjectProperties->Enabled = bEnabledProjectAndFolder
+	miExplorerProjectProperties->Enabled = bEnabledProjectAndFolder
 	mnuWindowSeparator->Visible = bEnabledTab
 	miCode->Enabled = bEnabledTab
 	miGoto->Enabled = bEnabledTab
@@ -1179,6 +1197,7 @@ End Function
 Function IsBase(ByRef TypeName As String, ByRef BaseName As String, tb As TabWindow Ptr = 0) As Boolean
 	Dim iIndex As Integer
 	Dim tbi As TypeElement Ptr
+	Dim As WStringListItem Ptr ListItem
 	Dim TypeN As String = WithoutPointers(TypeName)
 	If TypeName = BaseName Then Return True
 	If InStr(TypeN, ".") AndAlso TypeN <> "My.Sys.Object" Then TypeN = Mid(TypeN, InStrRev(TypeN, ".") + 1)
@@ -1203,20 +1222,20 @@ Function IsBase(ByRef TypeName As String, ByRef BaseName As String, tb As TabWin
 					Return True
 				ElseIf tbi->TypeName = "My.Sys.Object" AndAlso BaseName = "Object" Then
 					Return True
-				ElseIf tbi->TypeName <> "" Then
+				ElseIf tbi->TypeName <> "" AndAlso (InStr(tbi->TypeName, ".") = 0 OrElse TypeN <> Mid(tbi->TypeName, InStrRev(tbi->TypeName, ".") + 1)) Then
 					Return IsBase(tbi->TypeName, BaseName, tb)
 				Else
 					Return False
 				End If
 			End If
-		ElseIf pGlobalTypes->Contains(TypeN, , , , iIndex) Then
+		ElseIf pGlobalTypes->Contains(TypeN, , , , iIndex, ListItem) Then
 			tbi = pGlobalTypes->Object(iIndex)
 			If tbi Then
 				If tbi->TypeName = BaseName Then
 					Return True
 				ElseIf tbi->TypeName = "My.Sys.Object" AndAlso BaseName = "Object" Then
 					Return True
-				ElseIf tbi->TypeName <> "" Then
+				ElseIf tbi->TypeName <> "" AndAlso (InStr(tbi->TypeName, ".") = 0 OrElse TypeN <> Mid(tbi->TypeName, InStrRev(tbi->TypeName, ".") + 1)) Then
 					Return IsBase(tbi->TypeName, BaseName, tb)
 				Else
 					Return False
@@ -4006,7 +4025,7 @@ Sub CompleteWord
 			Exit For
 		ElseIf s = "." Then
 			b = True
-			TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, i - 1, te, teOld)
+			TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, i - 1, te, teOld, OldTypeName)
 			SelCharPos = i
 			Exit For
 		ElseIf s = ">" Then
@@ -4463,9 +4482,9 @@ Sub ParameterInfo(Key As Integer = Asc(","), SelStartChar As Integer = -1, SelEn
 		End If
 	End If
 	Dim As TypeElement Ptr te, teOld
-	Dim As String TypeName
+	Dim As String TypeName, OldTypeName
 	If sWord = "" Then Exit Sub
-	TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, iSelEndCharFunc - 1, te, teOld)
+	TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, iSelEndCharFunc - 1, te, teOld, OldTypeName)
 	Dim Parameters As UString = GetParameters(sWord, te, teOld)
 	If Parameters <> "" Then
 		tb->txtCode.HintWord = sWord
@@ -4950,7 +4969,8 @@ Sub OnKeyPressEdit(ByRef Sender As Control, Key As Integer)
 		End If
 		Dim As Boolean Types
 		Dim As TypeElement Ptr te
-		Dim As String TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, iSelEndChar - k, te, , , Types) 'GetLeftArgTypeName(tb, iSelEndLine, iSelEndChar - k, te, , , Types)
+		Dim As String OldTypeName
+		Dim As String TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, iSelEndChar - k, te, , OldTypeName, Types) 'GetLeftArgTypeName(tb, iSelEndLine, iSelEndChar - k, te, , , Types)
 		If Trim(TypeName) = "" Then Exit Sub
 		FillIntellisenseByName tb->txtCode.GetWordAt(iSelEndLine, iSelEndChar - k), TypeName, , , , , Types
 		#ifdef __USE_GTK__
@@ -4982,7 +5002,8 @@ Sub OnKeyPressEdit(ByRef Sender As Control, Key As Integer)
 			If Not (posL  > 0 AndAlso (posL < k AndAlso posR > k)) Then Exit Sub
 		End If
 		Dim As TypeElement Ptr teEnum
-		Dim As String TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, Len(RTrim(..Left(*sLine, iSelEndChar - 1))), teEnum)
+		Dim As String OldTypeName
+		Dim As String TypeName = tb->txtCode.GetLeftArgTypeName(iSelEndLine, Len(RTrim(..Left(*sLine, iSelEndChar - 1))), teEnum, , OldTypeName)
 		#ifdef __USE_GTK__
 			tb->txtCode.lvIntellisense.ListItems.Clear
 		#else
@@ -5061,12 +5082,17 @@ Sub OnKeyPressEdit(ByRef Sender As Control, Key As Integer)
 			ParameterInfo Key
 		End If
 	ElseIf tb->txtCode.DropDownShowed Then
-		If Key <> 8 AndAlso Key <> 127 Then
-			#ifdef __USE_GTK__
-				If tb->txtCode.lvIntellisense.ListItems.Count = 0 Then Exit Sub
-			#else
-				If tb->txtCode.cboIntellisense.ItemCount = 0 Then Exit Sub
-			#endif
+		Dim As Boolean bExternalIncludesLoaded = tb->bExternalIncludesLoaded
+		If (bExternalIncludesLoaded = False) OrElse (LoadFunctionsCount > 0) Then
+			tb->GetIncludeFiles
+		Else
+			If Key <> 8 AndAlso Key <> 127 Then
+				#ifdef __USE_GTK__
+					If tb->txtCode.lvIntellisense.ListItems.Count = 0 Then Exit Sub
+				#else
+					If tb->txtCode.cboIntellisense.ItemCount = 0 Then Exit Sub
+				#endif
+			End If
 		End If
 		#ifdef __USE_GTK__
 			If Key = GDK_KEY_Home OrElse Key = GDK_KEY_End OrElse Key = GDK_KEY_Left OrElse Key = GDK_KEY_Right OrElse _
@@ -5081,7 +5107,7 @@ Sub OnKeyPressEdit(ByRef Sender As Control, Key As Integer)
 		Dim sTemp As WString * 1024
 		sTemp = Mid(*sLine, tb->txtCode.DropDownChar + 1, iSelEndChar + 1 - (tb->txtCode.DropDownChar + 1))
 		Static OldWord As WString * 200
-		If OldWord <> "" AndAlso StartsWith(sTemp, OldWord) Then Exit Sub
+		If CBool(OldWord <> "") AndAlso StartsWith(sTemp, OldWord) AndAlso bExternalIncludesLoaded AndAlso CBool(LoadFunctionsCount = 0) Then Exit Sub
 		If EndsWith(RTrim(..Left(LCase(*sLine), tb->txtCode.DropDownChar)), " as") Then
 			FillTypeIntellisenses sTemp
 		ElseIf EndsWith(..Left(*sLine, tb->txtCode.DropDownChar), ".") Then
@@ -5100,6 +5126,7 @@ Sub OnKeyPressEdit(ByRef Sender As Control, Key As Integer)
 		#else
 			If tb->txtCode.cboIntellisense.ItemCount = 0 Then OldWord = sTemp: Exit Sub
 		#endif
+		If OldWord <> "" Then OldWord = ""
 		FindComboIndex tb, *sLine, tb->txtCode.DropDownChar
 		#ifdef __USE_GTK__
 			If tb->txtCode.LastItemIndex = -1 Then tb->txtCode.lvIntellisense.SelectedItemIndex = -1
@@ -5837,6 +5864,69 @@ Sub TabWindow.SetLastThread(ThreadID As Any Ptr)
 	End If
 End Sub
 
+Sub TabWindow.GetIncludeFiles
+	If SyntaxHighlightingIdentifiers OrElse ChangeIdentifiersCase OrElse AutoSuggestions Then
+		Dim As EditControlLine Ptr ECLine
+		Dim As TreeNode Ptr ProjectNode
+		Dim As UString MainFile = GetMainFile(, Project, ProjectNode, True)
+		CheckedFiles.Clear
+		txtCode.ExternalFiles.Clear
+		txtCode.ExternalFileLines.Clear
+		txtCode.ExternalIncludes.Clear
+		txtCode.ExternalFiles.Add FileName
+		txtCode.ExternalFileLines.Add 0
+		AddExternalIncludes @This, 0, MainFile, FileName
+		bExternalIncludesLoaded = True
+		For i As Integer = txtCode.FileLists.Count - 1 To 0 Step -1
+			Delete_( Cast(WStringList Ptr, txtCode.FileLists.Item(i)))
+		Next
+		For i As Integer = txtCode.FileListsLines.Count - 1 To 0 Step -1
+			Delete_( Cast(IntegerList Ptr, txtCode.FileListsLines.Item(i)))
+		Next
+		txtCode.FileLists.Clear
+		txtCode.FileListsLines.Clear
+		Dim As WStringList Ptr LastFileList
+		Dim As IntegerList Ptr LastFileListLines
+		Dim As Integer OldIncludeLine = -1
+		For i As Integer = 0 To txtCode.LinesCount - 1
+			ECLine = txtCode.FLines.Items[i]
+			If OldIncludeLine = i - 1 Then
+				Dim As WStringList Ptr FileList
+				Dim As IntegerList Ptr FileListLines
+				FileList = New_(WStringList)
+				FileListLines = New_(IntegerList)
+				txtCode.FileLists.Add FileList
+				txtCode.FileListsLines.Add FileListLines
+				FileList->Sorted = True
+				If LastFileList = 0 Then
+					UpdateIncludedFilesList @This, *FileList, *FileListLines, i
+				Else
+					For j As Integer = 0 To LastFileList->Count - 1
+						FileList->Add LastFileList->Item(j)
+						FileListLines->Add LastFileListLines->Item(j)
+					Next
+					For j As Integer = 0 To txtCode.IncludeLines.Count - 1
+						If txtCode.IncludeLines.Item(j) = OldIncludeLine Then
+							AddAllIncludedFiles *FileList, *FileListLines, txtCode.Includes.Item(j)
+							Exit For
+						End If
+					Next j
+				End If
+				LastFileList = FileList
+				LastFileListLines = FileListLines
+			End If
+			ECLine->FileList = LastFileList
+			ECLine->FileListLines = LastFileListLines
+			For j As Integer = 0 To txtCode.IncludeLines.Count - 1
+				If txtCode.IncludeLines.Item(j) = i Then
+					OldIncludeLine = i
+					Exit For
+				End If
+			Next j
+		Next
+	End If
+End Sub
+
 Sub TabWindow.FormDesign(NotForms As Boolean = False)
 	On Error Goto ErrorHandler
 	If bNotDesign OrElse FormClosing Then Exit Sub
@@ -5917,8 +6007,8 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 		cboClass.Items.Add "(" & ML("General") & ")" & Chr(0), , "DropDown", "DropDown"
 		cboClass.ItemIndex = 0
 	End If
-	txtCode.Types.Clear
 	Dim As TypeElement Ptr te, te1, func
+	txtCode.Types.Clear
 	For i As Integer = txtCode.Functions.Count - 1 To 0 Step -1
 		te = txtCode.Functions.Object(i)
 		'If NotForms Then
@@ -6756,10 +6846,11 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 								If Pos1 > 0 Then res1(n) = Trim(..Left(res1(n), Pos1 - 1))
 								Pos1 = InStr(LCase(res1(n)), " as ")
 								If Pos1 > 0 AndAlso Not bOldAs Then
-									CurType = Trim(Mid(res1(n), Pos1 + 4))
+									CurType = Trim(Mid(res1(n), Pos1 + Len("As") + 2))
 									CurType = Replace(CurType, "`", "=")
-									'							Pos2 = InStr(CurType, "*")  'David Change,  a As WString*2
-									'							If Pos2 > 1 Then CurType = Trim(Mid(res1(n), Pos1 + Len("As") + 2, Pos2 - Pos1 - Len("As") - 1)) Else CurType = Trim(Mid(res1(n), Pos1 + Len("As") + 2))
+									If Not (CurType.ToLower.EndsWith(" pointer") OrElse CurType.ToLower.EndsWith(" ptr")) Then Pos2 = InStr(CurType, " ") 
+									'If Pos2 < 1 Then Pos2 = InStr(CurType, "*")  'David Change,  a As WString*2
+									If Pos2 > 1 Then CurType = Trim(Mid(res1(n), Pos1 + 4, Pos2 - Pos1 - 3)) Else CurType = Trim(Mid(res1(n), Pos1 + 4))
 									res1(n) = Trim(..Left(res1(n), Pos1 - 1))
 								End If
 								Pos1 = InStr(res1(n), ":")
@@ -7808,6 +7899,7 @@ Constructor TabWindow(ByRef wFileName As WString = "", bNew As Boolean = False, 
 			tn = ptvExplorer->Nodes.Add(This.Caption, , , "File", "File")
 		End If
 	End If
+	ptn = GetParentNode(tn)
 	mi = miWindow->Add(This.Caption, "", , @mClickWindow, True)
 	mi->Tag = @This
 End Constructor
@@ -8576,7 +8668,7 @@ Function GetMainFile(bSaveTab As Boolean = False, ByRef Project As ProjectElemen
 		End If
 	Else
 		tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-		If tb = 0 OrElse tb->tn = 0 Then
+		If tb = 0 Then
 			Dim As TreeNode Ptr tn
 			If tvExplorer.SelectedNode = 0 Then
 				If tvExplorer.Nodes.Count > 0 Then
@@ -8599,7 +8691,7 @@ Function GetMainFile(bSaveTab As Boolean = False, ByRef Project As ProjectElemen
 			If bSaveTab Then
 				If tb->Modified Then tb->Save
 			End If
-			Var tn = GetParentNode(tb->tn)
+			Var tn = tb->ptn
 			If tn->ImageKey = "Project" OrElse tn->Tag <> 0 AndAlso *Cast(ExplorerElement Ptr, tn->Tag) Is ProjectElement Then
 				ProjectNode = tn
 				Dim As ExplorerElement Ptr ee = tn->Tag
@@ -9386,9 +9478,8 @@ Sub RunPr(Debugger As String = "")
 		#else
 			Dim As Integer pClass
 			Dim As WString Ptr Workdir, CmdL
-			Dim As ULong ExitCode
-			
-			WLet(CmdL, """" & GetFileName(*ExeFileName) & """ " & *RunArguments)
+			Dim As ULong ExitCode 
+			WLet(CmdL, """" & *ExeFileName & """ " & *RunArguments)
 			If Project Then WLetEx CmdL, *CmdL & " " & WGet(Project->CommandLineArguments), True
 			Var Pos1 = InStrRev(*ExeFileName, Slash)
 			If Pos1 = 0 Then Pos1 = Len(*ExeFileName)

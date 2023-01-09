@@ -54,7 +54,7 @@ Type ProjectElement Extends ExplorerElement
 	ProjectDescription As WString Ptr
 	PassAllModuleFilesToCompiler As Boolean
 	OpenProjectAsFolder As Boolean
-	ProjectIsFolder As Boolean
+	ProjectFolderType As ProjectFolderTypes
 	MajorVersion As Integer
 	MinorVersion As Integer
 	RevisionVersion As Integer
@@ -176,6 +176,7 @@ Public:
 	Dim bNotDesign As Boolean
 	Dim bExternalIncludesLoaded As Boolean
 	Dim As Integer ConstructorStart, ConstructorEnd, lvPropertyWidth, FindFormPosiLeft, FindFormPosiTop, RightSelectedIndex
+	ptn As TreeNode Ptr
 	tn As TreeNode Ptr
 	mi As MenuItem Ptr
 	bQuitThread As Boolean
@@ -247,6 +248,7 @@ Public:
 	Declare Sub Indent
 	Declare Sub Outdent
 	Declare Sub Define
+	Declare Sub GetIncludeFiles
 	Declare Sub FormDesign(NotForms As Boolean = False)
 	Declare Sub QuitThread
 	Declare Sub SetLastThread(ThreadID As Any Ptr)

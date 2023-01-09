@@ -204,7 +204,9 @@ Sub mClick(Sender As My.Sys.Object)
 	Case "Run":                                 ShowRunToolBar = Not ShowRunToolBar: MainReBar.Bands.Item(4)->Visible = ShowRunToolBar: mnuRunToolBar->Checked = ShowRunToolBar: pfrmMain->RequestAlign
 	Case "TBUseDebugger":                       ChangeUseDebugger tbtUseDebugger->Checked, 0
 	Case "UseDebugger":                         ChangeUseDebugger Not mnuUseDebugger->Checked, 1
-	Case "Folder":                              WithFolder
+	Case "ShowWithFolders":                     ChangeFolderType ProjectFolderTypes.ShowWithFolders
+	Case "ShowWithoutFolders":                  ChangeFolderType ProjectFolderTypes.ShowWithoutFolders
+	Case "ShowAsFolder":                        ChangeFolderType ProjectFolderTypes.ShowAsFolder
 	Case "SyntaxCheck":                         If SaveAllBeforeCompile Then ThreadCounter(ThreadCreate_(@SyntaxCheck))
 	Case "CompileAll":                          If SaveAllBeforeCompile Then ThreadCounter(ThreadCreate_(@CompileAll))
 	Case "Compile":                             If SaveAllBeforeCompile Then ThreadCounter(ThreadCreate_(@CompileProgram))
@@ -225,6 +227,8 @@ Sub mClick(Sender As My.Sys.Object)
 	Case "ProjectPreprocessorNumberOff":        ThreadCounter(ThreadCreate_(@NumberingProject, @Sender))
 	Case "Parameters":                          pfParameters->ShowModal *pfrmMain
 	Case "GDBCommand":                          GDBCommand
+	Case "LocateProcedure":                     proc_loc
+	Case "EnableDisable":                       proc_enable
 	Case "StartWithCompile"
 		If SaveAllBeforeCompile Then
 			ChangeEnabledDebug False, True, True
@@ -246,19 +250,28 @@ Sub mClick(Sender As My.Sys.Object)
 				#endif
 			Else
 				If InDebug Then
-					#ifndef __USE_GTK__
+					'#ifndef __USE_GTK__
 						ChangeEnabledDebug False, True, True
+						'brk_set(12)
+						'runtype=RTAUTO
+						'#ifdef __FB_WIN32__
+						'	set_cc()
+						'#else
+						'	If ccstate=KCC_NONE Then
+						'		msgdata=1 ''CC everywhere
+						'		exec_order(KPT_CCALL)
+						'	End If
+						'#EndIf
+						'thread_set()
 						fastrun()
 						'runtype = RTRUN
-						'thread_rsm()
-					#endif
+						'thread_resume()
+					'#endif
 				ElseIf UseDebugger Then
-					#ifndef __USE_GTK__
-						runtype = RTFRUN
-						'runtype = RTRUN
-						SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
-						CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
-					#endif
+					runtype = RTFRUN
+					'runtype = RTRUN
+					SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
+					CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
 					ThreadCounter(ThreadCreate_(@StartDebuggingWithCompile))
 				Else
 					ThreadCounter(ThreadCreate_(@CompileAndRun))
@@ -284,19 +297,21 @@ Sub mClick(Sender As My.Sys.Object)
 			#endif
 		Else
 			If InDebug Then
-				#ifndef __USE_GTK__
+				'#ifndef __USE_GTK__
 					ChangeEnabledDebug False, True, True
-					fastrun()
-	'				runtype = RTRUN
-	'				thread_rsm()
-				#endif
+					#ifdef __FB_WIN32__
+						fastrun()
+					#endif
+					'runtype = RTRUN
+					'thread_resume()
+				'#endif
 			ElseIf UseDebugger Then
-				#ifndef __USE_GTK__
+				'#ifndef __USE_GTK__
 					runtype = RTFRUN
 					'runtype = RTRUN
 					SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
 					CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
-				#endif
+				'#endif
 				ThreadCounter(ThreadCreate_(@StartDebugging))
 			Else
 				ThreadCounter(ThreadCreate_(@RunProgram))
@@ -328,9 +343,9 @@ Sub mClick(Sender As My.Sys.Object)
 				End If
 			#endif
 		Else
-			#ifdef __USE_GTK__
-				ChangeEnabledDebug True, False, False
-			#else
+			'#ifdef __USE_GTK__
+			'	ChangeEnabledDebug True, False, False
+			'#else
 				'kill_process("Terminate immediatly no saved data, other option Release")
 				For i As Integer = 1 To linenb 'restore old instructions
 					WriteProcessMemory(dbghand, Cast(LPVOID, rline(i).ad), @rline(i).sv, 1, 0)
@@ -340,7 +355,7 @@ Sub mClick(Sender As My.Sys.Object)
 				thread_resume()
 				DeleteDebugCursor
 				ChangeEnabledDebug True, False, False
-			#endif
+			'#endif
 		End If
 	Case "Restart"
 		Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
@@ -349,7 +364,7 @@ Sub mClick(Sender As My.Sys.Object)
 				command_debug("r")
 			#endif
 		Else
-			#ifndef __USE_GTK__
+			'#ifndef __USE_GTK__
 				If prun AndAlso kill_process("Trying to launch but debuggee still running") = False Then
 					Exit Sub
 				End If
@@ -359,7 +374,7 @@ Sub mClick(Sender As My.Sys.Object)
 				CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
 				Restarting = True
 				ThreadCounter(ThreadCreate_(@StartDebugging))
-			#endif
+			'#endif
 		End If
 	Case "StepInto":
 		ptabBottom->TabIndex = 6 'David Changed
@@ -377,19 +392,28 @@ Sub mClick(Sender As My.Sys.Object)
 		Else
 			If InDebug Then
 				ChangeEnabledDebug False, True, True
-				#ifndef __USE_GTK__
-					runtype = RTSTEP
-					stopcode=0
-					'bcktrk_close
-					SetFocus(windmain)
-					thread_resume
-				#endif
+				'runtype = RTSTEP
+				'stopcode=0
+				''bcktrk_close
+				'SetFocus(windmain)
+				'thread_resume
+				#ifdef __FB_WIN32__
+					set_cc()
+				#else
+					If ccstate=KCC_NONE Then
+						msgdata=1 ''CC everywhere
+						exec_order(KPT_CCALL)
+					End If
+				#EndIf
+				dbg_prt2 "=============== STEP =================================="
+				stopcode=0
+				runtype=RTSTEP
+				thread_set()
+				'thread_resume()
 			Else
-				#ifndef __USE_GTK__
-					runtype = RTSTEP
-					SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
-					CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
-				#endif
+				runtype = RTSTEP
+				SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
+				CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
 				ThreadCounter(ThreadCreate_(@StartDebugging))
 			End If
 		End If
@@ -507,9 +531,9 @@ Sub mClick(Sender As My.Sys.Object)
 				#endif
 			End If
 		Case "ShowVar":                 
-			#ifndef __USE_GTK__
+			'#ifndef __USE_GTK__
 				var_tip(1)
-			#endif
+			'#endif
 		Case "StepOut":
 			Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
 			If *CurrentDebugger = ML("Integrated GDB Debugger") Then
@@ -557,16 +581,16 @@ Sub mClick(Sender As My.Sys.Object)
 				Else
 					RunningToCursor = True
 					runtype = RTFRUN
-					#ifndef __USE_GTK__
+					'#ifndef __USE_GTK__
 						CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
-					#endif
+					'#endif
 					ThreadCounter(ThreadCreate_(@StartDebugging))
 				End If
 			End If
 		Case "AddWatch":
-			#ifndef __USE_GTK__
+			'#ifndef __USE_GTK__
 				var_tip(2)
-			#endif
+			'#endif
 		Case "FindNext":                    pfFind->Find(True)
 		Case "FindPrev":                    pfFind->Find(False)
 		Case "Goto":                        pfGoto->Show *pfrmMain
@@ -630,7 +654,12 @@ Sub mClick(Sender As My.Sys.Object)
 			tb->NewLineType = NewLineType
 			tb->Modified = True
 		End If
+		Case "VariableDump":                var_dump(tviewvar)
+		Case "PointedDataDump":             var_dump(tviewvar, 1)
+		Case "MemoryDumpWatch":             var_dump(tviewwch)
 		#ifndef __USE_GTK__
+		Case "ShowStringWatch":             string_sh(tviewwch)
+		Case "ShowExpandVariableWatch":     shwexp_new(tviewwch)
 		Case "ShowString":                  string_sh(tviewvar)
 		Case "ShowExpandVariable":          shwexp_new(tviewvar)
 		#endif

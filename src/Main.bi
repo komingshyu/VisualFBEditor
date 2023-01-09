@@ -128,7 +128,7 @@ Common Shared As Boolean HighlightCurrentLine, HighlightCurrentWord, HighlightBr
 Common Shared As Boolean mTabSelChangeByError
 Common Shared As Boolean DisplayMenuIcons, ShowMainToolBar, DarkMode, ShowStandardToolBar, ShowEditToolBar, ShowProjectToolBar, ShowBuildToolBar, ShowRunToolBar
 Common Shared As Boolean ShowKeywordsToolTip, ShowTooltipsAtTheTop, ShowHorizontalSeparatorLines, ShowTipoftheDay
-Common Shared As Boolean OpenCommandPromptInMainFileFolder
+Common Shared As Boolean OpenCommandPromptInMainFileFolder, ShowProjectFolders
 Common Shared As Integer WhenVisualFBEditorStarts, ShowTipoftheDayIndex
 Common Shared As Integer AutoSaveBeforeCompiling, HistoryCodeDays
 Common Shared As Double  HistoryCodeCleanDay
@@ -195,6 +195,12 @@ Enum LoadParam
 	FilePathAndIncludeFiles
 End Enum
 
+Enum ProjectFolderTypes
+	ShowWithFolders
+	ShowWithoutFolders
+	ShowAsFolder
+End Enum
+
 Declare Sub NewProject
 Declare Sub OpenProject
 Declare Sub AddNew(ByRef Template As WString = "")
@@ -232,13 +238,14 @@ Declare Sub ChangeFileEncoding(FileEncoding As FileEncodings)
 Declare Sub ChangeNewLineType(NewLineType As NewLineTypes)
 #ifdef __USE_GTK__
 	Common Shared As Long CurrentTimer, CurrentTimerData
+	Declare Sub TimerProc()
 #else
 	Common Shared As UINT_PTR CurrentTimer, CurrentTimerData
 	Declare Sub TimerProc(hwnd As hwnd, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
 #endif
 Declare Function WithoutPointers(ByRef e As String) As String
 Declare Function WithoutQuotes(ByRef e As UString) As UString
-Declare Sub WithFolder
+Declare Sub ChangeFolderType(Value As ProjectFolderTypes)
 Declare Function FolderCopy(FromDir As UString, ToDir As UString) As Integer
 Declare Sub Save
 Declare Function SaveAllBeforeCompile() As Boolean
