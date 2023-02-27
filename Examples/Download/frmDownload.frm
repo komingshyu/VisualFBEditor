@@ -7,7 +7,7 @@
 		#endif
 	#endif
 	
-	#include once "string.bi"
+	#include once "mff/Form.bi"
 	#include once "mff/CommandButton.bi"
 	#include once "mff/Dialogs.bi"
 	#include once "mff/Label.bi"
@@ -16,7 +16,6 @@
 	#include once "mff/CheckBox.bi"
 	#include once "mff/TimerComponent.bi"
 	#include once "mff/GroupBox.bi"
-	#include once "mff/Form.bi"
 	#include once "mff/TextBox.bi"
 	#include once "mff/CommandButton.bi"
 	#include once "mff/ComboBoxEdit.bi"
@@ -424,7 +423,7 @@ End Sub
 Private Sub frmDownloadType.Form_Create(ByRef Sender As Control)
 	Dim hr As HRESULT = CoInitialize(0)
 	Dim i As Integer = InStrRev(App.FileName, "\")
-	txtTargetPath.Text = Mid(App.FileName, 1, i) & "Download"
+	txtTargetPath.Text = Mid(App.FileName, 1, i - 1) ' & "Download"
 	Dim t As WString Ptr
 	Dim s As WString Ptr
 	Dim ss(Any) As WString Ptr

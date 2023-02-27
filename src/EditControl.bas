@@ -225,7 +225,7 @@ Namespace My.Sys.Forms
 	#endif
 	
 	Sub EditControl.Breakpoint
-		FECLine = FLines.Items[FSelEndLine]
+		FECLine = Content.Lines.Items[FSelEndLine]
 		If CInt(Trim(*FECLine->Text, Any !"\t ") = "") OrElse CInt(StartsWith(LTrim(*FECLine->Text, Any !"\t "), "'")) OrElse _
 			CInt(StartsWith(LTrim(LCase(*FECLine->Text), Any !"\t ") & " ", "rem ")) Then
 			MsgBox ML("Don't set breakpoint to this line"), "VisualFBEditor", mtWarning
@@ -236,14 +236,14 @@ Namespace My.Sys.Forms
 		End If
 	End Sub
 	
-	Sub EditControl.Bookmark '...'
-		Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Bookmark = Not Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Bookmark
+	Sub EditControl.Bookmark
+		Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Bookmark = Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Bookmark
 		PaintControl
 	End Sub
 	
 	Sub EditControl.ClearAllBookmarks
-		For i As Integer = 0 To FLines.Count - 1
-			FECLine = FLines.Items[i]
+		For i As Integer = 0 To Content.Lines.Count - 1
+			FECLine = Content.Lines.Items[i]
 			If FECLine->Bookmark Then
 				FECLine->Bookmark = False
 			End If
@@ -386,8 +386,8 @@ Namespace My.Sys.Forms
 	Sub EditControl._FillHistory(ByRef item As EditControlHistory Ptr, ByRef Comment As WString)
 		WLet(item->Comment, Comment)
 		Dim ecItem As EditControlLine Ptr
-		For i As Integer = 0 To FLines.Count - 1
-			With *Cast(EditControlLine Ptr, FLines.Items[i])
+		For i As Integer = 0 To Content.Lines.Count - 1
+			With *Cast(EditControlLine Ptr, Content.Lines.Items[i])
 				FECLine = New_( EditControlLine)
 				WLet(FECLine->Text, *.Text)
 				FECLine->Breakpoint = .Breakpoint
@@ -454,7 +454,7 @@ Namespace My.Sys.Forms
 		Return Result
 	End Function
 	
-	Function EditControl.GetConstruction(ByRef wLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
+	Function EditControlContent.GetConstruction(ByRef wLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
 		On Error Goto ErrorHandler
 		Dim As String sLine = wLine
 		If InAsm AndAlso CBool(InStr(LCase(wLine), "asm") = 0) Then Return -1
@@ -539,9 +539,9 @@ Namespace My.Sys.Forms
 	End Function
 	
 	Sub EditControl.ChangeCollapseState(LineIndex As Integer, Value As Boolean)
-		If LineIndex < 0 OrElse LineIndex > FLines.Count - 1 Then Exit Sub
+		If LineIndex < 0 OrElse LineIndex > Content.Lines.Count - 1 Then Exit Sub
 		Dim As Integer j, Idx
-		Dim FECLine As EditControlLine Ptr = FLines.Items[LineIndex]
+		Dim FECLine As EditControlLine Ptr = Content.Lines.Items[LineIndex]
 		Dim As EditControlLine Ptr FECLine2
 		OlddwClientX = 0
 		FECLine->Collapsed = Value
@@ -551,8 +551,8 @@ Namespace My.Sys.Forms
 				FECLine->Ends.Clear
 				FECLine->EndsCompleted = False
 			End If
-			For i As Integer = LineIndex + 1 To FLines.Count - 1
-				FECLine2 = FLines.Items[i]
+			For i As Integer = LineIndex + 1 To Content.Lines.Count - 1
+				FECLine2 = Content.Lines.Items[i]
 				FECLine2->Visible = False
 				'				Idx = VisibleLines.IndexOf(FECLine2)
 				'				If Idx > -1 Then VisibleLines.Remove Idx
@@ -574,8 +574,8 @@ Namespace My.Sys.Forms
 				FECLine->EndsCompleted = False
 			End If
 			Dim As EditControlLine Ptr OldCollapsed
-			For i As Integer = LineIndex + 1 To FLines.Count - 1
-				FECLine2 = FLines.Items[i]
+			For i As Integer = LineIndex + 1 To Content.Lines.Count - 1
+				FECLine2 = Content.Lines.Items[i]
 				If FECLine2->Visible Then Exit For
 				FECLine2->Visible = True
 				If CInt(OldCollapsed = 0) AndAlso CInt(FECLine2->Collapsed) Then
@@ -604,16 +604,16 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.ChangeInConstruction(LineIndex As Integer, OldConstructionIndex As Integer, OldConstructionPart As Integer)
-		'		If LineIndex < 0 OrElse LineIndex > FLines.Count - 1 Then Exit Sub
+		'		If LineIndex < 0 OrElse LineIndex > Content.Lines.Count - 1 Then Exit Sub
 		'		Dim As Integer j, Idx
-		'		Dim FECLine As EditControlLine Ptr = FLines.Items[LineIndex]
+		'		Dim FECLine As EditControlLine Ptr = Content.Lines.Items[LineIndex]
 		'		Dim As EditControlLine Ptr FECLine2
 		'		If FECLine->Construction Then
 		'			If Not EndsWith(*FECLine->Text, "'...'") Then
 		'				WLetEx(FECLine->Text, *FECLine->Text & " '...'", True)
 		'			End If
-		'			For i As Integer = LineIndex + 1 To FLines.Count - 1
-		'				FECLine2 = FLines.Items[i]
+		'			For i As Integer = LineIndex + 1 To Content.Lines.Count - 1
+		'				FECLine2 = Content.Lines.Items[i]
 		'				FECLine2->Visible = False
 		''				Idx = VisibleLines.IndexOf(FECLine2)
 		''				If Idx > -1 Then VisibleLines.Remove Idx
@@ -633,8 +633,8 @@ Namespace My.Sys.Forms
 		'				WLetEx(FECLine->Text, RTrim(.Left(*FECLine->Text, Len(*FECLine->Text) - 5)), True)
 		'			End If
 		'			Dim As EditControlLine Ptr OldCollapsed
-		'			For i As Integer = LineIndex + 1 To FLines.Count - 1
-		'				FECLine2 = FLines.Items[i]
+		'			For i As Integer = LineIndex + 1 To Content.Lines.Count - 1
+		'				FECLine2 = Content.Lines.Items[i]
 		'				If FECLine2->Visible Then Exit For
 		'				FECLine2->Visible = True
 		'				If CInt(OldCollapsed = 0) AndAlso CInt(FECLine2->Collapsed) Then
@@ -663,8 +663,8 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.CollapseAll
-		For i As Integer = 0 To FLines.Count - 1
-			With *Cast(EditControlLine Ptr, FLines.Items[i])
+		For i As Integer = 0 To Content.Lines.Count - 1
+			With *Cast(EditControlLine Ptr, Content.Lines.Items[i])
 				If .Collapsible AndAlso Not .Collapsed Then ChangeCollapseState i, True
 			End With
 		Next
@@ -672,8 +672,8 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.UnCollapseAll
-		For i As Integer = 0 To FLines.Count - 1
-			With *Cast(EditControlLine Ptr, FLines.Items[i])
+		For i As Integer = 0 To Content.Lines.Count - 1
+			With *Cast(EditControlLine Ptr, Content.Lines.Items[i])
 				If .Collapsible AndAlso .Collapsed Then ChangeCollapseState i, False
 			End With
 		Next
@@ -681,8 +681,8 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.CollapseAllProcedures
-		For i As Integer = 0 To FLines.Count - 1
-			With *Cast(EditControlLine Ptr, FLines.Items[i])
+		For i As Integer = 0 To Content.Lines.Count - 1
+			With *Cast(EditControlLine Ptr, Content.Lines.Items[i])
 				If .Collapsible AndAlso CBool(.ConstructionIndex >= C_P_Region) AndAlso Not .Collapsed Then ChangeCollapseState i, True
 			End With
 		Next
@@ -690,8 +690,8 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.UnCollapseAllProcedures
-		For i As Integer = 0 To FLines.Count - 1
-			With *Cast(EditControlLine Ptr, FLines.Items[i])
+		For i As Integer = 0 To Content.Lines.Count - 1
+			With *Cast(EditControlLine Ptr, Content.Lines.Items[i])
 				If .Collapsible AndAlso CBool(.ConstructionIndex >= C_P_Region) AndAlso .Collapsed Then ChangeCollapseState i, False
 			End With
 		Next
@@ -699,14 +699,14 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.CollapseCurrent
-		With *Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])
+		With *Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])
 			If .Collapsible AndAlso Not .Collapsed Then ChangeCollapseState FSelEndLine, True
 		End With
 		PaintControl
 	End Sub
 	
 	Sub EditControl.UnCollapseCurrent
-		With *Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])
+		With *Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])
 			If .Collapsible AndAlso .Collapsed Then ChangeCollapseState FSelEndLine, False
 		End With
 		PaintControl
@@ -715,12 +715,19 @@ Namespace My.Sys.Forms
 	Sub EditControl.ChangeCollapsibility(LineIndex As Integer)
 		Dim As Integer i, j, k, Idx
 		Dim OldCollapsed As Boolean, OldConstructionIndex As Integer = -1, OldConstructionPart As Integer = 0, OldLineIndex As Integer = LineIndex - 1
-		If LineIndex < 0 OrElse LineIndex > FLines.Count - 1 Then Exit Sub
-		Dim ecl As EditControlLine Ptr = FLines.Items[LineIndex]
+		If LineIndex < 0 OrElse LineIndex > Content.Lines.Count - 1 Then Exit Sub
+		Dim As EditControlLine Ptr ecl = Content.Lines.Items[LineIndex], eclOld
+		If OldLineIndex > -1 Then
+			eclOld = Content.Lines.Items[OldLineIndex]
+		End If
 		If ecl = 0 OrElse ecl->Text = 0 Then Exit Sub
 		OldConstructionIndex = ecl->ConstructionIndex
 		OldConstructionPart = ecl->ConstructionPart
-		i = GetConstruction(*ecl->Text, j, , ecl->InAsm)
+		If eclOld Then
+			i = Content.GetConstruction(*ecl->Text, j, eclOld->CommentIndex, ecl->InAsm)
+		Else
+			i = Content.GetConstruction(*ecl->Text, j, , ecl->InAsm)
+		End If
 		ecl->ConstructionIndex = i
 		ecl->ConstructionPart = j
 		ecl->Ends.Clear
@@ -745,13 +752,13 @@ Namespace My.Sys.Forms
 			ChangeInConstruction LineIndex, OldConstructionIndex, OldConstructionPart
 		End If
 		If OldLineIndex > -1 Then
-			Dim As EditControlLine Ptr FECLine2, eclOld = FLines.Items[OldLineIndex]
+			Dim As EditControlLine Ptr FECLine2
 			If Not eclOld->Visible Then
 				k = GetLineIndex(OldLineIndex, 0)
-				Dim FECLine As EditControlLine Ptr = FLines.Items[k]
+				Dim FECLine As EditControlLine Ptr = Content.Lines.Items[k]
 				j = 0
 				For k = k + 1 To OldLineIndex
-					FECLine2 = FLines.Items[k]
+					FECLine2 = Content.Lines.Items[k]
 					If FECLine2->ConstructionIndex = FECLine->ConstructionIndex Then
 						If FECLine2->ConstructionPart = 2 Then
 							j -= 1
@@ -803,17 +810,17 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.ChangePos(CharTo As Integer = 0)
-		Var LengthEndLine = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+		Var LengthEndLine = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 		FSelEndChar += CharTo
 		If FSelEndChar < 0 Then
 			If FSelEndLine > 0 Then
 				FSelEndLine = GetLineIndex(FSelEndLine, -1)
-				FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+				FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 			Else
 				FSelEndChar = 0
 			End If
 		ElseIf FSelEndChar > LengthEndLine Then
-			If FSelEndLine < GetLineIndex(FLines.Count - 1) Then
+			If FSelEndLine < GetLineIndex(Content.Lines.Count - 1) Then
 				FSelEndLine = GetLineIndex(FSelEndLine, +1)
 				FSelEndChar = 0
 			Else
@@ -823,12 +830,12 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.GetSelection(ByRef iSelStartLine As Integer, ByRef iSelEndLine As Integer, ByRef iSelStartChar As Integer, ByRef iSelEndChar As Integer, iCurrProcedure As Boolean = False)
-		If FSelStartLine < 0 OrElse FLines.Count<1 OrElse FSelStartLine>FLines.Count - 1 Then Exit Sub
+		If FSelStartLine < 0 OrElse Content.Lines.Count<1 OrElse FSelStartLine>Content.Lines.Count - 1 Then Exit Sub
 		If iCurrProcedure  Then ' For get the top line and bottom line of tne current procedure
 			Dim As Integer lLineCount
 			iSelStartLine = 0
 			For lLineCount = FSelStartLine To 1 Step -1
-				FECLine = FLines.Items[lLineCount]
+				FECLine = Content.Lines.Items[lLineCount]
 				If FECLine->ConstructionIndex >= C_Sub Then
 					If FECLine->ConstructionPart = 0 Then
 						iSelStartLine = lLineCount
@@ -837,9 +844,9 @@ Namespace My.Sys.Forms
 				End If
 			Next
 			
-			iSelEndLine = FLines.Count - 1
-			For lLineCount = FSelStartLine To FLines.Count - 1
-				FECLine = FLines.Items[lLineCount]
+			iSelEndLine = Content.Lines.Count - 1
+			For lLineCount = FSelStartLine To Content.Lines.Count - 1
+				FECLine = Content.Lines.Items[lLineCount]
 				If FECLine->ConstructionIndex >= C_Sub Then
 					If FECLine->ConstructionPart = 0 Then
 						iSelEndLine = lLineCount
@@ -870,16 +877,16 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Function EditControl.GetOldCharIndex() As Integer
-		If FSelEndLine >= 0 AndAlso FSelEndLine <= FLines.Count - 1 Then
-			Return Len(GetTabbedText(.Left(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text, FSelEndChar)))
+		If FSelEndLine >= 0 AndAlso FSelEndLine <= Content.Lines.Count - 1 Then
+			Return Len(GetTabbedText(.Left(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text, FSelEndChar)))
 		Else
 			Return FSelEndChar
 		End If
 	End Function
 	
 	Function EditControl.GetCharIndexFromOld() As Integer
-		If FSelEndLine >= 0 AndAlso FSelEndLine <= FLines.Count - 1 Then
-			WLet(FLine, *Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+		If FSelEndLine >= 0 AndAlso FSelEndLine <= Content.Lines.Count - 1 Then
+			WLet(FLine, *Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 			Dim As Integer p, i
 			For i = 1 To Len(*FLine)
 				If Mid(*FLine, i, 1) = !"\t" Then
@@ -898,8 +905,8 @@ Namespace My.Sys.Forms
 	Sub EditControl.SetSelection(iSelStartLine As Integer, iSelEndLine As Integer, iSelStartChar As Integer, iSelEndChar As Integer)
 		FSelStartChar = Max(0, iSelStartChar)
 		FSelEndChar = Max(0, iSelEndChar)
-		FSelStartLine = Min(FLines.Count - 1, Max(0, iSelStartLine))
-		FSelEndLine = Min(FLines.Count - 1, Max(0, iSelEndLine))
+		FSelStartLine = Min(Content.Lines.Count - 1, Max(0, iSelStartLine))
+		FSelEndLine = Min(Content.Lines.Count - 1, Max(0, iSelEndLine))
 		#ifdef __USE_GTK__
 			If Handle Then
 		#else
@@ -989,22 +996,22 @@ Namespace My.Sys.Forms
 		ChangePos CharTo
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-		Dim As EditControlLine Ptr ecStartLine = FLines.Item(iSelStartLine), ecEndLine = FLines.Item(iSelEndLine), ecOldLine, ecRemovingLine
+		Dim As EditControlLine Ptr ecStartLine = Content.Lines.Item(iSelStartLine), ecEndLine = Content.Lines.Item(iSelEndLine), ecOldLine, ecRemovingLine
 		FECLine = ecStartLine
 		'If iSelStartLine <> iSelEndLine Or iSelStartChar <> iSelEndChar Then AddHistory
 		WLet(FLine, Mid(*ecEndLine->Text, iSelEndChar + 1))
 		WLet(FECLine->Text, .Left(*ecStartLine->Text, iSelStartChar))
 		Var iC = 0, OldiC = ecEndLine->CommentIndex, OldPreviC = 0, PreviC = 0, InAsm = False, OldInAsm = ecEndLine->InAsm, Pos1 = 0, p = 1, c = 0, l = 0
-		If iSelEndLine > 0 Then ecOldLine = FLines.Item(iSelEndLine - 1): PreviC = ecOldLine->CommentIndex: OldPreviC = PreviC: InAsm = ecOldLine->InAsm
+		If iSelEndLine > 0 Then ecOldLine = Content.Lines.Item(iSelEndLine - 1): PreviC = ecOldLine->CommentIndex: OldPreviC = PreviC: InAsm = ecOldLine->InAsm
 		For i As Integer = iSelEndLine To iSelStartLine + 1 Step -1
-			ecRemovingLine = FLines.Items[i]
+			ecRemovingLine = Content.Lines.Items[i]
 			If OnLineRemoving Then OnLineRemoving(This, i)
-			FLines.Remove i
+			Content.Lines.Remove i
 			If OnLineRemoved Then OnLineRemoved(This, i)
 			Delete_(ecRemovingLine)
 			OlddwClientX = 0
 		Next i
-		If iSelStartLine > 0 Then iC = Cast(EditControlLine Ptr, FLines.Item(iSelStartLine - 1))->CommentIndex
+		If iSelStartLine > 0 Then iC = Cast(EditControlLine Ptr, Content.Lines.Item(iSelStartLine - 1))->CommentIndex
 		Do
 			Pos1 = InStr(p, Value, Chr(13))
 			c = c + 1
@@ -1032,7 +1039,7 @@ Namespace My.Sys.Forms
 			FECLine->InAsm = InAsm
 			If c > 1 Then
 				If OnLineAdding Then OnLineAdding(This, iSelStartLine + c - 1)
-				FLines.Insert iSelStartLine + c - 1, FECLine
+				Content.Lines.Insert iSelStartLine + c - 1, FECLine
 				If OnLineAdded Then OnLineAdded(This, iSelStartLine + c - 1)
 				ChangeCollapsibility iSelStartLine + c - 1
 			End If
@@ -1045,14 +1052,14 @@ Namespace My.Sys.Forms
 		Loop While Pos1 > 0
 		FSelStartLine = iSelStartLine + c - 1
 		FSelStartChar = Len(*FECLine->Text)
-		WLet(Cast(EditControlLine Ptr, FLines.Item(FSelStartLine))->Text, *FECLine->Text & *FLine)
+		WLet(Cast(EditControlLine Ptr, Content.Lines.Item(FSelStartLine))->Text, *FECLine->Text & *FLine)
 		ChangeCollapsibility FSelStartLine
 		'item->Length = Len(*item->Text)
 		'p = item->CharIndex + item->Length + 1
 		If OldiC <> iC Then
 			iC = OldPreviC
-			For i As Integer = iSelStartLine To FLines.Count - 1 ' + 1
-				FECLine = Cast(EditControlLine Ptr, FLines.Item(i))
+			For i As Integer = iSelStartLine To Content.Lines.Count - 1 ' + 1
+				FECLine = Cast(EditControlLine Ptr, Content.Lines.Item(i))
 				'Item->CharIndex = p - 1
 				'Item->LineIndex = i
 				iC = FindCommentIndex(*FECLine->Text, iC)
@@ -1061,8 +1068,8 @@ Namespace My.Sys.Forms
 			Next i
 		End If
 		If OldInAsm <> InAsm Then
-			For i As Integer = iSelStartLine To FLines.Count - 1
-				FECLine = Cast(EditControlLine Ptr, FLines.Item(i))
+			For i As Integer = iSelStartLine To Content.Lines.Count - 1
+				FECLine = Cast(EditControlLine Ptr, Content.Lines.Item(i))
 				If FECLine->ConstructionIndex = C_Asm Then
 					InAsm = FECLine->ConstructionPart = 0
 				End If
@@ -1079,16 +1086,16 @@ Namespace My.Sys.Forms
 	Sub EditControl.SelectAll
 		FSelStartLine = 0
 		FSelStartChar = 0
-		FSelEndLine = FLines.Count - 1
-		FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+		FSelEndLine = Content.Lines.Count - 1
+		FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 		ShowCaretPos True
 	End Sub
 	
 	Sub EditControl.CutCurrentLineToClipboard
-		If FSelEndLine = FLines.Count - 1 AndAlso Lines(FSelEndLine) = "" Then Exit Sub
+		If FSelEndLine = Content.Lines.Count - 1 AndAlso Lines(FSelEndLine) = "" Then Exit Sub
 		CopyCurrentLineToClipboard
 		Changing "Current line was cut"
-		If FSelEndLine = FLines.Count - 1 Then ReplaceLine FSelEndLine, "" Else DeleteLine
+		If FSelEndLine = Content.Lines.Count - 1 Then ReplaceLine FSelEndLine, "" Else DeleteLine
 		Changed "Current line was cut"
 	End Sub
 	
@@ -1127,11 +1134,11 @@ Namespace My.Sys.Forms
 		FHistory.Clear
 		curHistory = 0
 		'Changed "Matn almashtirildi"
-		If FLines.Count = 0 Then
+		If Content.Lines.Count = 0 Then
 			FECLine = New_( EditControlLine)
 			OlddwClientX = 0
 			WLet(FECLine->Text, "")
-			FLines.Add(FECLine)
+			Content.Lines.Add(FECLine)
 		End If
 		ChangeText "", 0, "Matn almashtirildi"
 		Exit Sub
@@ -1143,11 +1150,32 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Property EditControl.Text ByRef As WString
-		Return WStr("")
+		WLet(FText.vptr, "")
+		For i As Integer = 0 To Content.Lines.Count - 1
+			If i <> Content.Lines.Count - 1 Then
+				WAdd FText.vptr, Lines(i) + Chr(13) + Chr(10)
+			Else
+				WAdd FText.vptr, Lines(i)
+			End If
+		Next i
+		Return *FText.vptr
 	End Property
 	
-	Property EditControl.Text(ByRef Value As WString) '...'
-		'ChangeText Value, "Matn almashtirildi"
+	Property EditControl.Text(ByRef Value As WString)
+		WLet(FText.vptr, "")
+		For i As Integer = Content.Lines.Count - 1 To 0 Step -1
+			Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
+		Next i
+		Content.Lines.Clear
+		Dim j As Integer
+		For i As Integer = 0 To Len(Value)
+			WAdd FText.vptr, WChr(Value[i])
+			If Value[i] = 10 Or Value[i] = 0 Then
+				InsertLine(j, Trim(Mid(*FText.vptr, 1, Len(*FText.vptr) - 1), Any WChr(13)))
+				j = j + 1
+				WLet(FText.vptr, "")
+			End If
+		Next i
 	End Property
 	
 	Property EditControl.HintDropDown ByRef As WString
@@ -1189,6 +1217,10 @@ Namespace My.Sys.Forms
 		ChangeText Value, 0, "Matn qo`shildi"
 	End Property
 	
+	Sub EditControl.CalculateLeftMargin
+		LeftMargin = Len(Str(LinesCount)) * dwCharX + dwCharY + 30 '5 * dwCharX
+	End Sub
+	
 	Sub EditControl.LoadFromFile(ByRef FileName As WString, ByRef FileEncoding As FileEncodings, ByRef NewLineType As NewLineTypes, WithoutScroll As Boolean = False)
 		Dim As WString Ptr pBuff
 		Dim As String Buff, EncodingStr, NewLineStr
@@ -1196,124 +1228,224 @@ Namespace My.Sys.Forms
 		Dim As Integer Result = -1, Fn, FileSize
 		Dim As FileEncodings OldFileEncoding
 		Dim As Integer iC = 0, OldiC = 0, i = 0
-		Var InAsm = False
+		Dim As Boolean InAsm = False, FileLoaded
 		'check the Newlinetype again for missing Cr in AsicII file
 		Fn = FreeFile_
-		If Open(FileName For Binary Access Read As #Fn) = 0 Then
-			FileSize = LOF(Fn) + 1
-			Buff = String(4, 0)
-			Get #Fn, , Buff
-			If Buff[0] = &HFF AndAlso Buff[1] = &HFE AndAlso Buff[2] = 0 AndAlso Buff[3] = 0 Then 'Little Endian
-				FileEncoding = FileEncodings.Utf32BOM
-				EncodingStr = "utf-32"
-				Buff = String(1024, 0)
-				Get #Fn, 0, Buff
-				'ElseIf (Buff[0] = = OxFE && Buff[1] = = 0xFF) 'Big Endian
-			ElseIf Buff[0] = &HFF AndAlso Buff[1] = &HFE Then 'Little Endian
-				FileEncoding = FileEncodings.Utf16BOM
-				EncodingStr = "utf-16"
-				Buff = String(1024, 0)
-				Get #Fn, 0, Buff
-			ElseIf Buff[0] = &HEF AndAlso Buff[1] = &HBB AndAlso Buff[2] = &HBF Then
-				FileEncoding = FileEncodings.Utf8BOM
-				EncodingStr = "utf-8"
-				Buff = String(1024, 0)
-				Get #Fn, , Buff
-			Else
-				Buff = String(FileSize, 0)
-				Get #Fn, 0, Buff
-				If (CheckUTF8NoBOM(Buff)) Then
-					FileEncoding = FileEncodings.Utf8
-					EncodingStr = "ascii"
-				Else
-					FileEncoding = FileEncodings.PlainText
-					EncodingStr = "ascii"
-				End If
-			End If
-			If InStr(Buff, Chr(13, 10)) Then
-				NewLineType= NewLineTypes.WindowsCRLF
-				NewLineStr = Chr(10)
-			ElseIf InStr(Buff, Chr(10)) Then
-				NewLineType= NewLineTypes.LinuxLF
-				NewLineStr = Chr(10)
-			ElseIf InStr(Buff, Chr(13)) Then
-				NewLineType= NewLineTypes.MacOSCR
-				NewLineStr = Chr(13)
-			Else
-				NewLineType= NewLineTypes.WindowsCRLF
-				NewLineStr = Chr(10)
-			End If
-			For i As Integer = FLines.Count - 1 To 0 Step -1
-				Delete_( Cast(EditControlLine Ptr, FLines.Items[i]))
-			Next i
-			FLines.Clear
-			'VisibleLines.Clear
-			i = 0
-		Else
-			MsgBox ML("Open file failure!") &  " " & ML("in function") & " EditControl.LoadFromFile" & Chr(13, 10) & " " & FileName
-			CloseFile_(Fn)
+		If Not FileExists(FileName) Then
+			MsgBox ML("File not found") & ": " & FileName
 			Exit Sub
 		End If
-		CloseFile_(Fn)
-		Fn = FreeFile_
-		Result = Open(FileName For Input Encoding EncodingStr As #Fn)
-		If Result = 0 Then
-			OldFileEncoding = FileEncoding
-			Dim As Integer MaxChars = LOF(Fn)
-			WReAllocate(BuffRead, MaxChars)
-			Do Until EOF(Fn)
-				FECLine = New_( EditControlLine)
-				OlddwClientX = 0
-				If FECLine = 0 Then
-					CloseFile_(Fn)
-					Return
-				End If
-				pBuff = 0
-				If OldFileEncoding = FileEncodings.Utf8 Then
-					Line Input #Fn, Buff
-					WLet(pBuff, FromUtf8(StrPtr(Buff)))
+		#ifdef __USE_WINAPI__
+			Buff = FileName
+			If Buff <> FileName Then
+				FileLoaded = True
+				Dim As .HANDLE hFile
+				Dim As DWORD dwBytesToRead, dwBytesRead
+				Dim As String sFileContents
+				Dim As WString Ptr wsFileContents
+				Dim As Integer BOMSymbolsCount
+				hFile = CreateFile(@FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0)
+				If hFile = INVALID_HANDLE_VALUE Then
+					MsgBox ML("Open file failure!") &  " " & ML("in function") & " EditControl.LoadFromFile" & Chr(13, 10) & " " & FileName
 				Else
-					LineInputWstr Fn, BuffRead, MaxChars
-					WLet(pBuff, *BuffRead)
+					dwBytesToRead = GetFileSize(hFile, 0)
+					If dwBytesToRead <> 0 Then
+						sFileContents = Space(dwBytesToRead)
+						ReadFile(hFile, @sFileContents[0], dwBytesToRead, @dwBytesRead, 0)
+						Buff = .Left(sFileContents, 4)
+						If Buff[0] = &HFF AndAlso Buff[1] = &HFE AndAlso Buff[2] = 0 AndAlso Buff[3] = 0 Then 'Little Endian
+							FileEncoding = FileEncodings.Utf32BOM
+							BOMSymbolsCount = 4
+						ElseIf Buff[0] = 0 AndAlso Buff[1] = 0 AndAlso Buff[2] = &HFE AndAlso Buff[3] = &HFF Then 'Big Endian
+							FileEncoding = FileEncodings.Utf32BOM
+							BOMSymbolsCount = 4
+						ElseIf Buff[0] = &HFF AndAlso Buff[1] = &HFE Then 'Little Endian
+							FileEncoding = FileEncodings.Utf16BOM
+							BOMSymbolsCount = 2
+						ElseIf Buff[0] = &HFE AndAlso Buff[1] = &HFF Then 'Big Endian
+							FileEncoding = FileEncodings.Utf16BOM
+							BOMSymbolsCount = 2
+						ElseIf Buff[0] = &HEF AndAlso Buff[1] = &HBB AndAlso Buff[2] = &HBF Then
+							FileEncoding = FileEncodings.Utf8BOM
+							BOMSymbolsCount = 3
+						Else
+							If (CheckUTF8NoBOM(sFileContents)) Then
+								FileEncoding = FileEncodings.Utf8
+								BOMSymbolsCount = 0
+							Else
+								FileEncoding = FileEncodings.PlainText
+								BOMSymbolsCount = 0
+							End If
+						End If
+					End If
+					CloseHandle(hFile)
+					For i As Integer = Content.Lines.Count - 1 To 0 Step -1
+						Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
+					Next i
+					Content.Lines.Clear
+					i = 0
+					OldFileEncoding = FileEncoding
+					If FileEncoding = FileEncodings.PlainText Then
+						WLet(wsFileContents, sFileContents)
+					Else
+						If BOMSymbolsCount Then
+							sFileContents = Mid(sFileContents, BOMSymbolsCount + 1)
+						End If
+						WReAllocate(wsFileContents, dwBytesRead)
+						MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, StrPtr(sFileContents), dwBytesRead, wsFileContents, dwBytesRead)
+					End If
+					Dim As WString Ptr FText
+					Dim As EditControlLine Ptr FECLine
+					WLet(FText, "")
+					For j As Integer = 0 To Len(*wsFileContents)
+						WAdd FText, WChr((*wsFileContents)[j])
+						If (*wsFileContents)[j] = 10 OrElse (*wsFileContents)[j] = 0 Then
+							FECLine = New_(EditControlLine)
+							OlddwClientX = 0
+							If FECLine = 0 Then
+								Return
+							End If
+							pBuff = 0
+							WLet(pBuff, Trim(Trim(Mid(*FText, 1, Len(*FText)), Any WChr(10)), Any WChr(13)))
+							FECLine->Text = pBuff 'Do not Deallocate the pointer. transffer the point to FECLine->Text already.
+							iC = FindCommentIndex(*pBuff, OldiC)
+							FECLine->CommentIndex = iC
+							FECLine->InAsm = InAsm
+							Content.Lines.Add(FECLine)
+							ChangeCollapsibility i
+							If FECLine->ConstructionIndex = C_Asm Then
+								InAsm = FECLine->ConstructionPart = 0
+							End If
+							FECLine->InAsm = InAsm
+							OldiC = iC
+							i += 1
+							WLet(FText, "")
+						End If
+					Next
+					CalculateLeftMargin
+					If Not WithoutScroll Then ScrollToCaret
 				End If
-				FECLine->Text = pBuff 'Do not Deallocate the pointer. transffer the point to FECLine->Text already.
-				iC = FindCommentIndex(*pBuff, OldiC)
-				FECLine->CommentIndex = iC
-				FECLine->InAsm = InAsm
-				FLines.Add(FECLine)
-				ChangeCollapsibility i
-				If FECLine->ConstructionIndex = C_Asm Then
-					InAsm = FECLine->ConstructionPart = 0
+			End If
+		#EndIf
+		If Not FileLoaded Then
+			If Open(FileName For Binary Access Read As #Fn) = 0 Then
+				FileSize = LOF(Fn) + 1
+				Buff = String(4, 0)
+				Get #Fn, , Buff
+				If Buff[0] = &HFF AndAlso Buff[1] = &HFE AndAlso Buff[2] = 0 AndAlso Buff[3] = 0 Then 'Little Endian
+					FileEncoding = FileEncodings.Utf32BOM
+					EncodingStr = "utf-32"
+					Buff = String(1024, 0)
+					Get #Fn, 0, Buff
+					'ElseIf (Buff[0] = = OxFE && Buff[1] = = 0xFF) 'Big Endian
+				ElseIf Buff[0] = &HFF AndAlso Buff[1] = &HFE Then 'Little Endian
+					FileEncoding = FileEncodings.Utf16BOM
+					EncodingStr = "utf-16"
+					Buff = String(1024, 0)
+					Get #Fn, 0, Buff
+				ElseIf Buff[0] = &HEF AndAlso Buff[1] = &HBB AndAlso Buff[2] = &HBF Then
+					FileEncoding = FileEncodings.Utf8BOM
+					EncodingStr = "utf-8"
+					Buff = String(1024, 0)
+					Get #Fn, , Buff
+				Else
+					Buff = String(FileSize, 0)
+					Get #Fn, 0, Buff
+					If (CheckUTF8NoBOM(Buff)) Then
+						FileEncoding = FileEncodings.Utf8
+						EncodingStr = "ascii"
+					Else
+						FileEncoding = FileEncodings.PlainText
+						EncodingStr = "ascii"
+					End If
 				End If
-				FECLine->InAsm = InAsm
-				OldiC = iC
-				i += 1
-			Loop
-			CalculateLeftMargin
-			If Not WithoutScroll Then ScrollToCaret
+				If InStr(Buff, Chr(13, 10)) Then
+					NewLineType= NewLineTypes.WindowsCRLF
+					NewLineStr = Chr(10)
+				ElseIf InStr(Buff, Chr(10)) Then
+					NewLineType= NewLineTypes.LinuxLF
+					NewLineStr = Chr(10)
+				ElseIf InStr(Buff, Chr(13)) Then
+					NewLineType= NewLineTypes.MacOSCR
+					NewLineStr = Chr(13)
+				Else
+					NewLineType= NewLineTypes.WindowsCRLF
+					NewLineStr = Chr(10)
+				End If
+			Else
+				MsgBox ML("Open file failure!") &  " " & ML("in function") & " EditControl.LoadFromFile" & Chr(13, 10) & " " & FileName
+				CloseFile_(Fn)
+				Exit Sub
+			End If
+			CloseFile_(Fn)
+			For i As Integer = Content.Lines.Count - 1 To 0 Step -1
+				Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
+			Next i
+			Content.Lines.Clear
+			'VisibleLines.Clear
+			i = 0
+			Fn = FreeFile_
+			Result = Open(FileName For Input Encoding EncodingStr As #Fn)
+			If Result = 0 Then
+				OldFileEncoding = FileEncoding
+				Dim As Integer MaxChars = LOF(Fn)
+				WReAllocate(BuffRead, MaxChars)
+				Do Until EOF(Fn)
+					FECLine = New_( EditControlLine)
+					OlddwClientX = 0
+					If FECLine = 0 Then
+						CloseFile_(Fn)
+						Return
+					End If
+					pBuff = 0
+					If OldFileEncoding = FileEncodings.Utf8 Then
+						Line Input #Fn, Buff
+						WLet(pBuff, FromUtf8(StrPtr(Buff)))
+					Else
+						LineInputWstr Fn, BuffRead, MaxChars
+						WLet(pBuff, *BuffRead)
+					End If
+					FECLine->Text = pBuff 'Do not Deallocate the pointer. transffer the point to FECLine->Text already.
+					iC = FindCommentIndex(*pBuff, OldiC)
+					FECLine->CommentIndex = iC
+					FECLine->InAsm = InAsm
+					Content.Lines.Add(FECLine)
+					ChangeCollapsibility i
+					If FECLine->ConstructionIndex = C_Asm Then
+						InAsm = FECLine->ConstructionPart = 0
+					End If
+					FECLine->InAsm = InAsm
+					OldiC = iC
+					i += 1
+				Loop
+				CalculateLeftMargin
+				If Not WithoutScroll Then ScrollToCaret
+			End If
+			WDeAllocate(BuffRead)
+			CloseFile_(Fn)
 		End If
-		WDeAllocate(BuffRead)
-		CloseFile_(Fn)
-	End Sub
-	
-	Sub EditControl.CalculateLeftMargin
-		LeftMargin = Len(Str(LinesCount)) * dwCharX + dwCharY + 30 '5 * dwCharX
 	End Sub
 	
 	Sub EditControl.SaveToFile(ByRef FileName As WString, FileEncoding As FileEncodings, NewLineType As NewLineTypes)
 		Dim As Integer Fn = FreeFile_
 		Dim As Integer Result
-		Dim As String FileEncodingText, NewLine
+		Dim As String FileEncodingText, NewLine, FileEncodingSymbols
+		Dim As Boolean FileSaved
 		If FileEncoding = FileEncodings.Utf8 Then
 			FileEncodingText = "ascii"
+			FileEncodingSymbols = ""
 		ElseIf FileEncoding = FileEncodings.Utf8BOM Then
 			FileEncodingText = "utf-8"
+			FileEncodingSymbols = Chr(&HEF, &HBB, &HBF)
 		ElseIf FileEncoding = FileEncodings.Utf16BOM Then
 			FileEncodingText = "utf-16"
+			FileEncodingSymbols = Chr(&HFF, &HFE)
 		ElseIf FileEncoding = FileEncodings.Utf32BOM Then
 			FileEncodingText = "utf-32"
+			FileEncodingSymbols = Chr(&HFF, &HFE, 0, 0)
 		Else
 			FileEncodingText = "ascii"
+			FileEncodingSymbols = ""
 		End If
 		If NewLineType = NewLineTypes.LinuxLF Then
 			NewLine = Chr(10)
@@ -1322,39 +1454,68 @@ Namespace My.Sys.Forms
 		Else
 			NewLine = Chr(13, 10)
 		End If
-		If Open(FileName For Output Encoding FileEncodingText As #Fn) = 0 Then
-			If FileEncoding = FileEncodings.Utf8 Then
-				For i As Integer = 0 To FLines.Count - 1
-					Print #Fn, ToUtf8(*Cast(EditControlLine Ptr, FLines.Item(i))->Text) & NewLine;
-				Next
-			ElseIf FileEncoding = FileEncodings.PlainText  Then
-				For i As Integer = 0 To FLines.Count - 1
-					Print #Fn, *Cast(EditControlLine Ptr, FLines.Item(i))->Text & NewLine;
-				Next
-			Else
-				For i As Integer = 0 To FLines.Count - 1
-					Print #Fn, *Cast(EditControlLine Ptr, FLines.Item(i))->Text & NewLine;
-				Next
+		#ifdef __USE_WINAPI__
+			Dim Buff As String
+			Buff = FileName
+			If Buff <> FileName Then
+				FileSaved = True
+				Dim As .HANDLE hFile
+				Dim As DWORD dwBytesToWrite, dwBytesWrite
+				Dim As String sFileContents = FileEncodingSymbols
+				hFile = CreateFile(@FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0)
+				If hFile = INVALID_HANDLE_VALUE Then
+					MsgBox ML("Save file failure!") & Chr(13, 10) & FileName
+				Else
+					If FileEncoding = FileEncodings.PlainText  Then
+						For i As Integer = 0 To Content.Lines.Count - 1
+							sFileContents &= *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & IIf(i = Content.Lines.Count - 1, "", WStr(NewLine))
+						Next
+					Else
+						For i As Integer = 0 To Content.Lines.Count - 1
+							sFileContents &= ToUtf8(*Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text) & IIf(i = Content.Lines.Count - 1, "", WStr(NewLine))
+						Next
+					End If
+					dwBytesToWrite = Len(sFileContents)
+					WriteFile(hFile, @sFileContents[0], dwBytesToWrite, @dwBytesWrite, NULL)
+  					CloseHandle(hFile)
+				End If
 			End If
-		Else
-			MsgBox ML("Save file failure!") & Chr(13, 10) & FileName
+		#endif
+		If Not FileSaved Then
+			If Open(FileName For Output Encoding FileEncodingText As #Fn) = 0 Then
+				If FileEncoding = FileEncodings.Utf8 Then
+					For i As Integer = 0 To Content.Lines.Count - 1
+						Print #Fn, ToUtf8(*Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text) & NewLine;
+					Next
+				ElseIf FileEncoding = FileEncodings.PlainText  Then
+					For i As Integer = 0 To Content.Lines.Count - 1
+						Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & NewLine;
+					Next
+				Else
+					For i As Integer = 0 To Content.Lines.Count - 1
+						Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & NewLine;
+					Next
+				End If
+			Else
+				MsgBox ML("Save file failure!") & Chr(13, 10) & FileName
+			End If
+			CloseFile_(Fn)
 		End If
-		CloseFile_(Fn)
 	End Sub
 	
 	Sub EditControl.Clear
 		ChangeText "", 0, "Matn tozalandi"
 	End Sub
 	
-	Function EditControl.LinesCount As Integer '...'
-		Return FLines.Count
+	Function EditControl.LinesCount As Integer
+		Return Content.Lines.Count
 	End Function
 	
 	Sub EditControl.InsertLine(Index As Integer, ByRef sLine As WString)
 		Var iC = 0, OldiC = 0, InAsm = False
-		If Index > 0 AndAlso Index < FLines.Count - 1 Then
-			OldiC = Cast(EditControlLine Ptr, FLines.Items[Index])->CommentIndex
-			InAsm = Cast(EditControlLine Ptr, FLines.Items[Index])->InAsm
+		If Index > 0 AndAlso Index < Content.Lines.Count - 1 Then
+			OldiC = Cast(EditControlLine Ptr, Content.Lines.Items[Index])->CommentIndex
+			InAsm = Cast(EditControlLine Ptr, Content.Lines.Items[Index])->InAsm
 		End If
 		FECLine = New_( EditControlLine)
 		WLet(FECLine->Text, sLine)
@@ -1363,7 +1524,7 @@ Namespace My.Sys.Forms
 		FECLine->CommentIndex = iC
 		FECLine->InAsm = InAsm
 		If OnLineAdding Then OnLineAdding(This, Index)
-		FLines.Insert Index, FECLine
+		Content.Lines.Insert Index, FECLine
 		ChangeCollapsibility Index
 		If FECLine->ConstructionIndex = C_Asm Then
 			InAsm = FECLine->ConstructionPart = 0
@@ -1376,11 +1537,11 @@ Namespace My.Sys.Forms
 	
 	Sub EditControl.ReplaceLine(Index As Integer, ByRef sLine As WString)
 		Var iC = 0, OldiC = 0, InAsm = False
-		If Index > 0 AndAlso Index < FLines.Count - 1 Then
-			OldiC = Cast(EditControlLine Ptr, FLines.Items[Index])->CommentIndex
-			InAsm = Cast(EditControlLine Ptr, FLines.Items[Index])->InAsm
+		If Index > 0 AndAlso Index < Content.Lines.Count - 1 Then
+			OldiC = Cast(EditControlLine Ptr, Content.Lines.Items[Index])->CommentIndex
+			InAsm = Cast(EditControlLine Ptr, Content.Lines.Items[Index])->InAsm
 		End If
-		FECLine = FLines.Items[Index]
+		FECLine = Content.Lines.Items[Index]
 		WLet(FECLine->Text, sLine)
 		FECLine->Ends.Clear
 		FECLine->EndsCompleted = False
@@ -1398,18 +1559,18 @@ Namespace My.Sys.Forms
 		Changing "Duplicate line"
 		Var iC = 0, OldiC = 0, InAsm = False
 		Var Idx = IIf(Index = -1, FSelEndLine, Index)
-		If Idx > 0 AndAlso Idx < FLines.Count - 1 Then
-			OldiC = Cast(EditControlLine Ptr, FLines.Items[Idx])->CommentIndex
-			InAsm = Cast(EditControlLine Ptr, FLines.Items[Idx])->InAsm
+		If Idx > 0 AndAlso Idx < Content.Lines.Count - 1 Then
+			OldiC = Cast(EditControlLine Ptr, Content.Lines.Items[Idx])->CommentIndex
+			InAsm = Cast(EditControlLine Ptr, Content.Lines.Items[Idx])->InAsm
 		End If
 		FECLine = New_( EditControlLine)
 		OlddwClientX = 0
-		WLet(FECLine->Text, *Cast(EditControlLine Ptr, FLines.Items[Idx])->Text)
+		WLet(FECLine->Text, *Cast(EditControlLine Ptr, Content.Lines.Items[Idx])->Text)
 		iC = FindCommentIndex(*FECLine->Text, OldiC)
 		FECLine->CommentIndex = iC
 		FECLine->InAsm = InAsm
 		If OnLineAdding Then OnLineAdding(This, Idx + 1)
-		FLines.Insert Idx + 1, FECLine
+		Content.Lines.Insert Idx + 1, FECLine
 		ChangeCollapsibility Idx + 1
 		If FECLine->ConstructionIndex = C_Asm Then
 			InAsm = FECLine->ConstructionPart = 0
@@ -1424,8 +1585,8 @@ Namespace My.Sys.Forms
 	Sub EditControl.DeleteLine(Index As Integer = -1)
 		Dim As Integer i = IIf(Index = -1, FSelEndLine, Index)
 		If OnLineRemoving Then OnLineRemoving(This, i)
-		Dim As EditControlLine Ptr ecRemovingLine = FLines.Items[i]
-		FLines.Remove i
+		Dim As EditControlLine Ptr ecRemovingLine = Content.Lines.Items[i]
+		Content.Lines.Remove i
 		If OnLineRemoved Then OnLineRemoved(This, i)
 		Delete_(ecRemovingLine)
 		If Index <= FSelEndLine Then FSelEndLine -= 1
@@ -1436,8 +1597,8 @@ Namespace My.Sys.Forms
 	Sub EditControl.UnformatCode(WithoutUpdate As Boolean = False)
 		If Not WithoutUpdate Then UpdateLock
 		Changing("UnFormat")
-		For i As Integer = 0 To FLines.Count - 1
-			FECLine = FLines.Items[i]
+		For i As Integer = 0 To Content.Lines.Count - 1
+			FECLine = Content.Lines.Items[i]
 			WLet(FECLine->Text, LTrim(*FECLine->Text, Any !"\t "))
 			FECLine->Ends.Clear
 			FECLine->EndsCompleted = False
@@ -1457,8 +1618,8 @@ Namespace My.Sys.Forms
 		Dim As Integer iType = -1 '
 		If Not WithoutUpdate Then UpdateLock
 		Changing("Format")
-		For i As Integer = 0 To FLines.Count - 1
-			FECLine = FLines.Items[i]
+		For i As Integer = 0 To Content.Lines.Count - 1
+			FECLine = Content.Lines.Items[i]
 			FECLine->Ends.Clear
 			FECLine->EndsCompleted = False
 			If Trim(*FECLine->Text, Any !"\t ") <> "" Then WLet(FECLine->Text, Trim(*FECLine->Text, Any !"\t "))
@@ -1475,7 +1636,7 @@ Namespace My.Sys.Forms
 					iPos = InStr(*FLine, "'") - 1
 					If iPos = -1 Then iPos = Len(*FLine)
 					Split(.Left(*FLine, iPos), ":", LineParts())
-					ConstructionIndex = GetConstruction(LineParts(0), ConstructionPart, , FECLine->InAsm)
+					ConstructionIndex = Content.GetConstruction(LineParts(0), ConstructionPart, 0, FECLine->InAsm)
 					If ConstructionIndex > -1 AndAlso ConstructionPart > 0 Then
 						iIndents = Max(0, iIndents - 1)
 					End If
@@ -1488,7 +1649,7 @@ Namespace My.Sys.Forms
 				If FECLine->ConstructionIndex = C_P_If AndAlso FECLine->ConstructionPart > 0 Then
 					iCount = 0
 					For j As Integer = i - 1 To 0 Step -1
-						ECLine2 = FLines.Items[j]
+						ECLine2 = Content.Lines.Items[j]
 						If ECLine2->ConstructionIndex = C_P_If Then
 							If ECLine2->ConstructionPart = 2 Then
 								iCount += 1
@@ -1515,7 +1676,7 @@ Namespace My.Sys.Forms
 			If iComment = 0 Then
 				If FECLine->Multiline Then
 					For k As Integer = 0 To UBound(LineParts)
-						ConstructionIndex = GetConstruction(LineParts(k), ConstructionPart, , FECLine->InAsm)
+						ConstructionIndex = Content.GetConstruction(LineParts(k), ConstructionPart, 0, FECLine->InAsm)
 						If k > 0 AndAlso ConstructionIndex > -1 AndAlso ConstructionPart > 0 Then
 							iIndents = Max(0, iIndents - 1)
 						End If
@@ -1542,8 +1703,8 @@ Namespace My.Sys.Forms
 	
 	Function EditControl.CountOfVisibleLines() As Integer
 		Dim As Integer cCount
-		For i As Integer = 0 To FLines.Count - 1
-			If Cast(EditControlLine Ptr, FLines.Item(i))->Visible Then cCount += 1
+		For i As Integer = 0 To Content.Lines.Count - 1
+			If Cast(EditControlLine Ptr, Content.Lines.Item(i))->Visible Then cCount += 1
 		Next
 		Return cCount
 	End Function
@@ -1561,7 +1722,7 @@ Namespace My.Sys.Forms
 	End Function
 	
 	Function EditControl.CharIndexFromPoint(X As Integer, Y As Integer, CodePane As Integer = -1) As Integer
-		WLet(FLine, *Cast(EditControlLine Ptr, FLines.Item(LineIndexFromPoint(X, Y, CodePane)))->Text)
+		WLet(FLine, *Cast(EditControlLine Ptr, Content.Lines.Item(LineIndexFromPoint(X, Y, CodePane)))->Text)
 		Var CurCodePane = IIf(CodePane = -1, ActiveCodePane, CodePane)
 		Dim As Integer nCaretPosX = X - LeftMargin + IIf(CurCodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX - IIf(bDividedX AndAlso CurCodePane = 1, iDividedX + 7, 0)
 		Dim As Integer w = TextWidth(GetTabbedText(*FLine))
@@ -1590,18 +1751,18 @@ Namespace My.Sys.Forms
 	End Function
 	
 	Function EditControl.Lines(Index As Integer) ByRef As WString
-		If Index >= 0 And Index < FLines.Count Then Return *Cast(EditControlLine Ptr, FLines.Item(Index))->Text
+		If Index >= 0 And Index < Content.Lines.Count Then Return *Cast(EditControlLine Ptr, Content.Lines.Item(Index))->Text
 	End Function
 	
 	Function EditControl.LineLength(Index As Integer) As Integer '...'
-		If Index >= 0 And Index < FLines.Count Then Return Len(*Cast(EditControlLine Ptr, FLines.Item(Index))->Text) Else Return 0
+		If Index >= 0 And Index < Content.Lines.Count Then Return Len(*Cast(EditControlLine Ptr, Content.Lines.Item(Index))->Text) Else Return 0
 	End Function
 	
 	Function EditControl.GetCaretPosY(LineIndex As Integer) As Integer
 		Static As Integer i, j
 		j = 0
-		For i = 1 To Min(FLines.Count - 1, LineIndex)
-			If Cast(EditControlLine Ptr, FLines.Items[i])->Visible Then j = j + 1
+		For i = 1 To Min(Content.Lines.Count - 1, LineIndex)
+			If Cast(EditControlLine Ptr, Content.Lines.Items[i])->Visible Then j = j + 1
 		Next
 		Return j
 	End Function
@@ -1609,10 +1770,11 @@ Namespace My.Sys.Forms
 	Sub EditControl.ShowLine(LineIndex As Integer)
 		Do
 			ChangeCollapseState GetLineIndex(LineIndex, 0), False
-		Loop While Not Cast(EditControlLine Ptr, FLines.Items[LineIndex])->Visible
+		Loop While Not Cast(EditControlLine Ptr, Content.Lines.Items[LineIndex])->Visible
 	End Sub
 	
 	Function IsArg2(ByRef sLine As WString) As Boolean
+		If sLine = "" Then Return False
 		For i As Integer = 1 To Len(sLine)
 			If Not IsArg(Asc(Mid(sLine, i, 1))) Then Return False
 		Next
@@ -1659,14 +1821,14 @@ Namespace My.Sys.Forms
 			LineIndex = Fix((Y - IIf(bDividedY, iDividedY + 7, 0)) / dwCharY) + VScrollPosBottom
 		End If
 		Var j = -1, k = -1
-		For i As Integer = 0 To FLines.Count - 1
-			If Cast(EditControlLine Ptr, FLines.Items[i])->Visible Then
+		For i As Integer = 0 To Content.Lines.Count - 1
+			If Cast(EditControlLine Ptr, Content.Lines.Items[i])->Visible Then
 				j = j + 1
 				If j = LineIndex Then k = j: Exit For
 			End If
 		Next
 		If k = -1 Then Return ""
-		WLet(FLine, *Cast(EditControlLine Ptr, FLines.Item(k))->Text)
+		WLet(FLine, *Cast(EditControlLine Ptr, Content.Lines.Item(k))->Text)
 		Dim As Integer nCaretPosX = X - LeftMargin + IIf(X <= iDividedX AndAlso bDividedX, HScrollPosLeft, HScrollPosRight - IIf(bDividedX, iDividedX + 7, 0)) * dwCharX
 		Dim As Integer w = TextWidth(GetTabbedText(*FLine))
 		Dim As Integer Idx = Len(*FLine)
@@ -1727,10 +1889,10 @@ Namespace My.Sys.Forms
 		nCaretPosY = GetCaretPosY(FSelEndLine)
 		FCurLineCharIdx = FSelEndChar
 		nCaretPosX = TextWidth(GetTabbedText(.Left(Lines(FSelEndLine), FCurLineCharIdx)))
-		If CInt(DropDownShowed) AndAlso CInt(CInt(FSelEndChar < DropDownChar) OrElse CInt(FSelEndChar > GetNextCharIndex(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text, DropDownChar))) Then
+		If CInt(DropDownShowed) AndAlso CInt(CInt(FSelEndChar < DropDownChar) OrElse CInt(FSelEndChar > GetNextCharIndex(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, DropDownChar) AndAlso Not FileDropDown)) Then
 			CloseDropDown()
 		End If
-		If CInt(ToolTipShowed) AndAlso CInt(CInt(FSelEndChar < ToolTipChar) OrElse CInt(Mid(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text, FSelEndChar + 1, 1) = ":") OrElse CInt(GetWordAt(FSelEndLine, ToolTipChar) <> HintWord AndAlso Mid(Lines(FSelEndLine), ToolTipChar + 1, 1) <> "?")) Then
+		If CInt(ToolTipShowed) AndAlso CInt(CInt(FSelEndChar < ToolTipChar) OrElse CInt(Mid(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, FSelEndChar + 1, 1) = ":") OrElse CInt(GetWordAt(FSelEndLine, ToolTipChar) <> HintWord AndAlso Mid(Lines(FSelEndLine), ToolTipChar + 1, 1) <> "?")) Then
 			CloseToolTip()
 		End If
 		If OldLine <> FSelEndLine OrElse OldChar <> FSelEndChar Then
@@ -1742,10 +1904,10 @@ Namespace My.Sys.Forms
 			If This.OnLineChange Then This.OnLineChange(This, FSelEndLine, OldLine)
 		End If
 		
-		If CInt(FSelStartLine > -1) AndAlso CInt(FSelStartLine < FLines.Count) AndAlso CInt(Not Cast(EditControlLine Ptr, FLines.Items[FSelStartLine])->Visible) Then
+		If CInt(FSelStartLine > -1) AndAlso CInt(FSelStartLine < Content.Lines.Count) AndAlso CInt(Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelStartLine])->Visible) Then
 			ShowLine FSelStartLine
 		End If
-		If CInt(FSelEndLine > -1) AndAlso CInt(FSelEndLine < FLines.Count) AndAlso CInt(Not Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Visible) Then
+		If CInt(FSelEndLine > -1) AndAlso CInt(FSelEndLine < Content.Lines.Count) AndAlso CInt(Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Visible) Then
 			ShowLine FSelEndLine
 		End If
 		
@@ -1873,7 +2035,7 @@ Namespace My.Sys.Forms
 			UpdateLock
 			Changing("Oldga surish")
 			For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
-				FECLine = FLines.Items[i]
+				FECLine = Content.Lines.Items[i]
 				If TabAsSpaces AndAlso ChoosedTabStyle = 0 Then
 					n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
 					n = TabWidth - (n Mod TabWidth)
@@ -1900,7 +2062,7 @@ Namespace My.Sys.Forms
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Changing("Ortga surish")
 		For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
-			FECLine = FLines.Items[i]
+			FECLine = Content.Lines.Items[i]
 			n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
 			n = Min(n, TabWidth - (n Mod TabWidth))
 			If n = 0 AndAlso .Left(*FECLine->Text, 1) = !"\t" Then n = 1
@@ -1922,7 +2084,7 @@ Namespace My.Sys.Forms
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Changing("Izoh qilish")
 		For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
-			FECLine = FLines.Items[i]
+			FECLine = Content.Lines.Items[i]
 			If i = iSelStartLine Then
 				nStart = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text, Any !"\t "))
 			End If
@@ -1945,7 +2107,7 @@ Namespace My.Sys.Forms
 		Changing("Blokli izoh qilish")
 		iSelEndLine = iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
 		For i As Integer = iSelStartLine To iSelEndLine
-			FECLine = FLines.Items[i]
+			FECLine = Content.Lines.Items[i]
 			If i = iSelStartLine Or i = iSelEndLine Then
 				If i = iSelStartLine Then
 					n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text, Any !"\t "))
@@ -1973,7 +2135,7 @@ Namespace My.Sys.Forms
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Changing("Izohni olish")
 		For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
-			FECLine = FLines.Items[i]
+			FECLine = Content.Lines.Items[i]
 			If .Left(Trim(*FECLine->Text, Any !"\t "), 1) = "'" Then
 				n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text, Any !"\t "))
 				WLet(FLineTemp, .Left(*FECLine->Text, n))
@@ -2241,7 +2403,7 @@ Namespace My.Sys.Forms
 				cairo_fill (cr)
 			End If
 			cairo_move_to(cr, LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0) + extend.Width - 0.5, _
-			 (iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + dwCharY - 5 - 0.5 + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0))
+			(iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + dwCharY - 5 - 0.5 + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0))
 			'GetColor TextColor, iRed, iGreen, iBlue
 			cairo_set_source_rgb(cr, Colors.ForegroundRed, Colors.ForegroundGreen, Colors.ForegroundBlue)
 			pango_cairo_show_layout_line(cr, pl)
@@ -2318,7 +2480,7 @@ Namespace My.Sys.Forms
 		dwClientY = ClientHeight
 	End Sub
 	
-	Function EditControl.ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1) As Boolean
+	Function EditControlContent.ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringOrStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1) As Boolean
 		If ClassName = "" OrElse pList = 0 Then Return False
 		Var Index = -1
 		If pList = @Types OrElse pList = @Enums OrElse pList = @Namespaces Then
@@ -2347,10 +2509,10 @@ Namespace My.Sys.Forms
 		If te > 0 Then Return True Else Return False
 	End Function
 	
-	Function EditControl.GetTypeFromValue(ByRef Value As String, iSelEndLine As Integer) As String
-		If Value= "" Then Return ""
+	Function EditControlContent.GetTypeFromValue(ByRef Value As String, iSelEndLine As Integer) As String
+		If Value = "" Then Return ""
 		Dim As String sTemp
-		If (StartsWith(LCase(Value), "cast(") OrElse StartsWith(LCase(Value), "*cast(") OrElse StartsWith(LCase(Value), "(*cast(")) AndAlso EndsWith(LCase(Value), ")") Then
+		If (StartsWith(LCase(Value), "cast(") OrElse StartsWith(LCase(Value), "@cast(") OrElse StartsWith(LCase(Value), "*cast(") OrElse StartsWith(LCase(Value), "(*cast(")) AndAlso EndsWith(LCase(Value), ")") Then
 			Var Pos1 = InStr(2, Value, "(")
 			Var Pos2 = InStr(Value, ",")
 			If Pos2 > 0 Then
@@ -2380,7 +2542,12 @@ Namespace My.Sys.Forms
 						sTemp = ch & sTemp
 					ElseIf sTemp <> "" Then
 						If ch = "." Then
-							TypeName = GetTypeFromValue(..Left(Value, i - 1), iSelEndLine)
+							If Trim(..Left(Value, i - 1)) = "" Then
+								Dim As String OldTypeName
+								TypeName = GetLeftArgTypeName(iSelEndLine, 0, , , OldTypeName, , )
+							Else
+								TypeName = GetTypeFromValue(..Left(Value, i - 1), iSelEndLine)
+							End If
 						ElseIf ch = ">" AndAlso i > 0 AndAlso Mid(Value, i - 1, 1) = "-" Then
 							TypeName = GetTypeFromValue(..Left(Value, i - 2), iSelEndLine)
 						End If
@@ -2391,7 +2558,7 @@ Namespace My.Sys.Forms
 				End If
 			Next
 			Dim As String TypeNameFromLine
-			Var teC = Cast(EditControlLine Ptr, FLines.Item(iSelEndLine))->InConstruction
+			Var teC = Cast(EditControlLine Ptr, Lines.Item(iSelEndLine))->InConstruction
 			If teC > 0 Then
 				Var Pos1 = InStr(teC->DisplayName, ".")
 				If Pos1 > 0 Then
@@ -2403,7 +2570,7 @@ Namespace My.Sys.Forms
 					sTemp = TypeNameFromLine
 				End If
 			End If
-			Dim As EditControlLine Ptr ECLine = FLines.Item(iSelEndLine)
+			Dim As EditControlLine Ptr ECLine = Lines.Item(iSelEndLine)
 			Dim As WStringList Ptr pFiles
 			Dim As IntegerList Ptr pFileLines
 			If ECLine Then
@@ -2416,6 +2583,8 @@ Namespace My.Sys.Forms
 			If TypeName <> "" Then
 				If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 				ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+				ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
+				ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te) Then
 				ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
 				ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
 				ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
@@ -2429,6 +2598,10 @@ Namespace My.Sys.Forms
 					te = Procedures.Object(Idx)
 				ElseIf Args.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Args.Object(Idx))->StartLine <= iSelEndLine Then
 					te = Args.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Functions, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Functions.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Args, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Args.Object(Idx)
 				ElseIf ContainsInListFiles(pGlobalFunctions, sTemp, Idx, pFiles, pFileLines) Then
 					te = pGlobalFunctions->Object(Idx)
 				ElseIf ContainsInListFiles(pGlobalArgs, sTemp, Idx, pFiles, pFileLines) Then
@@ -2436,6 +2609,8 @@ Namespace My.Sys.Forms
 				ElseIf TypeName <> "" Then
 					If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 					ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te) Then
 					ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
 					ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
 					ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
@@ -2452,16 +2627,16 @@ Namespace My.Sys.Forms
 		Return sTemp
 	End Function
 	
-	Function EditControl.GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
+	Function EditControlContent.GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
 		Dim As String sTemp, sTemp2, TypeName, sOldTypeName, BaseTypeName
 		Dim sLine As WString Ptr
 		Dim As Integer j, iCount, Pos1
 		Dim As String ch
-		Dim As Boolean b, OneDot, TwoDots
+		Dim As Boolean b, OneDot, TwoDots, bArg, bArgEnded
 		For j = iSelEndLine To 0 Step -1
-			sLine = @This.Lines(j)
-			If j < iSelEndLine AndAlso Not EndsWith(RTrim(*sLine), " _") Then Exit For
-			For i As Integer = IIf(j = iSelEndLine, iSelEndChar, Len(*sLine)) To 1 Step -1
+			sLine = Cast(EditControlLine Ptr, Lines.Item(j))->Text
+			If j < iSelEndLine AndAlso Not EndsWith(RTrim(*sLine, Any !"\t "), " _") Then Exit For
+			For i As Integer = IIf(j = iSelEndLine, Min(Len(RTrim(*sLine, Any !"\t ")), iSelEndChar), Len(RTrim(*sLine, Any !"\t "))) To 1 Step -1
 				ch = Chr((*sLine)[i - 1])
 				If ch = ")" OrElse ch = "]" Then
 					iCount += 1
@@ -2470,8 +2645,12 @@ Namespace My.Sys.Forms
 					iCount -= 1
 					If iCount = 0 Then b = False
 				ElseIf Not b Then
-					If IsArg(Asc(ch)) Then
+					If IsArg(Asc(ch)) Then 'AndAlso Not bArgEnded Then
 						sTemp = ch & sTemp
+						bArg = True
+					'ElseIf (ch = " " OrElse ch = !"\t") Then
+					'	If bArg Then bArgEnded = True
+					'	Continue For
 					ElseIf sTemp <> "" Then
 						If ch = "." Then
 							If i > 0 AndAlso Mid(*sLine, i - 1, 1) = "." Then
@@ -2500,14 +2679,14 @@ Namespace My.Sys.Forms
 		If CInt(sTemp = "") AndAlso CInt(StartsWith(sTemp2, "(")) AndAlso CInt(EndsWith(sTemp2, ")")) Then
 			Return GetTypeFromValue(..Left(sTemp2, Len(sTemp2) - 1), iSelEndLine)
 		ElseIf sTemp = "" AndAlso sTemp2 = "" Then
-			'			If Cast(EditControlLine Ptr, FLines.Items[j])->InWithConstruction = WithOldI Then
+			'			If Cast(EditControlLine Ptr, Content.Lines.Items[j])->InWithConstruction = WithOldI Then
 			'				teEnum = WithTeEnumOld
 			'				Return WithOldTypeName
 			'			End If
 			Var WithCount = 1
 			Dim As EditControlLine Ptr ECLine
 			For i As Integer = j - 1 To 0 Step -1
-				ECLine = FLines.Items[i]
+				ECLine = Lines.Items[i]
 				If ECLine->ConstructionIndex > C_P_Region Then
 					bWithoutWith = True
 					Return ""
@@ -2520,7 +2699,13 @@ Namespace My.Sys.Forms
 							bWithoutWith = True
 							Return ""
 						ElseIf WithCount = 0 Then
-							TypeName = GetLeftArgTypeName(i, Len(*ECLine->Text), teEnumOld, , sOldTypeName, bTypes)
+							Pos1 = InStr(*ECLine->Text, "'")
+							If Pos1 Then
+								Pos1 -= Len(Left(*ECLine->Text, Pos1 - 1)) - Len(RTrim(Left(*ECLine->Text, Pos1 - 1), Any !"\t "))
+							Else
+								Pos1 = Len(*ECLine->Text) + 1
+							End If
+							TypeName = GetLeftArgTypeName(i, Pos1 - 1, teEnumOld, , sOldTypeName, bTypes)
 							WithOldI = i
 							WithOldTypeName = TypeName
 							WithTeEnumOld = teEnumOld
@@ -2532,7 +2717,7 @@ Namespace My.Sys.Forms
 			Next
 		End If
 		Dim As String TypeNameFromLine
-		Dim teC As TypeElement Ptr = Cast(EditControlLine Ptr, FLines.Item(iSelEndLine))->InConstruction
+		Dim teC As TypeElement Ptr = Cast(EditControlLine Ptr, Lines.Item(iSelEndLine))->InConstruction
 		If teC > 0 Then
 			Var Pos1 = InStr(teC->DisplayName, ".")
 			If Pos1 = 0 Then Pos1 = InStr(teC->DisplayName, "[")
@@ -2548,7 +2733,7 @@ Namespace My.Sys.Forms
 		End If
 		Var Idx = -1
 		Dim As TypeElement Ptr te, te1, te2
-		Dim As EditControlLine Ptr ECLine = FLines.Item(iSelEndLine)
+		Dim As EditControlLine Ptr ECLine = Lines.Item(iSelEndLine)
 		Dim As WStringList Ptr pFiles
 		Dim As IntegerList Ptr pFileLines
 		If ECLine Then
@@ -2560,6 +2745,9 @@ Namespace My.Sys.Forms
 				If Types.Contains(TypeName, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->StartLine <= iSelEndLine Then
 					te2 = Types.Object(Idx)
 					If te2 <> 0 Then BaseTypeName = te2->TypeName
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Types, TypeName, Idx, pFiles, pFileLines) Then
+					te2 = Globals->Types.Object(Idx)
+					If te2 <> 0 Then BaseTypeName = te2->TypeName
 				ElseIf ContainsInListFiles(pComps, TypeName, Idx, pFiles, pFileLines) Then
 					te2 = pComps->Object(Idx)
 					If te2 <> 0 Then BaseTypeName = te2->TypeName
@@ -2570,6 +2758,8 @@ Namespace My.Sys.Forms
 				If BaseTypeName <> "" Then
 					If Types.Contains(BaseTypeName, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->StartLine <= iSelEndLine Then
 						teEnum = Types.Object(Idx)
+					ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Types, BaseTypeName, Idx, pFiles, pFileLines) Then
+						teEnum = Globals->Types.Object(Idx)
 					ElseIf ContainsInListFiles(pComps, BaseTypeName, Idx, pFiles, pFileLines) Then
 						teEnum = pComps->Object(Idx)
 					ElseIf ContainsInListFiles(pGlobalTypes, BaseTypeName, Idx, pFiles, pFileLines) Then
@@ -2583,6 +2773,9 @@ Namespace My.Sys.Forms
 			If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 			ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 			ElseIf ContainsIn(TypeName, sTemp, @Namespaces, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+			ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+			ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+			ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Namespaces, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 			ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
 			ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
 			ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
@@ -2600,6 +2793,9 @@ Namespace My.Sys.Forms
 				If Types.Contains(TypeName, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->StartLine <= iSelEndLine Then
 					te2 = Types.Object(Idx)
 					If te2 <> 0 Then BaseTypeName = te2->TypeName
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Types, TypeName, Idx, pFiles, pFileLines) Then
+					te2 = Globals->Types.Object(Idx)
+					If te2 <> 0 Then BaseTypeName = te2->TypeName
 				ElseIf ContainsInListFiles(pComps, TypeName, Idx, pFiles, pFileLines) Then
 					te2 = pComps->Object(Idx)
 					If te2 <> 0 Then BaseTypeName = te2->TypeName
@@ -2610,6 +2806,8 @@ Namespace My.Sys.Forms
 				If BaseTypeName <> "" Then
 					If Types.Contains(BaseTypeName, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->StartLine <= iSelEndLine Then
 						teEnum = Types.Object(Idx)
+					ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Types, BaseTypeName, Idx, pFiles, pFileLines) Then
+						teEnum = Globals->Types.Object(Idx)
 					ElseIf ContainsInListFiles(pComps, BaseTypeName, Idx, pFiles, pFileLines) Then
 						teEnum = pComps->Object(Idx)
 					ElseIf ContainsInListFiles(pGlobalTypes, BaseTypeName, Idx, pFiles, pFileLines) Then
@@ -2644,6 +2842,8 @@ Namespace My.Sys.Forms
 						End If
 						If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 						ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+						ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
+						ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te) Then
 						ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
 						ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
 						ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
@@ -2667,6 +2867,14 @@ Namespace My.Sys.Forms
 					te = Args.Object(Idx)
 				ElseIf Namespaces.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Namespaces.Object(Idx))->StartLine <= iSelEndLine Then
 					te = Namespaces.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Functions, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Functions.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Args, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Args.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Types, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Types.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Namespaces, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Namespaces.Object(Idx)
 				ElseIf ContainsInListFiles(pGlobalFunctions, sTemp, Idx, pFiles, pFileLines) Then
 					te = pGlobalFunctions->Object(Idx)
 				ElseIf ContainsInListFiles(pGlobalArgs, sTemp, Idx, pFiles, pFileLines) Then
@@ -2679,6 +2887,9 @@ Namespace My.Sys.Forms
 					If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 					ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 					ElseIf ContainsIn(TypeName, sTemp, @Namespaces, pFiles, pFileLines, True, , , te, iSelEndLine) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Namespaces, pFiles, pFileLines, True, , , te) Then
 					ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
 					ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
 					ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
@@ -2706,7 +2917,7 @@ Namespace My.Sys.Forms
 		Return sTemp
 	End Function
 	
-	Function EditControl.IndexOfInListFiles(pList As WStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
+	Function EditControlContent.IndexOfInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
 		If pList = 0 OrElse Files = 0 OrElse FileLines = 0 Then Return -1
 		Dim As Integer tIndex = pList->IndexOf(Matn)
 		Var Idx = -1, iLine = -1
@@ -2725,10 +2936,30 @@ Namespace My.Sys.Forms
 		Return -1
 	End Function
 	
-	Function EditControl.ContainsInListFiles(pList As WStringList Ptr, ByRef Matn As String, ByRef Index As Integer, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Boolean
+	Function EditControlContent.ContainsInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, ByRef Index As Integer, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Boolean
 		Index = IndexOfInListFiles(pList, Matn, Files, FileLines)
 		Return Index <> -1
 	End Function
+	
+	Constructor EditControlContent
+		Types.Sorted = True
+		Enums.Sorted = True
+		Procedures.Sorted = True
+		Functions.Sorted = True
+		FunctionsOthers.Sorted = True
+		TypeProcedures.Sorted = True
+		Args.Sorted = True
+		CheckedFiles.Sorted = True
+	End Constructor
+	
+	Constructor GlobalTypeElements
+		Namespaces.Sorted = True
+		Types.Sorted = True
+		Enums.Sorted = True
+		Functions.Sorted = True
+		TypeProcedures.Sorted = True
+		Args.Sorted = True
+	End Constructor
 	
 	Sub EditControl.PaintControlPriv(Full As Boolean = False)
 		'	On Error Goto ErrHandler
@@ -2826,7 +3057,7 @@ Namespace My.Sys.Forms
 				If CInt(bFinded) OrElse CInt(j > 0 AndAlso Not EndsWith(Lines(j - 1), " _")) Then Exit For
 			Next
 			bFinded = False
-			For j As Integer = iSelEndLine To FLines.Count - 1
+			For j As Integer = iSelEndLine To Content.Lines.Count - 1
 				BracketsLine = TextWithoutQuotesAndComments(Lines(j))
 				For i As Integer = IIf(j = iSelEndLine, iStartBE, 1) To Len(BracketsLine)
 					Symb = Mid(BracketsLine, i, 1)
@@ -2939,17 +3170,17 @@ Namespace My.Sys.Forms
 			#endif
 			i = -1
 			Var OldI = i
-			If VScrollPos > 0 AndAlso VScrollPos <= FLines.Count Then iC = Cast(EditControlLine Ptr, FLines.Items[VScrollPos - 1])->CommentIndex
+			If VScrollPos > 0 AndAlso VScrollPos <= Content.Lines.Count Then iC = Cast(EditControlLine Ptr, Content.Lines.Items[VScrollPos - 1])->CommentIndex
 			CollapseIndex = 0
 			OldCollapseIndex = 0
 			'ChangeCase = False
 			OldMatnLCase = ""
-			For z As Integer = 0 To FLines.Count - 1
-				FECLine = FLines.Items[z]
+			For z As Integer = 0 To Content.Lines.Count - 1
+				FECLine = Content.Lines.Items[z]
 				Dim As WStringList Ptr pFiles = FECLine->FileList
 				Dim As IntegerList Ptr pFileLines = FECLine->FileListLines
-				If z < FLines.Count - 1 Then
-					FECLineNext = FLines.Items[z + 1]
+				If z < Content.Lines.Count - 1 Then
+					FECLineNext = Content.Lines.Items[z + 1]
 				Else
 					FECLineNext = 0
 				End If
@@ -2983,7 +3214,7 @@ Namespace My.Sys.Forms
 						FillRect bufDC, @rc, This.Canvas.Brush.Handle
 					End If
 				#endif
-				If z > 0 Then iC = Cast(EditControlLine Ptr, FLines.Items[z - 1])->CommentIndex
+				If z > 0 Then iC = Cast(EditControlLine Ptr, Content.Lines.Items[z - 1])->CommentIndex
 				'If FECLine->Visible = False Then Continue For
 				'SelectObject(bufDC, This.Canvas.Brush.Handle)
 				'Pos1 = Instr(p, *FText, Chr(13))
@@ -3052,59 +3283,59 @@ Namespace My.Sys.Forms
 								OldJ = FECLine->Ends.Item(j)
 							Next
 						Else
-						'					Canvas.Font.Bold = False
-						'					Canvas.Font.Italic = False
-						'					Canvas.Font.Underline = False
-						'#ifndef __USE_GTK__
-						'SelectObject(bufDC, This.Canvas.Font.Handle)
-						'#endif
-						IzohBoshi = 1
-						Do While j <= l
-							'If LeftMargin + (-HScrollPos + j) * dwCharX > dwClientX AndAlso Mid(*s, j, 1) = " " Then
-							'	If iC = 0 AndAlso FECLine->CommentIndex > 0 Then IzohBoshi = j + 1
-							'	OldCollapseIndex = CollapseIndex: iC = FECLine->CommentIndex: Exit Do
-							'End If
-							If iC = 0 AndAlso Mid(*s, j, 1) = """" Then
-								bQ = Not bQ
-								If bQ Then
-									QavsBoshi = j
-								Else
-									'								If StringsBold Then Canvas.Font.Bold = True
-									'								If StringsItalic Then Canvas.Font.Italic = True
-									'								If StringsUnderline OrElse bInIncludeFileRect AndAlso iCursorLine = z Then Canvas.Font.Underline = True: SelectObject(bufDC, This.Canvas.Font.Handle)
-									PaintText zz, i, *s, QavsBoshi - 1, j, Strings, , Strings.Bold, Strings.Italic, CBool(Strings.Underline) Or CBool(bInIncludeFileRect) And CBool(iCursorLine = z)
-									'txtCode.SetSel ss + QavsBoshi - 1, ss + j
-									'txtCode.SelColor = clMaroon
-								End If
-							ElseIf Not bQ Then
-								If Mid(*s, j, 2) = IIf(CStyle, "/*", "/'") Then
-									iC = iC + 1
-									If iC = 1 Then
-										IzohBoshi = j
+							'					Canvas.Font.Bold = False
+							'					Canvas.Font.Italic = False
+							'					Canvas.Font.Underline = False
+							'#ifndef __USE_GTK__
+							'SelectObject(bufDC, This.Canvas.Font.Handle)
+							'#endif
+							IzohBoshi = 1
+							Do While j <= l
+								'If LeftMargin + (-HScrollPos + j) * dwCharX > dwClientX AndAlso Mid(*s, j, 1) = " " Then
+								'	If iC = 0 AndAlso FECLine->CommentIndex > 0 Then IzohBoshi = j + 1
+								'	OldCollapseIndex = CollapseIndex: iC = FECLine->CommentIndex: Exit Do
+								'End If
+								If iC = 0 AndAlso Mid(*s, j, 1) = """" Then
+									bQ = Not bQ
+									If bQ Then
+										QavsBoshi = j
+									Else
+										'								If StringsBold Then Canvas.Font.Bold = True
+										'								If StringsItalic Then Canvas.Font.Italic = True
+										'								If StringsUnderline OrElse bInIncludeFileRect AndAlso iCursorLine = z Then Canvas.Font.Underline = True: SelectObject(bufDC, This.Canvas.Font.Handle)
+										PaintText zz, i, *s, QavsBoshi - 1, j, Strings, , Strings.Bold, Strings.Italic, CBool(Strings.Underline) Or CBool(bInIncludeFileRect) And CBool(iCursorLine = z)
+										'txtCode.SetSel ss + QavsBoshi - 1, ss + j
+										'txtCode.SelColor = clMaroon
 									End If
-									j = j + 1
-								ElseIf iC > 0 AndAlso Mid(*s, j, 2) = IIf(CStyle, "*/", "'/") Then
-									iC = iC - 1
-									j = j + 1
-									If iC = 0 Then
-										PaintText zz, i, *s, IzohBoshi - 1, j, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
-									End If
-								ElseIf iC = 0 Then
-									t = Asc(Mid(*s, j, 1))
-									u = Asc(Mid(*s, j + 1, 1))
-									If LCase(Mid(" " & *s & " ", j, 5)) = " rem " OrElse LCase(Mid(" " & *s & " ", j, 6)) = " @rem " OrElse LCase(Mid(" " & *s & " ", j, 5)) = !"\trem " Then
-										If CInt(ChangeKeyWordsCase) AndAlso CInt(FSelEndLine <> z) AndAlso pkeywords2 <> 0 Then
-											If Not CStyle Then
-												KeyWord = GetKeyWordCase("rem", pkeywords2)
-												If KeyWord <> Mid(*s, j, 3) Then Mid(*s, j, 3) = KeyWord
-											End If
+								ElseIf Not bQ Then
+									If Mid(*s, j, 2) = IIf(Content.CStyle, "/*", "/'") Then
+										iC = iC + 1
+										If iC = 1 Then
+											IzohBoshi = j
 										End If
-										PaintText zz, i, *s, j - 1, l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
-										Exit Do
-									ElseIf t >= 48 AndAlso t <= 57 OrElse t >= 65 AndAlso t <= 90 OrElse t >= 97 AndAlso t <= 122 OrElse (CInt(FECLine->InAsm = False) AndAlso t = Asc("#")) OrElse t = Asc("$") OrElse t = Asc("_") Then
-										If MatnBoshi = 0 Then MatnBoshi = j
-										If Not (u >= 48 AndAlso u <= 57 OrElse u >= 65 AndAlso u <= 90 OrElse u >= 97 AndAlso u <= 122 OrElse u = Asc("#") OrElse u = Asc("$") OrElse u = Asc("_")) Then
-											'If LeftMargin + (-HScrollPos + j + InStrCount(..Left(*s, j), !"\t") * (TabWidth - 1)) * dwCharX > 0 Then
+										j = j + 1
+									ElseIf iC > 0 AndAlso Mid(*s, j, 2) = IIf(Content.CStyle, "*/", "'/") Then
+										iC = iC - 1
+										j = j + 1
+										If iC = 0 Then
+											PaintText zz, i, *s, IzohBoshi - 1, j, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
+										End If
+									ElseIf iC = 0 Then
+										t = Asc(Mid(*s, j, 1))
+										u = Asc(Mid(*s, j + 1, 1))
+										If LCase(Mid(" " & *s & " ", j, 5)) = " rem " OrElse LCase(Mid(" " & *s & " ", j, 6)) = " @rem " OrElse LCase(Mid(" " & *s & " ", j, 5)) = !"\trem " Then
+											If CInt(ChangeKeyWordsCase) AndAlso CInt(FSelEndLine <> z) AndAlso pkeywords2 <> 0 Then
+												If Not Content.CStyle Then
+													KeyWord = GetKeyWordCase("rem", pkeywords2)
+													If KeyWord <> Mid(*s, j, 3) Then Mid(*s, j, 3) = KeyWord
+												End If
+											End If
+											PaintText zz, i, *s, j - 1, l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
+											Exit Do
+										ElseIf t >= 48 AndAlso t <= 57 OrElse t >= 65 AndAlso t <= 90 OrElse t >= 97 AndAlso t <= 122 OrElse (CInt(FECLine->InAsm = False) AndAlso t = Asc("#")) OrElse t = Asc("$") OrElse t = Asc("_") Then
+											If MatnBoshi = 0 Then MatnBoshi = j
+											If Not (u >= 48 AndAlso u <= 57 OrElse u >= 65 AndAlso u <= 90 OrElse u >= 97 AndAlso u <= 122 OrElse u = Asc("#") OrElse u = Asc("$") OrElse u = Asc("_")) Then
+												'If LeftMargin + (-HScrollPos + j + InStrCount(..Left(*s, j), !"\t") * (TabWidth - 1)) * dwCharX > 0 Then
 												Matn = Mid(*s, MatnBoshi, j - MatnBoshi + 1)
 												MatnLCase = LCase(Matn)
 												If InStr("#$", .Left(Matn, 1)) Then
@@ -3116,12 +3347,13 @@ Namespace My.Sys.Forms
 													MatnWithoutOldSymbol = Matn
 													WithOldSymbol = False
 												End If
+												bTypeAs = StartsWith(LCase(Trim(*s, Any !"\t ")), "type ") AndAlso OldMatnLCase = "as"
 												sc = @Identifiers
 												OriginalCaseWord = "":   TypeName = "" : te = 0
 												If MatnBoshi > 0 Then r = Asc(Mid(*s, MatnBoshi - 1, 1)) Else r = 0 '  ' "->"=45-62
 												If MatnBoshi > 1 Then q = Asc(Mid(*s, MatnBoshi - 2, 1)) Else q = 0
 												pkeywords = 0
-												If CStyle Then
+												If Content.CStyle Then
 													If MatnLCase = "#define" OrElse MatnLCase = "#include" OrElse MatnLCase = "#macro" Then
 														If pkeywords0 <> 0 Then
 															sc = @Keywords(KeywordLists.IndexOfObject(pkeywords0)) '@Preprocessors
@@ -3147,7 +3379,7 @@ Namespace My.Sys.Forms
 														If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
 															If CBool(tIndex = -1) AndAlso (Not TwoDots) AndAlso (CBool(r = 46) OrElse CBool(q = 45 AndAlso r = 62)) Then
 																OneDot = True
-																GetLeftArgTypeName(z, j, te, , OldTypeName, , bWithoutWith)
+																Content.GetLeftArgTypeName(z, j, te, , OldTypeName, , bWithoutWith)
 																If bWithoutWith Then
 																	TwoDots = True
 																	OneDot = False
@@ -3181,10 +3413,38 @@ Namespace My.Sys.Forms
 																		End Select
 																	End If
 																End If
+																
+																If tIndex = -1 Then
+																	tIndex = Content.Defines.IndexOf(MatnLCase)
+																	If tIndex <> -1 Then
+																		If Cast(TypeElement Ptr, Content.Defines.Object(tIndex))->StartLine > z Then
+																			tIndex = -1
+																		Else
+																			OriginalCaseWord = Content.Defines.Item(tIndex)
+																			pkeywords = @Content.Defines
+																			te = Content.Defines.Object(tIndex)
+																			If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
+																				sc = @ColorDefines
+																			End If
+																		End If
+																	End If
+																End If
+																
+																If tIndex = -1 Then
+																	tIndex = Content.IndexOfInListFiles(pGlobalDefines, MatnLCase, pFiles, pFileLines)
+																	If tIndex <> -1 Then
+																		te = pGlobalDefines->Object(tIndex)
+																		OriginalCaseWord = pGlobalDefines->Item(tIndex)
+																		pkeywords = pGlobalDefines
+																		If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
+																			sc = @ColorDefines
+																		End If
+																	End If
+																End If
 															End If
 															
 															If Not OneDot Then
-																If tIndex = -1 Then
+																If tIndex = -1 AndAlso OldMatnLCase <> "as" Then
 																	For i As Integer = 0 To FECLine->Args.Count - 1
 																		tIndex = Cast(TypeElement Ptr, FECLine->Args.Item(i))->Elements.IndexOf(MatnLCase)
 																		If tIndex <> -1 Then
@@ -3209,7 +3469,7 @@ Namespace My.Sys.Forms
 																End If
 																
 																'Procedure
-																If (Not TwoDots) AndAlso tIndex = -1 AndAlso FECLine->InConstruction > 0 AndAlso OldMatnLCase <> "as" Then
+																If (Not TwoDots) AndAlso tIndex = -1 AndAlso FECLine->InConstruction > 0 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
 																	tIndex = Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.IndexOf(MatnLCaseWithoutOldSymbol)
 																	If tIndex <> -1 Then
 																		If Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->StartLine > z AndAlso Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->ElementType <> "LineLabel" Then
@@ -3241,39 +3501,39 @@ Namespace My.Sys.Forms
 																				End Select
 																			End If
 																		End If
-																	Else
-																		If tIndex = -1 Then
-																			TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
-																			Pos1 = InStr(TypeName, ".")
-																			If (CBool(Pos1 > 0) OrElse EndsWith(TypeName, "[Constructor]") OrElse EndsWith(TypeName, "[Destructor]")) AndAlso (CBool(FECLine->InConstruction->StartLine <> z) OrElse FECLine->InConstruction->Declaration) Then
-																				If Pos1 > 0 Then
-																					TypeName = ..Left(TypeName, Pos1 - 1)
-																				Else
-																					TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
-																				End If
-																				If ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, @Types, pFiles, pFileLines, True, , , te, z) Then
-																				ElseIf ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, @Enums, pFiles, pFileLines, True, , , te, z) Then
-																				ElseIf ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pComps, pFiles, pFileLines, True, , , te) Then
-																				ElseIf ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
-																				ElseIf ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
-																				End If
-																				If te > 0 Then
-																					OriginalCaseWord = te->Name
-																					tIndex = 0
-																					If SyntaxHighlightingIdentifiers Then
-																						Select Case LCase(te->ElementType)
-																						Case "sub"
-																							sc = @ColorSubs
-																						Case "function"
-																							sc = @ColorGlobalFunctions
-																						Case "property"
-																							sc = @ColorProperties
-																						Case "field", "event"
-																							sc = @ColorFields
-																						Case Else
-																							sc = @ColorLocalVariables
-																						End Select
-																					End If
+																	End If
+																	
+																	If tIndex = -1 Then
+																		TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
+																		Pos1 = InStr(TypeName, ".")
+																		If (CBool(Pos1 > 0) OrElse EndsWith(TypeName, "[Constructor]") OrElse EndsWith(TypeName, "[Destructor]")) AndAlso (CBool(FECLine->InConstruction->StartLine <> z) OrElse FECLine->InConstruction->Declaration) Then
+																			If Pos1 > 0 Then
+																				TypeName = ..Left(TypeName, Pos1 - 1)
+																			Else
+																				TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
+																			End If
+																			If Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, @Content.Types, pFiles, pFileLines, True, , , te, z) Then
+																			ElseIf Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, @Content.Enums, pFiles, pFileLines, True, , , te, z) Then
+																			ElseIf Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pComps, pFiles, pFileLines, True, , , te) Then
+																			ElseIf Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
+																			ElseIf Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
+																			End If
+																			If te > 0 Then
+																				OriginalCaseWord = te->Name
+																				tIndex = 0
+																				If SyntaxHighlightingIdentifiers Then
+																					Select Case LCase(te->ElementType)
+																					Case "sub"
+																						sc = @ColorSubs
+																					Case "function"
+																						sc = @ColorGlobalFunctions
+																					Case "property"
+																						sc = @ColorProperties
+																					Case "field", "event"
+																						sc = @ColorFields
+																					Case Else
+																						sc = @ColorLocalVariables
+																					End Select
 																				End If
 																			End If
 																		End If
@@ -3281,7 +3541,7 @@ Namespace My.Sys.Forms
 																End If
 															End If
 														End If
-															
+														
 														If Not OneDot Then
 															' Keywords
 															If tIndex = -1 Then
@@ -3305,15 +3565,15 @@ Namespace My.Sys.Forms
 														If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
 															If Not OneDot Then
 																'Module
-																If tIndex = -1 AndAlso OldMatnLCase <> "as" Then
-																	tIndex = Args.IndexOf(MatnLCase)
+																If tIndex = -1 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
+																	tIndex = Content.Args.IndexOf(MatnLCase)
 																	If tIndex <> -1 Then
-																		If Cast(TypeElement Ptr, Args.Object(tIndex))->StartLine > z Then
+																		If Cast(TypeElement Ptr, Content.Args.Object(tIndex))->StartLine > z Then
 																			tIndex = -1
 																		Else
-																			OriginalCaseWord = Args.Item(tIndex)
-																			pkeywords = @Args
-																			te = Args.Object(tIndex)
+																			OriginalCaseWord = Content.Args.Item(tIndex)
+																			pkeywords = @Content.Args
+																			te = Content.Args.Object(tIndex)
 																			If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
 																				Select Case te->ElementType
 																				Case "EnumItem"
@@ -3333,14 +3593,14 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = Procedures.IndexOf(MatnLCase)
+																	tIndex = Content.Procedures.IndexOf(MatnLCase)
 																	If tIndex <> -1 Then
-																		If Cast(TypeElement Ptr, Procedures.Object(tIndex))->StartLine > z Then
+																		If Cast(TypeElement Ptr, Content.Procedures.Object(tIndex))->StartLine > z Then
 																			tIndex = -1
 																		Else
-																			OriginalCaseWord = Procedures.Item(tIndex)
-																			pkeywords = @Procedures
-																			te = Procedures.Object(tIndex)
+																			OriginalCaseWord = Content.Procedures.Item(tIndex)
+																			pkeywords = @Content.Procedures
+																			te = Content.Procedures.Object(tIndex)
 																			If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
 																				Select Case LCase(te->ElementType)
 																				Case "constructor", "destructor"
@@ -3362,47 +3622,51 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = Types.IndexOf(MatnLCase)
+																	tIndex = Content.Types.IndexOf(MatnLCase)
 																	If tIndex <> -1 Then
-																		If Cast(TypeElement Ptr, Types.Object(tIndex))->StartLine > z Then
+																		If (Not bTypeAs) AndAlso Cast(TypeElement Ptr, Content.Types.Object(tIndex))->StartLine > z Then
 																			tIndex = -1
 																		Else
 																			If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalTypes
-																			OriginalCaseWord = Types.Item(tIndex)
-																			pkeywords = @Types
+																			OriginalCaseWord = Content.Types.Item(tIndex)
+																			pkeywords = @Content.Types
 																		End If
 																	End If
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = Enums.IndexOf(MatnLCase)
+																	tIndex = Content.Enums.IndexOf(MatnLCase)
 																	If tIndex <> -1 Then
-																		If Cast(TypeElement Ptr, Enums.Object(tIndex))->StartLine > z Then
+																		If (Not bTypeAs) AndAlso Cast(TypeElement Ptr, Content.Enums.Object(tIndex))->StartLine > z Then
 																			tIndex = -1
 																		Else
 																			If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalEnums
-																			OriginalCaseWord = Enums.Item(tIndex)
-																			pkeywords = @Enums
+																			OriginalCaseWord = Content.Enums.Item(tIndex)
+																			pkeywords = @Content.Enums
 																		End If
 																	End If
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = Namespaces.IndexOf(MatnLCase)
+																	tIndex = Content.Namespaces.IndexOf(MatnLCase)
 																	If tIndex <> -1 Then
-																		If Cast(TypeElement Ptr, Namespaces.Object(tIndex))->StartLine > z Then
+																		If Cast(TypeElement Ptr, Content.Namespaces.Object(tIndex))->StartLine > z Then
 																			tIndex = -1
 																		Else
 																			If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalNamespaces
-																			OriginalCaseWord = Namespaces.Item(tIndex)
-																			pkeywords = @Namespaces
+																			OriginalCaseWord = Content.Namespaces.Item(tIndex)
+																			pkeywords = @Content.Namespaces
 																		End If
 																	End If
 																End If
 																
 																'Global
 																If tIndex = -1 Then
-																	tIndex = IndexOfInListFiles(pComps, MatnLCase, pFiles, pFileLines)
+																	If bTypeAs Then
+																		tIndex = pComps->IndexOf(MatnLCase)
+																	Else
+																		tIndex = Content.IndexOfInListFiles(pComps, MatnLCase, pFiles, pFileLines)
+																	End If
 																	If tIndex <> -1 Then
 																		If SyntaxHighlightingIdentifiers Then sc = @ColorComps
 																		OriginalCaseWord = pComps->Item(tIndex)
@@ -3411,7 +3675,11 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = IndexOfInListFiles(pGlobalTypes, MatnLCase, pFiles, pFileLines)
+																	If bTypeAs Then
+																		tIndex = pGlobalTypes->IndexOf(MatnLCase)
+																	Else
+																		tIndex = Content.IndexOfInListFiles(pGlobalTypes, MatnLCase, pFiles, pFileLines)
+																	End If
 																	If tIndex <> -1 Then
 																		If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalTypes
 																		OriginalCaseWord = pGlobalTypes->Item(tIndex)
@@ -3420,7 +3688,11 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = IndexOfInListFiles(pGlobalEnums, MatnLCase, pFiles, pFileLines)
+																	If bTypeAs Then
+																		tIndex = pGlobalEnums->IndexOf(MatnLCase)
+																	Else
+																		tIndex = Content.IndexOfInListFiles(pGlobalEnums, MatnLCase, pFiles, pFileLines)
+																	End If
 																	If tIndex <> -1 Then
 																		If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalEnums
 																		OriginalCaseWord = pGlobalEnums->Item(tIndex)
@@ -3429,7 +3701,7 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 AndAlso OldMatnLCase <> "as" Then
-																	tIndex = IndexOfInListFiles(pGlobalArgs, MatnLCase, pFiles, pFileLines)
+																	tIndex = Content.IndexOfInListFiles(pGlobalArgs, MatnLCase, pFiles, pFileLines)
 																	If tIndex <> -1 Then
 																		te = pGlobalArgs->Object(tIndex)
 																		OriginalCaseWord = pGlobalArgs->Item(tIndex)
@@ -3452,7 +3724,7 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = IndexOfInListFiles(pGlobalFunctions, MatnLCase, pFiles, pFileLines)
+																	tIndex = Content.IndexOfInListFiles(pGlobalFunctions, MatnLCase, pFiles, pFileLines)
 																	If tIndex <> -1 Then
 																		te = pGlobalFunctions->Object(tIndex)
 																		OriginalCaseWord = pGlobalFunctions->Item(tIndex)
@@ -3479,7 +3751,7 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = IndexOfInListFiles(pGlobalNamespaces, MatnLCase, pFiles, pFileLines)
+																	tIndex = Content.IndexOfInListFiles(pGlobalNamespaces, MatnLCase, pFiles, pFileLines)
 																	If tIndex <> -1 Then
 																		If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalNamespaces
 																		OriginalCaseWord = pGlobalNamespaces->Item(tIndex)
@@ -3488,11 +3760,11 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	tIndex = LineLabels.IndexOf(MatnLCase)
+																	tIndex = Content.LineLabels.IndexOf(MatnLCase)
 																	If tIndex <> -1 Then
 																		If SyntaxHighlightingIdentifiers Then sc = @ColorLineLabels
-																		OriginalCaseWord = LineLabels.Item(tIndex)
-																		pkeywords = @LineLabels
+																		OriginalCaseWord = Content.LineLabels.Item(tIndex)
+																		pkeywords = @Content.LineLabels
 																	End If
 																End If
 															End If
@@ -3508,7 +3780,7 @@ Namespace My.Sys.Forms
 															Mid(*FECLine->Text, MatnBoshi + IIf(WithOldSymbol, 1, 0), j - MatnBoshi + 1) = OriginalCaseWord
 														End If
 													ElseIf tIndex = -1 Then
-														If isNumeric(Matn) Then
+														If isNumeric(Matn) OrElse isNumeric(MatnWithoutOldSymbol) Then
 															If InStr(Matn, ".") Then
 																sc = @RealNumbers
 															Else
@@ -3526,38 +3798,38 @@ Namespace My.Sys.Forms
 												Else
 													PaintText zz, i, *s, MatnBoshi - 1, j, *sc
 												End If
-											'End If
-											MatnBoshi = 0
+												'End If
+												MatnBoshi = 0
+											End If
+										ElseIf IIf(Content.CStyle, Mid(*s, j, 2) = "//", IIf(FECLine->InAsm, Chr(t) = "#", Chr(t) = "'")) Then
+											PaintText zz, i, *s, j - 1, l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
+											'txtCode.SetSel ss + j - 1, ss + l
+											'txtCode.SelColor = clGreen
+											Exit Do
+										ElseIf CharType(Mid(*s, j, 1)) = 2 Then
+											PaintText zz, i, *s, j - 1, j, ColorOperators
+										ElseIf Chr(t) <> " " Then
+											PaintText zz, i, *s, j - 1, j, NormalText
 										End If
-									ElseIf IIf(CStyle, Mid(*s, j, 2) = "//", IIf(FECLine->InAsm, Chr(t) = "#", Chr(t) = "'")) Then
-										PaintText zz, i, *s, j - 1, l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
-										'txtCode.SetSel ss + j - 1, ss + l
-										'txtCode.SelColor = clGreen
-										Exit Do
-									ElseIf CharType(Mid(*s, j, 1)) = 2 Then
-										PaintText zz, i, *s, j - 1, j, ColorOperators
-									ElseIf Chr(t) <> " " Then
-										PaintText zz, i, *s, j - 1, j, NormalText
 									End If
 								End If
+								j = j + 1
+							Loop
+							If iC > 0 Then
+								PaintText zz, i, *s, Max(0, IzohBoshi - 1), l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
+								'txtCode.SetSel IzohBoshi - 1, ss + l
+								'txtCode.SelColor = clGreen
+								'If i = EndLine Then k = txtCode.LinesCount
+							ElseIf bQ Then
+								'						If StringsBold Then Canvas.Font.Bold = True
+								'						If StringsItalic Then Canvas.Font.Italic = True
+								'						If StringsUnderline OrElse bInIncludeFileRect AndAlso iCursorLine = z Then Canvas.Font.Underline = True: SelectObject(bufDC, This.Canvas.Font.Handle)
+								PaintText zz, i, *s, QavsBoshi - 1, j, Strings, , Strings.Bold, Strings.Italic, Strings.Underline Or bInIncludeFileRect And CBool(iCursorLine = z)
 							End If
-							j = j + 1
-						Loop
-						If iC > 0 Then
-							PaintText zz, i, *s, Max(0, IzohBoshi - 1), l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
-							'txtCode.SetSel IzohBoshi - 1, ss + l
-							'txtCode.SelColor = clGreen
-							'If i = EndLine Then k = txtCode.LinesCount
-						ElseIf bQ Then
-							'						If StringsBold Then Canvas.Font.Bold = True
-							'						If StringsItalic Then Canvas.Font.Italic = True
-							'						If StringsUnderline OrElse bInIncludeFileRect AndAlso iCursorLine = z Then Canvas.Font.Underline = True: SelectObject(bufDC, This.Canvas.Font.Handle)
-							PaintText zz, i, *s, QavsBoshi - 1, j, Strings, , Strings.Bold, Strings.Italic, Strings.Underline Or bInIncludeFileRect And CBool(iCursorLine = z)
-						End If
-						If CurExecutedLine <> i AndAlso OldExecutedLine <> i Then FECLine->EndsCompleted = True
+							If CurExecutedLine <> i AndAlso OldExecutedLine <> i Then FECLine->EndsCompleted = True
 						End If
 					End If
-					If zz = ActiveCodePane AndAlso CInt(HighlightCurrentLine) AndAlso CInt(CInt(z = FSelEndLine + 1) OrElse CInt(z = FSelEndLine)) Then ' AndAlso z = FLines.Count - 1
+					If zz = ActiveCodePane AndAlso CInt(HighlightCurrentLine) AndAlso CInt(CInt(z = FSelEndLine + 1) OrElse CInt(z = FSelEndLine)) Then ' AndAlso z = Content.Lines.Count - 1
 						Dim As ..Rect rec
 						If z = FSelEndLine + 1 Then
 							rec = Type(ScaleX(Max(-1, LeftMargin + -HScrollPos * dwCharX) + CodePaneX), ScaleY((i - VScrollPos - 1) * dwCharY + dwCharY + 1 + CodePaneY), ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, This.Width)), ScaleY((i - VScrollPos - 1) * dwCharY + dwCharY + 1 + CodePaneY))
@@ -3779,7 +4051,7 @@ Namespace My.Sys.Forms
 				#ifdef __USE_GTK__
 					cairo_set_source_rgb(cr, FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue)
 				#endif
-				If SyntaxEdit AndAlso Not CStyle Then
+				If SyntaxEdit AndAlso Not Content.CStyle Then
 					If ShowHorizontalSeparatorLines AndAlso CBool(FECLineNext <> 0) AndAlso FECLineNext->Visible AndAlso FECLineNext->Collapsible AndAlso CBool(FECLineNext->ConstructionIndex >= C_P_Region) Then
 						#ifdef __USE_GTK__
 							cairo_move_to(cr, LeftMargin - 0.5 + CodePaneX, (i + 1 - VScrollPos) * dwCharY - 0.5 + CodePaneY)
@@ -4140,10 +4412,10 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl._LoadFromHistory(ByRef HistoryItem As EditControlHistory Ptr, bToBack As Boolean, ByRef oldItem As EditControlHistory Ptr, bWithoutPaint As Boolean = False)
-		For i As Integer = FLines.Count - 1 To 0 Step -1
-			Delete_( Cast(EditControlLine Ptr, FLines.Items[i]))
+		For i As Integer = Content.Lines.Count - 1 To 0 Step -1
+			Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
 		Next i
-		FLines.Clear
+		Content.Lines.Clear
 		For i As Integer = 0 To HistoryItem->Lines.Count - 1
 			FECLine = New_( EditControlLine)
 			OlddwClientX = 0
@@ -4162,13 +4434,13 @@ Namespace My.Sys.Forms
 				FECLine->Collapsed = .Collapsed
 				FECLine->Visible = .Visible
 			End With
-			FLines.Add FECLine
+			Content.Lines.Add FECLine
 		Next i
-		If FLines.Count = 0 Then
+		If Content.Lines.Count = 0 Then
 			FECLine = New_( EditControlLine)
 			OlddwClientX = 0
 			WLet(FECLine->Text, "")
-			FLines.Add FECLine
+			Content.Lines.Add FECLine
 		End If
 		If bToBack Then
 			FSelStartLine = oldItem->OldSelStartLine
@@ -4223,7 +4495,7 @@ Namespace My.Sys.Forms
 	
 	Sub EditControl.WordLeft()
 		Dim f As Integer
-		Var item = Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))
+		Var item = Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))
 		If FSelEndChar = 0 Then
 			f = 1
 		Else
@@ -4231,7 +4503,7 @@ Namespace My.Sys.Forms
 		End If
 		Dim c As Integer, i As Integer, j As Integer, k As Integer
 		For i = FSelEndLine To 0 Step -1
-			item = Cast(EditControlLine Ptr, FLines.Item(i))
+			item = Cast(EditControlLine Ptr, Content.Lines.Item(i))
 			If i = FSelEndLine Then k = FSelEndChar Else k = Len(*item->Text)
 			For j = k - 1 To -1 Step -1
 				If j = -1 Then
@@ -4249,15 +4521,15 @@ Namespace My.Sys.Forms
 	
 	Sub EditControl.WordRight()
 		Dim f As Integer
-		Var item = Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))
+		Var item = Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))
 		If FSelEndChar = Len(*item->Text) Then
 			f = 1
 		Else
 			f = CharType(Mid(*item->Text, FSelEndChar + 1, 1))
 		End If
 		Dim c As Integer, i As Integer, j As Integer, k As Integer
-		For i = FSelEndLine To FLines.Count - 1
-			item = Cast(EditControlLine Ptr, FLines.Item(i))
+		For i = FSelEndLine To Content.Lines.Count - 1
+			item = Cast(EditControlLine Ptr, Content.Lines.Item(i))
 			If i = FSelEndLine Then k = FSelEndChar + 1 Else k = -1
 			For j = k To Len(*item->Text)
 				If j = -1 Then
@@ -4280,7 +4552,7 @@ Namespace My.Sys.Forms
 	Function EditControl.InCollapseRect(i As Integer, X As Integer, Y As Integer) As Boolean
 		Var CodePaneX = IIf(bDividedX AndAlso X > iDividedX, iDividedX + 7, 0)
 		Return CInt(X >= LeftMargin - 15 + CodePaneX AndAlso X <= LeftMargin - 6 + CodePaneX) AndAlso _
-		CInt(Cast(EditControlLine Ptr, FLines.Items[i])->Collapsible)
+		CInt(Cast(EditControlLine Ptr, Content.Lines.Items[i])->Collapsible)
 		'Y >= (i - VScrollPos) * dwCharY + 3 AndAlso Y <= (i - VScrollPos) * dwCharY + 12) AndAlso _
 	End Function
 	
@@ -4290,7 +4562,7 @@ Namespace My.Sys.Forms
 	End Function
 	
 	Function EditControl.InIncludeFileRect(i As Integer, X As Integer, Y As Integer) As Boolean
-		Dim As WString Ptr ECText = Cast(EditControlLine Ptr, FLines.Items[i])->Text
+		Dim As WString Ptr ECText = Cast(EditControlLine Ptr, Content.Lines.Items[i])->Text
 		Dim As Integer CodePane = IIf((bDividedX AndAlso X < iDividedX) OrElse (bDividedY AndAlso Y < iDividedY), 0, 1)
 		If StartsWith(LTrim(LCase(*ECText), Any !"\t "), "#include ") Then
 			Var CharIdx = CharIndexFromPoint(X, Y, CodePane)
@@ -4305,9 +4577,9 @@ Namespace My.Sys.Forms
 	
 	Function EditControl.GetLineIndex(Index As Integer, iTo As Integer = 0) As Integer
 		Var j = -1, iStep = IIf(iTo <= 0, -1, 1), k = Index
-		Var iEnd = IIf(iTo <= 0, 0, FLines.Count - 1)
+		Var iEnd = IIf(iTo <= 0, 0, Content.Lines.Count - 1)
 		For i As Integer = Index To iEnd Step iStep
-			If Cast(EditControlLine Ptr, FLines.Items[i])->Visible Then
+			If Cast(EditControlLine Ptr, Content.Lines.Items[i])->Visible Then
 				j = j + 1
 				k = i
 				If j = Abs(iTo) Then Return i
@@ -4321,6 +4593,7 @@ Namespace My.Sys.Forms
 		Var nCaretPosX = TextWidth(GetTabbedText(..Left(Lines(iSelEndLine), iSelEndChar)))
 		Var HCaretPos = LeftMargin + nCaretPosX - IIf(bDividedX AndAlso ActiveCodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso ActiveCodePane = 1, iDividedX + 7, 0)
 		Var VCaretPos = (nCaretPosY - IIf(ActiveCodePane = 0, VScrollPosTop, VScrollPosBottom) + 1) * dwCharY + IIf(bDividedY AndAlso ActiveCodePane = 1, iDividedY + 7, 0)
+		If DropDownShowed Then CloseDropDown
 		DropDownChar = iSelEndChar
 		DropDownShowed = True
 		#ifdef __USE_GTK__
@@ -4335,6 +4608,7 @@ Namespace My.Sys.Forms
 			If LastItemIndex = -1 Then cboIntellisense.ItemIndex = -1
 			ShowDropDownToolTipAt HCaretPos + 250, VCaretPos
 		#endif
+		If OnShowDropDown Then OnShowDropDown(This)
 	End Sub
 	
 	#ifdef __USE_WINAPI__
@@ -4511,6 +4785,7 @@ Namespace My.Sys.Forms
 			cboIntellisense.ShowDropDown False
 		#endif
 		CloseDropDownToolTip
+		If OnDropDownCloseUp Then OnDropDownCloseUp(This)
 	End Sub
 	
 	Sub EditControl.CloseDropDownToolTip()
@@ -4545,7 +4820,7 @@ Namespace My.Sys.Forms
 		#endif
 	End Sub
 	
-	Function GetKeyWordCase(ByRef KeyWord As String, KeyWordsList As WStringList Ptr = 0, OriginalCaseWord As String = "") As String
+	Function GetKeyWordCase(ByRef KeyWord As String, KeyWordsList As WStringOrStringList Ptr = 0, OriginalCaseWord As String = "") As String
 		If ChangeKeyWordsCase Then
 			Select Case ChoosedKeyWordsCase
 			Case KeyWordsCase.OriginalCase
@@ -4645,9 +4920,9 @@ Namespace My.Sys.Forms
 			Dim As Integer VScrollMax
 			Dim As Integer Ptr pVScrollPos, pHScrollPos
 			#ifdef __USE_WINAPI__
-			Dim As HWND sbScrollBarV, sbScrollBarH
+				Dim As HWND sbScrollBarV, sbScrollBarH
 			#else
-			Dim As GtkAdjustment Ptr adjustmentv, adjustmenth
+				Dim As GtkAdjustment Ptr adjustmentv, adjustmenth
 			#endif
 			If bShifted Then
 				VScrollMax = IIf(ActiveCodePane = 0, HScrollMaxLeft, HScrollMaxRight)
@@ -4810,9 +5085,9 @@ Namespace My.Sys.Forms
 									If FSelEndLine < FSelStartLine Then
 										'FSelStart = LineFromCharIndex(FSelStart)
 										'FSelStart = CharIndexFromLine(FSelStart) + LineLength(FSelStart)
-										FSelStartChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelStartLine))->Text)
+										FSelStartChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelStartLine))->Text)
 									Else
-										FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+										FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 									End If
 								End If
 							End If
@@ -4840,7 +5115,7 @@ Namespace My.Sys.Forms
 				poPoint.Y = psPoints.y
 				..ScreenToClient(Handle, @poPoint)
 				iCursorLine = LineIndexFromPoint(UnScaleX(poPoint.X), UnScaleY(poPoint.Y), IIf((bDividedY AndAlso UnScaleY(poPoint.Y) <= iDividedY) OrElse (bDividedX AndAlso UnScaleX(poPoint.X) <= iDividedX), 0, 1))
-				'If Cast(EditControlLine Ptr, FLines.Items[i])->Collapsible Then
+				'If Cast(EditControlLine Ptr, Content.Lines.Items[i])->Collapsible Then
 				'If p.X < LeftMargin AndAlso p.X > LeftMargin - 15 Then
 				If bDividedX AndAlso UnScaleX(poPoint.X) >= iDividedX AndAlso UnScaleX(poPoint.X) <= iDividedX + 7 Then
 					msg.Result = Cast(LRESULT, SetCursor(LoadCursor(NULL, IDC_SIZEWE)))
@@ -5040,7 +5315,7 @@ Namespace My.Sys.Forms
 				#else
 				Case VK_HOME
 				#endif
-				Dim As WString Ptr sTmpLine = Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text '
+				Dim As WString Ptr sTmpLine = Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text '
 				Dim As Integer lChar = Len(*sTmpLine) - Len(LTrim(*sTmpLine, Any !"\t ")) ' Skip the space oe TABs.
 				If FSelEndChar = lChar Then FSelEndChar = 0 Else FSelEndChar = lChar
 				If bCtrl Then FSelEndLine = 0
@@ -5056,8 +5331,8 @@ Namespace My.Sys.Forms
 				#else
 				Case VK_END
 				#endif
-				If bCtrl Then FSelEndLine = FLines.Count - 1
-				FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+				If bCtrl Then FSelEndLine = Content.Lines.Count - 1
+				FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 				If Not bShifted Then
 					FSelStartLine = FSelEndLine
 					FSelStartChar = FSelEndChar
@@ -5082,7 +5357,7 @@ Namespace My.Sys.Forms
 				If bShifted Then
 					CutToClipboard
 				Else
-					If FSelEndLine = FLines.Count - 1 And FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FLines.Count - 1))->Text) And FSelStartLine = FSelEndLine And FSelStartChar = FSelEndChar Then
+					If FSelEndLine = Content.Lines.Count - 1 And FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(Content.Lines.Count - 1))->Text) And FSelStartLine = FSelEndLine And FSelStartChar = FSelEndChar Then
 						Return
 					ElseIf FSelStartLine <> FSelEndLine Or FSelStartChar <> FSelEndChar Then
 						ChangeText "", 0, "Belgilangan matnni o`chirish"
@@ -5111,7 +5386,7 @@ Namespace My.Sys.Forms
 							ChangeText "", -d
 						Else
 							If FSelEndChar = 0 And FSelStartChar = 0 And FSelStartLine = FSelEndLine Then
-								If CInt(FSelEndLine > 0) AndAlso CInt(Not Cast(EditControlLine Ptr, FLines.Items[FSelEndLine - 1])->Visible) Then
+								If CInt(FSelEndLine > 0) AndAlso CInt(Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->Visible) Then
 									ShowLine FSelEndLine - 1
 								End If
 							End If
@@ -5156,7 +5431,7 @@ Namespace My.Sys.Forms
 					ScrollToCaret
 					OldnCaretPosX = nCaretPosX
 					OldCharIndex = GetOldCharIndex
-				ElseIf FSelEndChar < Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text) Or (FSelEndLine < FLines.Count - 1) Then
+				ElseIf FSelEndChar < Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text) Or (FSelEndLine < Content.Lines.Count - 1) Then
 					If CInt(bCtrl) Then
 						WordRight
 					Else
@@ -5193,7 +5468,7 @@ Namespace My.Sys.Forms
 				ElseIf bCtrl Then
 					Dim bFind As Boolean
 					For i As Integer = FSelEndLine - 1 To 1 Step -1
-						With *Cast(EditControlLine Ptr, FLines.Item(i - 1))
+						With *Cast(EditControlLine Ptr, Content.Lines.Item(i - 1))
 							If .ConstructionIndex > C_Enum AndAlso .ConstructionPart = 0 Then
 								FSelEndLine = i
 								'FSelEndChar = Len(*.Text)
@@ -5224,7 +5499,7 @@ Namespace My.Sys.Forms
 					If FSelEndLine > 0 Then
 						FSelEndLine = GetLineIndex(FSelEndLine, -1)
 						FSelEndChar = GetCharIndexFromOld
-						Var LengthOf = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+						Var LengthOf = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 						If FSelEndChar > LengthOf Then FSelEndChar = LengthOf
 					End If
 					If Not bShifted Then
@@ -5263,8 +5538,8 @@ Namespace My.Sys.Forms
 					#endif
 				ElseIf bCtrl Then
 					Dim bFind As Boolean
-					For i As Integer = FSelEndLine + 1 To GetLineIndex(FLines.Count - 1) - 1
-						With *Cast(EditControlLine Ptr, FLines.Item(i))
+					For i As Integer = FSelEndLine + 1 To GetLineIndex(Content.Lines.Count - 1) - 1
+						With *Cast(EditControlLine Ptr, Content.Lines.Item(i))
 							If .ConstructionIndex > C_Enum AndAlso .ConstructionPart = 0 Then
 								FSelEndLine = i + 1
 								'FSelEndChar = Len(*.Text)
@@ -5274,7 +5549,7 @@ Namespace My.Sys.Forms
 						End With
 					Next
 					If Not bFind Then
-						FSelEndLine = GetLineIndex(FLines.Count - 1)
+						FSelEndLine = GetLineIndex(Content.Lines.Count - 1)
 						'FSelEndChar = 0
 					End If
 					If Not bShifted Then
@@ -5283,9 +5558,9 @@ Namespace My.Sys.Forms
 					End If
 					This.TopLine = FSelEndLine - 1
 					ScrollToCaret
-				ElseIf FSelEndLine = GetLineIndex(FLines.Count - 1) Then
+				ElseIf FSelEndLine = GetLineIndex(Content.Lines.Count - 1) Then
 					If bShifted Then
-						Var LengthOf = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+						Var LengthOf = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 						FSelEndChar = LengthOf
 						ScrollToCaret
 					ElseIf FSelEndLine <> FSelStartLine Or FSelEndChar <> FSelStartChar Then
@@ -5293,10 +5568,10 @@ Namespace My.Sys.Forms
 						ScrollToCaret
 					End If
 				Else
-					If FSelEndLine < GetLineIndex(FLines.Count - 1) Then
+					If FSelEndLine < GetLineIndex(Content.Lines.Count - 1) Then
 						FSelEndLine = GetLineIndex(FSelEndLine, +1)
 						FSelEndChar = GetCharIndexFromOld
-						Var LengthOf = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+						Var LengthOf = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 						If FSelEndChar > LengthOf Then FSelEndChar = LengthOf
 					End If
 					If Not bShifted Then
@@ -5319,7 +5594,7 @@ Namespace My.Sys.Forms
 				ElseIf bCtrl Then
 					Dim bFind As Boolean
 					For i As Integer = FSelEndLine - 1 To 0 Step -1
-						With *Cast(EditControlLine Ptr, FLines.Item(i))
+						With *Cast(EditControlLine Ptr, Content.Lines.Item(i))
 							If .ConstructionIndex > C_Enum AndAlso .ConstructionPart = 0 Then
 								FSelEndLine = i
 								bFind = True
@@ -5363,8 +5638,8 @@ Namespace My.Sys.Forms
 					#endif
 				ElseIf bCtrl Then
 					Dim bFind As Boolean
-					For i As Integer = FSelEndLine + 1 To GetLineIndex(FLines.Count - 1)
-						With *Cast(EditControlLine Ptr, FLines.Item(i))
+					For i As Integer = FSelEndLine + 1 To GetLineIndex(Content.Lines.Count - 1)
+						With *Cast(EditControlLine Ptr, Content.Lines.Item(i))
 							If .ConstructionIndex > C_Enum AndAlso .ConstructionPart = 0 Then
 								FSelEndLine = i
 								bFind = True
@@ -5373,7 +5648,7 @@ Namespace My.Sys.Forms
 						End With
 					Next
 					If Not bFind Then
-						FSelEndLine = GetLineIndex(FLines.Count - 1)
+						FSelEndLine = GetLineIndex(Content.Lines.Count - 1)
 					End If
 					If Not bShifted Then
 						FSelStartLine = FSelEndLine
@@ -5381,8 +5656,8 @@ Namespace My.Sys.Forms
 					End If
 					This.TopLine = FSelEndLine
 					ScrollToCaret
-				ElseIf FSelEndLine > GetLineIndex(FLines.Count - 1, -VisibleLinesCount) Then
-					FSelEndLine = GetLineIndex(FLines.Count - 1)
+				ElseIf FSelEndLine > GetLineIndex(Content.Lines.Count - 1, -VisibleLinesCount) Then
+					FSelEndLine = GetLineIndex(Content.Lines.Count - 1)
 					FSelEndChar = LineLength(FSelEndLine)
 				Else
 					FSelEndLine = GetLineIndex(FSelEndLine, +VisibleLinesCount)
@@ -5476,7 +5751,7 @@ Namespace My.Sys.Forms
 						ChangeText "", -d
 					Else
 						If FSelEndChar = 0 And FSelStartChar = 0 And FSelStartLine = FSelEndLine Then
-							If CInt(FSelEndLine > 0) AndAlso CInt(Not Cast(EditControlLine Ptr, FLines.Items[FSelEndLine - 1])->Visible) Then
+							If CInt(FSelEndLine > 0) AndAlso CInt(Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->Visible) Then
 								ShowLine FSelEndLine - 1
 							End If
 						End If
@@ -5529,19 +5804,19 @@ Namespace My.Sys.Forms
 					#endif
 					Exit Sub
 				End If
-				If CInt(FSelEndLine = FSelStartLine) AndAlso CInt(FSelEndChar = FSelStartChar) AndAlso CInt(FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text)) Then
+				If CInt(FSelEndLine = FSelStartLine) AndAlso CInt(FSelEndChar = FSelStartChar) AndAlso CInt(FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text)) Then
 					Var iEndLine = GetLineIndex(FSelEndLine, 1)
-					If iEndLine = FSelEndLine Then FSelEndLine = FLines.Count - 1 Else FSelEndLine = iEndLine - 1
-					FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text)
+					If iEndLine = FSelEndLine Then FSelEndLine = Content.Lines.Count - 1 Else FSelEndLine = iEndLine - 1
+					FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text)
 					FSelStartLine = FSelEndLine
 					FSelStartChar = FSelEndChar
 				End If
-				WLet(FLine, ..Left(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text, FSelEndChar))
+				WLet(FLine, ..Left(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, FSelEndChar))
 				WLet(FLineLeft, "")
 				WLet(FLineRight, "")
 				WLet(FLineTemp, "")
 				Dim j As Integer = 0
-				Dim i As Integer = GetConstruction(RTrim(*FLine, Any !"\t "), j, , Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->InAsm)
+				Dim i As Integer = Content.GetConstruction(RTrim(*FLine, Any !"\t "), j, IIf(FSelEndLine <= 0, 0, Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->CommentIndex), Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->InAsm)
 				Var d = Len(*FLine) - Len(LTrim(*FLine, Any !"\t "))
 				WLet(FLineSpace, ..Left(*FLine, d))
 				Var k = 0
@@ -5551,7 +5826,7 @@ Namespace My.Sys.Forms
 					If j > 0 Then
 						Dim y As Integer
 						For o As Integer = FSelEndLine - 1 To 0 Step -1
-							With *Cast(EditControlLine Ptr, FLines.Items[o])
+							With *Cast(EditControlLine Ptr, Content.Lines.Items[o])
 								If .ConstructionIndex = i Then
 									If .ConstructionPart = 2 Then
 										y = y + 1
@@ -5564,7 +5839,7 @@ Namespace My.Sys.Forms
 												FSelEndChar = FSelEndChar - (Len(*FLineSpace) - d)
 												FSelStartChar = FSelEndChar
 												WLet(FLineSpace, ..Left(*.Text, d))
-												WLet(Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text, *FLineSpace & LTrim(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text, Any !"\t "))
+												WLet(Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, *FLineSpace & LTrim(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, Any !"\t "))
 											End If
 											Exit For
 										Else
@@ -5582,15 +5857,15 @@ Namespace My.Sys.Forms
 							k = 1
 						End If
 						If j = 0 Then
-							If FSelEndLine < FLines.Count - 1 Then WLetEx(FLineTemp, GetTabbedText(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine + 1])->Text), True)
+							If FSelEndLine < Content.Lines.Count - 1 Then WLetEx(FLineTemp, GetTabbedText(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine + 1])->Text), True)
 							Dim n As Integer
-							Dim m As Integer = GetConstruction(*FLineTemp, n, , Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->InAsm)
+							Dim m As Integer = Content.GetConstruction(*FLineTemp, n, IIf(FSelEndLine <= 0, 0, Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->CommentIndex), Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->InAsm)
 							Var e = Len(*FLineTemp) - Len(LTrim(*FLineTemp, Any !"\t "))
 							WLetEx(FLineTemp, GetTabbedText(*FLine), True)
 							Var r = Len(*FLineTemp) - Len(LTrim(*FLineTemp, Any !"\t "))
 							If e > r OrElse (e = r And m = i And n > 0) Then
 							Else
-								WLet(FLineTemp,  Mid(*Cast(EditControlLine Ptr, FLines.Items[FSelEndLine])->Text, FSelEndChar + 1))
+								WLet(FLineTemp,  Mid(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, FSelEndChar + 1))
 								WLet(FLineRight, LTrim(*FLineTemp, Any !"\t ") & Chr(13) & *FLineSpace & GetKeyWordCase(Constructions(i).EndName))
 								p = Len(*FLineTemp)
 							End If
@@ -5614,8 +5889,8 @@ Namespace My.Sys.Forms
 				'Var l = LineFromCharIndex(n)
 				'Var c = CharIndexFromLine(l)
 				'Var l1 = LineFromCharIndex(x)
-				'If l1 + 1 < FLines.Count Then
-				'    WLet FLineRight, *Cast(EditControlLine Ptr, FLines.Item(l1 + 1))->Text
+				'If l1 + 1 < Content.Lines.Count Then
+				'    WLet FLineRight, *Cast(EditControlLine Ptr, Content.Lines.Item(l1 + 1))->Text
 				'Else
 				'    WLet FLineRight, ""
 				'End If
@@ -5714,7 +5989,7 @@ Namespace My.Sys.Forms
 			End Select
 			#ifdef __USE_GTK__
 			End Select
-			Case GDK_KEY_RELEASE
+		Case GDK_KEY_RELEASE
 			bCtrl = msg.Event->key.state And GDK_CONTROL_MASK
 			bShifted = msg.Event->key.state And GDK_SHIFT_MASK
 			#else
@@ -5796,7 +6071,7 @@ Namespace My.Sys.Forms
 					FSelEndLine = FSelEndLine
 					FSelStartChar = 0
 					FSelEndChar = 0
-					FECLine = FLines.Items[FSelEndLine]
+					FECLine = Content.Lines.Items[FSelEndLine]
 					ChangeCollapseState FSelEndLine, Not FECLine->Collapsed
 					ScrollToCaret
 					OldnCaretPosX = nCaretPosX
@@ -5808,7 +6083,7 @@ Namespace My.Sys.Forms
 						FSelStartChar = FSelEndChar
 					End If
 					If X < LeftMargin Then
-						FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+						FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 					End If
 					If Not Focused Then This.SetFocus
 					ScrollToCaret
@@ -5849,19 +6124,21 @@ Namespace My.Sys.Forms
 				End If
 				PaintControl
 			End If
-			DownButton = -1
-			If bInIncludeFileRect Then
-				FECLine = FLines.Items[FSelEndLine]
-				Var Pos1 = InStr(*FECLine->Text, """")
-				If Pos1 > 0 Then
-					Var Pos2 = InStr(Pos1 + 1, *FECLine->Text, """")
-					If Pos2 > 0 Then
-						If OnLinkClicked Then OnLinkClicked(This, Mid(*FECLine->Text, Pos1 + 1, Pos2 - Pos1 - 1))
+			If DownButton <> -1 Then
+				If bInIncludeFileRect Then
+					FECLine = Content.Lines.Items[FSelEndLine]
+					Var Pos1 = InStr(*FECLine->Text, """")
+					If Pos1 > 0 Then
+						Var Pos2 = InStr(Pos1 + 1, *FECLine->Text, """")
+						If Pos2 > 0 Then
+							If OnLinkClicked Then OnLinkClicked(This, Mid(*FECLine->Text, Pos1 + 1, Pos2 - Pos1 - 1))
+						End If
 					End If
+				ElseIf InStartOfLine(FSelEndLine, X, y) AndAlso FSelEndLine = FSelStartLine Then
+					Breakpoint
 				End If
-			ElseIf InStartOfLine(FSelEndLine, X, y) AndAlso FSelEndLine = FSelStartLine Then
-				Breakpoint
 			End If
+			DownButton = -1
 			#ifdef __USE_GTK__
 			Case GDK_BUTTON_PRESS
 				'				gtk_widget_grab_focus(widget)
@@ -5945,9 +6222,9 @@ Namespace My.Sys.Forms
 					FSelEndChar = CharIndexFromPoint(UnScaleX(lParamLo), UnScaleY(lParamHi), ActiveCodePane)
 					If lParamLo < LeftMargin Then
 						If FSelEndLine < FSelStartLine Then
-							FSelStartChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelStartLine))->Text)
+							FSelStartChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelStartLine))->Text)
 						Else
-							FSelEndChar = Len(*Cast(EditControlLine Ptr, FLines.Item(FSelEndLine))->Text)
+							FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
 						End If
 					End If
 					ScrollToCaret
@@ -6387,7 +6664,7 @@ Namespace My.Sys.Forms
 		#endif
 		Var item = New_( EditControlLine)
 		WLet(item->Text, "")
-		FLines.Add item
+		Content.Lines.Add item
 		bOldCommented = True
 		ChangeText "", 0, "Bo`sh"
 		ShowHint = False
@@ -6405,8 +6682,8 @@ Namespace My.Sys.Forms
 		'If FText Then Deallocate FText
 		_ClearHistory
 		If CurEC = @This Then CurEC = 0
-		For i As Integer = FLines.Count - 1 To 0 Step -1
-			Delete_( Cast(EditControlLine Ptr, FLines.Items[i]))
+		For i As Integer = Content.Lines.Count - 1 To 0 Step -1
+			Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
 		Next i
 		#ifdef __USE_GTK__
 			lvIntellisense.ListItems.Clear
@@ -6423,6 +6700,7 @@ Namespace My.Sys.Forms
 		WDeAllocate(FLineSpace)
 		WDeAllocate(FHintWord)
 		WDeAllocate(CurrentFontName)
+		WDeAllocate(DropDownPath)
 	End Destructor
 	
 	Destructor TypeElement
@@ -6433,13 +6711,13 @@ End Namespace
 Sub LoadKeyWords
 	Dim b As String
 	Dim As UString file
-	Dim As WStringList Ptr keywordlist
+	Dim As WStringOrStringList Ptr keywordlist
 	Dim As Integer k = -1
 	file = Dir(ExePath & "/Settings/Keywords/*")
 	Do Until file = ""
 		k += 1
 		ReDim Preserve Keywords(k)
-		keywordlist = New_(WStringList)
+		keywordlist = New_(WStringOrStringList)
 		keywordlist->Sorted = True
 		KeywordLists.Add file, keywordlist
 		If Trim(file) = "Asm" Then

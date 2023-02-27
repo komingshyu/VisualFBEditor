@@ -90,11 +90,15 @@ Type ProjectElement Extends ExplorerElement
 	AndroidSDKLocation As WString Ptr
 	AndroidNDKLocation As WString Ptr
 	JDKLocation As WString Ptr
+	bQuitThread As Boolean
 	LastThread As Any Ptr
 	Files As WStringList
+	Files_ As WStringList
+	Contents As List
 	Components As WStringList
 	IncludePaths As WStringList
 	LibraryPaths As WStringList
+	Globals As GlobalTypeElements
 	Declare Constructor
 	Declare Destructor
 End Type
@@ -163,18 +167,17 @@ Private:
 	Declare Function SaveTab As Boolean
 	Declare Static Sub HandleIsAllocated(ByRef Sender As Control)
 Public:
-	Dim As String KeyWord, Matn, MatnLCase, OldMatnLCase, MatnLCaseWithoutOldSymbol, MatnWithoutOldSymbol, OriginalCaseWord, TypeName1
 	Declare Sub ProcessMessage(ByRef msg As Message)
 	AnyTexts As WStringList
 	Events As Dictionary
 	Declare Sub CheckExtension(ByRef FileName As WString)
 	Declare Sub FillProperties(ByRef ClassName As WString)
 	Declare Function FindControlIndex(ArgName As String) As Integer
-	Declare Function FillIntellisense(ByRef ClassName As WString, pComps As WStringList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False) As Boolean
+	Declare Function FillIntellisense(ByRef ClassName As WString, ByRef FromClassName As WString, pComps As WStringOrStringList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, tb As TabWindow Ptr = 0) As Boolean
 	Declare Sub SetGraphicProperty(Ctrl As Any Ptr, PropertyName As String, TypeName As String, ByRef ResName As WString)
 	Dim IsNew As Boolean
 	Dim bNotDesign As Boolean
-	Dim bExternalIncludesLoaded As Boolean
+	'Dim bExternalIncludesLoaded As Boolean
 	Dim As Integer ConstructorStart, ConstructorEnd, lvPropertyWidth, FindFormPosiLeft, FindFormPosiTop, RightSelectedIndex
 	ptn As TreeNode Ptr
 	tn As TreeNode Ptr
@@ -182,9 +185,9 @@ Public:
 	bQuitThread As Boolean
 	LastThread As Any Ptr
 	Project As ProjectElement Ptr
-	CheckedFiles As WStringList
-	OldIncludes As WStringList
-	OldIncludeLines As IntegerList
+	'CheckedFiles As WStringList
+	'OldIncludes As WStringList
+	'OldIncludeLines As IntegerList
 	DownLine As Integer
 	DownLineSelStart As Integer
 	DownLineSelEnd As Integer
@@ -248,14 +251,16 @@ Public:
 	Declare Sub Indent
 	Declare Sub Outdent
 	Declare Sub Define
-	Declare Sub GetIncludeFiles
 	Declare Sub FormDesign(NotForms As Boolean = False)
-	Declare Sub QuitThread
-	Declare Sub SetLastThread(ThreadID As Any Ptr)
-	Declare Function GetLastThread As Any Ptr
 	Declare Constructor(ByRef wFileName As WString = "", bNewForm As Boolean = False, TreeN As TreeNode Ptr = 0)
 	Declare Destructor
 End Type
+
+Declare Sub QuitThread(Project As ProjectElement Ptr, tb As TabWindow Ptr)
+Declare Sub SetLastThread(Project As ProjectElement Ptr, tb As TabWindow Ptr, ThreadID As Any Ptr)
+Declare Sub SetQuitThread(Project As ProjectElement Ptr, tb As TabWindow Ptr, Value As Boolean)
+Declare Function GetLastThread(Project As ProjectElement Ptr, tb As TabWindow Ptr) As Any Ptr
+Declare Function GetQuitThread(Project As ProjectElement Ptr, tb As TabWindow Ptr) As Boolean
 
 Common Shared As PopupMenu Ptr pmnuCode
 
@@ -349,6 +354,7 @@ Declare Sub DesignerDblClickControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 Declare Sub DesignerClickProperties(ByRef Sender As Designer, Ctrl As Any Ptr)
 
 Common Shared As Integer SelLinePos, SelCharPos
+
 #ifdef __USE_GTK__
 	Declare Sub lvIntellisense_ItemActivate(ByRef Sender As ListView, ByVal ItemIndex As Integer)
 #else
@@ -394,13 +400,15 @@ Declare Sub PipeCmd(ByRef file As WString, ByRef cmd As WString)
 	Declare Function build_create_shellscript(ByRef working_dir As WString, ByRef cmd As WString, autoclose As Boolean, debug As Boolean = False, ByRef Arguments As WString = "") As String
 #endif
 
+Declare Sub GetIncludeFiles(ByRef Content As EditControlContent, Project As ProjectElement Ptr)
+
 Declare Function GetIconName(ByRef FileName As WString, ppe As ProjectElement Ptr = 0) As String
 
 Declare Function GetFirstCompileLine(ByRef FileName As WString, ByRef Project As ProjectElement Ptr, CompileLine As UString, ForWindows As Boolean = False) As UString
 
 Declare Function GetParentNode(tn As TreeNode Ptr) As TreeNode Ptr
 
-Declare Function GetMainFile(bSaveTab As Boolean = False, ByRef Project As ProjectElement Ptr = 0, ByRef ProjectNode As TreeNode Ptr = 0, WithoutMainNode As Boolean = False) As UString
+Declare Function GetMainFile(bSaveTab As Boolean = False, ByRef Project As ProjectElement Ptr = 0, ByRef ProjectNode As TreeNode Ptr = 0, WithoutMainNode As Boolean = False, FromProject As Boolean = False) As UString
 
 Declare Function GetResourceFile(WithoutMainNode As Boolean = False, ByRef FirstLine As WString = "") As UString
 

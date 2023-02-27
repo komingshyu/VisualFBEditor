@@ -6,6 +6,7 @@
 			#cmdline "FileSync.rc"
 		#endif
 	#endif
+	#include once "mff/Form.bi"
 	#include once "mff/TextBox.bi"
 	#include once "mff/CommandButton.bi"
 	#include once "mff/Panel.bi"
@@ -20,7 +21,6 @@
 	#include once "mff/Chart.bi"
 	#include once "mff/GroupBox.bi"
 	#include once "mff/Dialogs.bi"
-	#include once "mff/Form.bi"
 	
 	#include once "ITL3.bi"
 	#include once "TimeMeter.bi"
@@ -508,10 +508,10 @@
 			.Name = "cmdBPath"
 			.Text = "B"
 			.TabIndex = 28
-			.ControlIndex = 2
-			.SetBounds 10, 50, 30, 22
+			.ControlIndex = 10
+			.SetBounds 0, 40, 30, 22
 			.Designer = @This
-			.Parent = @This
+			.Parent = @Panel2
 		End With
 	End Constructor
 	

@@ -3494,7 +3494,7 @@ Const WTCHALL=9999999
 'End Type
 'Dim Shared arr(ARRMAX) As tarr,arrnb As Integer
 'var =============================
-Const VARMAX=20000 'CAUTION 3000 elements taken for globals
+'Const VARMAX=20000 'CAUTION 3000 elements taken for globals
 Const VGBLMAX=3000 'max globals
 Const KBLOCKIDX=100 'max displayed lines inside index selection
 'Type tvrb
@@ -5956,8 +5956,12 @@ End Sub
 '' --------------------------------------------------------
 Private Sub dbg_include(strg As String)
 	Dim As Integer temp
-	If InStr(strg,Any "/\")=0 Then ''just the name no path
-		strg=Left(source(0),InStrRev(source(0),Any "/\"))+strg ''adding path
+	If InStr(strg, Any "/\") = 0 Then ''just the name no path Then
+		Dim As ProjectElement Ptr Project
+		Dim As TreeNode Ptr ProjectNode
+		Dim As UString MainFile = GetMainFile(False, Project, ProjectNode)
+		strg = Left(MainFile, InStrRev(MainFile, Any "/\")) + strg ''adding path
+		'strg=Left(source(0),InStrRev(source(0),Any "/\"))+strg ''adding path
 	End If
 	#ifdef __FB_WIN32__
 		strg=LCase(strg) ''only WDS file names are sensitive on LNX
@@ -6813,7 +6817,7 @@ End Function
 Private Function var_sh2(t As Integer,pany As UInteger,p As UByte = 0,sOffset As String = "") As String
 	Dim adr As UInteger,varlib As String
 	Union pointers
-		#if __FB64BIT__ '25/07/2015
+		#ifdef __FB_64BIT__  '25/07/2015
 			pinteger As Long Ptr
 			puinteger As ULong Ptr
 		#else
@@ -7561,8 +7565,8 @@ Sub brk_apply
 			tb = Cast(TabWindow Ptr, ptabCode->Tabs[i])
 			For j As Integer = 0 To sourcenb
 				If EqualPaths(source(j), tb->FileName) Then
-					For s As Integer = 0 To tb->txtCode.FLines.Count - 1
-						If Not (CInt(RunningToCursor AndAlso curtb = tb AndAlso s = FSelEndLine) OrElse CInt(Cast(EditControlLine Ptr, tb->txtCode.FLines.Items[s])->Breakpoint)) Then Continue For
+					For s As Integer = 0 To tb->txtCode.Content.Lines.Count - 1
+						If Not (CInt(RunningToCursor AndAlso curtb = tb AndAlso s = FSelEndLine) OrElse CInt(Cast(EditControlLine Ptr, tb->txtCode.Content.Lines.Items[s])->Breakpoint)) Then Continue For
 						For k As Integer = 1 To linenb
 							If rline(k).nu=s+1 AndAlso rline(k).sx=j Then 'searching index in rline Then
 								If RunningToCursor Then
@@ -14159,7 +14163,7 @@ End Function
 		'
 		'	Next
 		
-		If Cast(EditControlLine Ptr, tb->txtCode.FLines.Items[iSelEndLine])->Breakpoint Then
+		If Cast(EditControlLine Ptr, tb->txtCode.Content.Lines.Items[iSelEndLine])->Breakpoint Then
 			
 			If Not Temporary Then
 				
@@ -14317,7 +14321,7 @@ End Function
 			
 			'If runtype = RTSTEP Then
 			
-			Writepipe(!"b 1\n")
+			writepipe(!"b 1\n")
 			
 			readpipe()
 			
@@ -14328,7 +14332,7 @@ End Function
 				If tb <> 0 Then
 					Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 					tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-					Writepipe("tbreak """ & Replace(tb->FileName, "\", "/") & """:" & Str(iSelEndLine + 1) & !"\n")
+					writepipe("tbreak """ & Replace(tb->FileName, "\", "/") & """:" & Str(iSelEndLine + 1) & !"\n")
 					readpipe()
 				End If
 				RunningToCursor = False
@@ -14339,10 +14343,10 @@ End Function
 				Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
 				For i As Integer = 0 To ptabCode->TabCount - 1
 					tb = Cast(TabWindow Ptr, ptabCode->Tabs[i])
-					For j As Integer = 0 To tb->txtCode.FLines.Count - 1
-						If Not Cast(EditControlLine Ptr, tb->txtCode.FLines.Items[j])->Breakpoint Then Continue For
+					For j As Integer = 0 To tb->txtCode.Content.Lines.Count - 1
+						If Not Cast(EditControlLine Ptr, tb->txtCode.Content.Lines.Items[j])->Breakpoint Then Continue For
 						
-						Writepipe(!"break """ & Replace(tb->FileName, "\", "/") & """:" & WStr(j + 1) & !"\n")
+						writepipe(!"break """ & Replace(tb->FileName, "\", "/") & """:" & WStr(j + 1) & !"\n")
 						readpipe()
 					Next
 				Next i
@@ -14825,8 +14829,8 @@ Sub RunWithDebug(Param As Any Ptr)
 			Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(jj))->tabCode
 			For i As Integer = 0 To ptabCode->TabCount - 1
 				tb = Cast(TabWindow Ptr, ptabCode->Tabs[i])
-				For j As Integer = 0 To tb->txtCode.FLines.Count - 1
-					If Not Cast(EditControlLine Ptr, tb->txtCode.FLines.Items[j])->Breakpoint Then Continue For
+				For j As Integer = 0 To tb->txtCode.Content.Lines.Count - 1
+					If Not Cast(EditControlLine Ptr, tb->txtCode.Content.Lines.Items[j])->Breakpoint Then Continue For
 					Print #Fn, "b """ & Replace(tb->FileName, "\", "/") & """:" & WStr(j + 1)
 				Next
 			Next i

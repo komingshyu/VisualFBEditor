@@ -71,7 +71,7 @@ Dim Shared As MenuItem Ptr miNumbering, miMacroNumbering, miRemoveNumbering, miP
 Dim Shared As MenuItem Ptr dmiNumbering, dmiMacroNumbering, dmiRemoveNumbering, dmiProcedureNumbering, dmiProcedureMacroNumbering, dmiRemoveProcedureNumbering, dmiProjectMacroNumbering, dmiProjectMacroNumberingStartsOfProcedures, dmiRemoveProjectNumbering, dmiPreprocessorNumbering, dmiRemovePreprocessorNumbering, dmiProjectPreprocessorNumbering, dmiRemoveProjectPreprocessorNumbering, dmiOnErrorResumeNext, dmiOnErrorGoto, dmiOnErrorGotoResumeNext, dmiOnLocalErrorGoto, dmiOnLocalErrorGotoResumeNext, dmiRemoveErrorHandling, dmiMake, dmiMakeClean
 Dim Shared As MenuItem Ptr miCode, miForm, miCodeAndForm, miCollapseCurrent, miCollapseAllProcedures, miCollapseAll, miUnCollapseCurrent, miUnCollapseAllProcedures, miUnCollapseAll, miImageManager, miAddProcedure, miFind, miReplace, miFindNext, miFindPrevious, miGoto, miDefine, miToggleBookmark, miNextBookmark, miPreviousBookmark, miClearAllBookmarks, miSyntaxCheck, miCompile, miCompileAll, miBuildBundle, miBuildAPK, miGenerateSignedBundle, miGenerateSignedAPK, miMake, miMakeClean
 Dim Shared As MenuItem Ptr miShowWithFolders, miShowWithoutFolders, miShowAsFolder
-Dim Shared As ToolButton Ptr tbtSave, tbtSaveAll, tbtSyntaxCheck, tbtCompile, tbtUndo, tbtRedo, tbtCut, tbtCopy, tbtPaste, tbtSingleComment, tbtUncommentBlock, tbtFormat, tbtUnformat, tbtCompleteWord, tbtParameterInfo, tbtFind, tbtRemoveFileFromProject, tbtStartWithCompile, tbtStart, tbtBreak, tbtEnd, tbt32Bit, tbt64Bit, tbtUseDebugger, tbtNotSetted, tbtConsole, tbtGUI
+Dim Shared As ToolButton Ptr tbtSave, tbtSaveAll, tbtSyntaxCheck, tbtSuggestions, tbtCompile, tbtUndo, tbtRedo, tbtCut, tbtCopy, tbtPaste, tbtSingleComment, tbtUncommentBlock, tbtFormat, tbtUnformat, tbtCompleteWord, tbtParameterInfo, tbtFind, tbtRemoveFileFromProject, tbtStartWithCompile, tbtStart, tbtBreak, tbtEnd, tbt32Bit, tbt64Bit, tbtUseDebugger, tbtNotSetted, tbtConsole, tbtGUI
 Dim Shared As SaveFileDialog SaveD
 Dim Shared As ReBar MainReBar
 #ifndef __USE_GTK__
@@ -82,7 +82,8 @@ Dim Shared As ReBar MainReBar
 	Dim Shared As My.Sys.ComponentModel.Printer pPrinter
 #endif
 Dim Shared As List Tools, TabPanels, ControlLibraries
-Dim Shared As WStringList GlobalNamespaces, Comps, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalFunctionsHelp, GlobalArgs, AddIns, IncludeFiles, LoadPaths, IncludePaths, LibraryPaths, MRUFiles, MRUFolders, MRUProjects, MRUSessions ' add Sessions
+Dim Shared As WStringOrStringList GlobalNamespaces, Comps, GlobalTypes, GlobalEnums, GlobalDefines, GlobalFunctions, GlobalTypeProcedures, GlobalFunctionsHelp, GlobalArgs
+Dim Shared As WStringList AddIns, IncludeFiles, LoadPaths, IncludePaths, LibraryPaths, MRUFiles, MRUFolders, MRUProjects, MRUSessions ' add Sessions
 Dim Shared As WString Ptr RecentFiles, RecentFile, RecentProject, RecentFolder, RecentSession '
 Dim Shared As Dictionary Helps, HotKeys, Compilers, MakeTools, Debuggers, Terminals, OtherEditors, mlKeys, mlCompiler, mlTemplates, mpKeys, mcKeys
 Dim Shared As ListView lvProblems, lvSuggestions, lvSearch, lvToDo, lvMemory
@@ -113,6 +114,7 @@ pComps = @Comps
 pGlobalNamespaces = @GlobalNamespaces
 pGlobalTypes = @GlobalTypes
 pGlobalEnums = @GlobalEnums
+pGlobalDefines = @GlobalDefines
 pGlobalFunctions = @GlobalFunctions
 pGlobalTypeProcedures = @GlobalTypeProcedures
 pGlobalArgs = @GlobalArgs
@@ -149,7 +151,9 @@ IncludePaths.Sorted = True
 GlobalNamespaces.Sorted = True
 Comps.Sorted = True
 GlobalTypes.Sorted = True
+GlobalTypeProcedures.Sorted = True
 GlobalEnums.Sorted = True
+GlobalDefines.Sorted = True
 GlobalFunctions.Sorted = True
 GlobalFunctionsHelp.Sorted = True
 GlobalArgs.Sorted = True
@@ -1572,10 +1576,11 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 						End If
 					End If
 					If EndsWith(*ee->FileName, ".bas") OrElse EndsWith(*ee->FileName, ".frm") OrElse EndsWith(*ee->FileName, ".bi") OrElse EndsWith(*ee->FileName, ".inc") Then
-						pFiles->Add *ee->FileName
+						pFiles->Add *ee->FileName, ppe
 						If Not LoadPaths.Contains(*ee->FileName) Then LoadPaths.Add *ee->FileName
 						ThreadCounter(ThreadCreate_(@LoadOnlyFilePath, @LoadPaths.Item(LoadPaths.IndexOf(*ee->FileName))))
 					End If
+					ppe->Files_.Add *ee->FileName
 					If inFolder Then
 						ppe->Files.Add *ee->FileName
 						Delete_( ee)
@@ -1710,6 +1715,17 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 			For i As Integer = 0 To pFiles->Count - 1
 				ThreadCounter(ThreadCreate_(@LoadOnlyIncludeFiles, @LoadPaths.Item(LoadPaths.IndexOf(pFiles->Item(i)))))
 			Next
+			If ProjectAutoSuggestions Then
+				For i As Integer = 0 To pFiles->Count - 1
+					Var ecc = New_(EditControlContent)
+					ecc->FileName = pFiles->Item(i)
+					ecc->Globals = @Cast(ProjectElement Ptr, pFiles->Object(i))->Globals
+					ecc->Tag = pFiles->Object(i)
+					Cast(ProjectElement Ptr, pFiles->Object(i))->Contents.Add ecc
+					If Not LoadPaths.Contains(pFiles->Item(i)) Then LoadPaths.Add pFiles->Item(i)
+					ThreadCounter(ThreadCreate_(@LoadOnlyFilePathOverwriteWithContent, ecc))
+				Next
+			End If
 		End If
 	End If
 	If Not inFolder Then
@@ -1806,6 +1822,17 @@ Function AddSession(ByRef FileName As WString) As Boolean
 		For i As Integer = 0 To Files.Count - 1
 			ThreadCounter(ThreadCreate_(@LoadOnlyIncludeFiles, @LoadPaths.Item(LoadPaths.IndexOf(Files.Item(i)))))
 		Next
+		If ProjectAutoSuggestions Then
+			For i As Integer = 0 To Files.Count - 1
+				Var ecc = New_(EditControlContent)
+				ecc->FileName = Files.Item(i)
+				ecc->Globals = @Cast(ProjectElement Ptr, Files.Object(i))->Globals
+				ecc->Tag = Files.Object(i)
+				Cast(ProjectElement Ptr, Files.Object(i))->Contents.Add ecc
+				If Not LoadPaths.Contains(Files.Item(i)) Then LoadPaths.Add Files.Item(i)
+				ThreadCounter(ThreadCreate_(@LoadOnlyFilePathOverwriteWithContent, ecc))
+			Next
+		End If
 		CloseFile_(Fn)
 		Return True
 	End If
@@ -2902,9 +2929,9 @@ Sub NextBookmark(iTo As Integer = 1)
 			txt = @Cast(TabWindow Ptr, ptabCode->Tabs[j])->txtCode
 			If iTo = 1 Then
 				iStartLine = 0
-				iEndLine = txt->FLines.Count - 1
+				iEndLine = txt->Content.Lines.Count - 1
 			Else
-				iStartLine = txt->FLines.Count - 1
+				iStartLine = txt->Content.Lines.Count - 1
 				iEndLine = 0
 			End If
 			If k = 1 AndAlso j = CurTabIndex Then
@@ -2914,7 +2941,7 @@ Sub NextBookmark(iTo As Integer = 1)
 				n = iStartLine
 			End If
 			For i = n To iEndLine Step iTo
-				FECLine = txt->FLines.Items[i]
+				FECLine = txt->Content.Lines.Items[i]
 				If FECLine->Bookmark Then
 					ptabCode->Tabs[j]->SelectTab
 					txt->SetSelection i, i, 0, 0
@@ -3396,18 +3423,20 @@ Function GetRelative(ByRef FileName As WString, ByRef FromFile As WString) As US
 	End If
 End Function
 
-Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAndIncludeFiles, ByRef Types As WStringList, ByRef Enums As WStringList, ByRef Functions As WStringList, ByRef TypeProcedures As WStringList, ByRef Args As WStringList, ec As Control Ptr = 0, CtlLibrary As Library Ptr = 0, OldFile As FileType Ptr = 0)
+Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAndIncludeFiles, ByRef Types As WStringOrStringList, ByRef Enums As WStringOrStringList, ByRef Functions As WStringOrStringList, ByRef TypeProcedures As WStringOrStringList, ByRef Args As WStringOrStringList, ec As Control Ptr = 0, CtlLibrary As Library Ptr = 0, CurFileItem As Any Ptr = 0, OldFileItem As Any Ptr = 0)
 	If FormClosing Then Exit Sub
-	Dim As FileType Ptr File
+	Dim As EditControlContent Ptr File = CurFileItem, OldFile = OldFileItem
 	MutexLock tlockSave 'If LoadParameter <> LoadParam.OnlyFilePathOverwrite Then
-	If LoadParameter <> LoadParam.OnlyIncludeFiles AndAlso LoadParameter <> LoadParam.OnlyFilePathOverwrite Then
+	If LoadParameter <> LoadParam.OnlyIncludeFiles AndAlso LoadParameter <> LoadParam.OnlyFilePathOverwrite AndAlso LoadParameter <> LoadParam.OnlyFilePathOverwriteWithContent Then
 		If ec = 0 Then
 			If IncludeFiles.Contains(Path) Then
 				MutexUnlock tlockSave
 				Exit Sub
 			Else
-				File = New_(FileType)
-				File->FileName = Path
+				If File = 0 Then
+					File = New_(EditControlContent)
+					File->FileName = Path
+				End If
 				IncludeFiles.Add Path, File
 			End If
 		End If
@@ -3418,22 +3447,23 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 			#endif
 		End If
 	End If
+	Var Idx = -1
 	If File = 0 Then
-		Var Idx = -1
 		If IncludeFiles.Contains(Path, , , , Idx) Then
 			File = IncludeFiles.Object(Idx)
 			If File = 0 Then
-				File = New_(FileType)
+				File = New_(EditControlContent)
 				File->FileName = Path
 				IncludeFiles.Object(Idx) = File
 			End If
 		Else
-			File = New_(FileType)
+			File = New_(EditControlContent)
 			File->FileName = Path
 			IncludeFiles.Add Path, File
 		End If
+	'ElseIf CurFileItem <> 0 AndAlso IncludeFiles.Contains(Path, , , , Idx) Then
+	'	IncludeFiles.Object(Idx) = CurFileItem
 	End If
-	Var Idx = -1
 	If OldFile <> 0 AndAlso OldFile->Includes.Contains(Path, , , , Idx) Then
 		OldFile->Includes.Object(Idx) = File
 	End If
@@ -3442,14 +3472,15 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 	'	#endif
 	Dim As UString b1, Comment, PathFunction, LoadFunctionPath
 	Dim As String t, e, tOrig, bt
-	Dim As Integer Pos1, Pos2, Pos3, Pos4, Pos5, l, n, nc, Index, iStart
+	Dim As Integer Pos1, Pos2, Pos3, Pos4, Pos5, l, n, nc, Index, iStart, i, j, iC, OldiC
 	Dim As TypeElement Ptr te, tbi, typ, lastfunctionte
-	Dim As Boolean inType, inUnion, inEnum, InFunc, InNamespace
+	Dim As Boolean inType, inUnion, inEnum, InFunc, InNamespace, InAsm
 	Dim As Boolean bTypeIsPointer
 	Dim As Integer inPubProPri = 0
 	Dim As Integer Result
 	Dim As WString * 2048 bTrim, bTrimLCase
 	Dim b As WString * 2048 ' for V1.07 Line Input not working fine
+	Dim As EditControlLine Ptr FECLine
 	Dim As Integer LastIndexFunction
 	Dim As WStringList Lines, Namespaces
 	PathFunction = Path
@@ -3469,10 +3500,33 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 			inType = False
 			Do Until EOF(ff)
 				Line Input #ff, b
-				Lines.Add b
+				If LoadParameter = LoadParam.OnlyFilePathOverwriteWithContent Then
+					FECLine = New_( EditControlLine)
+					WLet(FECLine->Text, b)
+					iC = FindCommentIndex(b, OldiC)
+					FECLine->CommentIndex = iC
+					FECLine->InAsm = InAsm
+					i = File->GetConstruction(*FECLine->Text, j, OldiC, InAsm)
+					FECLine->ConstructionIndex = i
+					FECLine->ConstructionPart = j
+					If FECLine->ConstructionIndex = C_Asm Then
+						InAsm = FECLine->ConstructionPart = 0
+					End If
+					FECLine->InAsm = InAsm
+					OldiC = iC
+					i += 1
+					File->Lines.Add(FECLine)
+				Else
+					Lines.Add b
+				End If
 			Loop
 		End If
 		CloseFile_(ff)
+	End If
+	If LoadParameter = LoadParam.OnlyFilePathOverwriteWithContent Then
+		LoadFunctionsWithContent Path, File->Tag, *File
+		MutexUnlock tlockSave
+		Exit Sub
 	End If
 	For i As Integer = 0 To Lines.Count - 1
 		b1 = Replace(Lines.Item(i), !"\t", " ")
@@ -3532,8 +3586,14 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							t = Trim(Mid(bTrim, Pos1 + Pos5, Pos2 - Pos1 - Pos5))
 							e = Trim(Mid(bTrim, Pos2 + 9))
 						ElseIf Pos3 > 0 Then
+							If Trim(Left(LCase(bTrim), Pos3)) = "type" Then  'Like "Type As    Short gint16, gshort, gunichar2"
+								b = Trim(Mid(bTrim, Pos3 + 3)) : Pos5 = InStr(b, " ")
+								t = Trim(Left(b, Pos5))
+								e = ""
+							Else
 							t = Trim(Mid(bTrim, Pos1 + Pos5, Pos3 - Pos1 - Pos5))
 							e = Trim(Mid(bTrim, Pos3 + 4))
+							End If 
 						Else
 							Pos2 = InStr(Pos1 + Pos5, bTrim, " ")
 							If Pos2 > 0 Then
@@ -3549,36 +3609,38 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						End If
 						bTypeIsPointer = EndsWith(LCase(e), " ptr") OrElse EndsWith(LCase(e), " pointer")
 						e = WithoutPointers(e)
-						If Not Types.Contains(t) Then
-							tOrig = t
-							If t = "Object" And e = "Object" Then
-								t = "My.Sys.Object"
-								e = ""
-							End If
-							inType = Pos3 = 0
-							inPubProPri = 0
+						tOrig = t
+						If t = "Object" And e = "Object" Then
+							t = "My.Sys.Object"
+							e = ""
+						End If
+						inType = Pos3 = 0
+						inPubProPri = 0
+						If Types.Contains(t, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->FileName = PathFunction Then
+							tbi = Types.Object(Idx)
+						Else
 							tbi = New_( TypeElement)
-							tbi->Name = t
-							tbi->DisplayName = t & IIf(Pos5 = 5, " [Type]", " [Class]")
-							tbi->TypeIsPointer = bTypeIsPointer
-							tbi->TypeName = e
-							tbi->ElementType = IIf(Pos3 > 0, "TypeCopy", "Type")
-							tbi->StartLine = i
-							tbi->FileName = PathFunction
-							If CtlLibrary Then tbi->IncludeFile = Replace(GetRelative(PathFunction, CtlLibrary->IncludeFolder), "\", "/")
-							tbi->Parameters = Trim(Mid(bTrim, Pos1 + Pos5))
-							tbi->Tag = CtlLibrary
-							Types.Add t, tbi
-							typ = tbi
-							If Namespaces.Count > 0 Then
-								Index = GlobalNamespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-								If Index > -1 Then Cast(TypeElement Ptr, GlobalNamespaces.Object(Index))->Elements.Add tOrig, tbi
-							End If
+						End If
+						tbi->Name = t
+						tbi->DisplayName = t & IIf(Pos5 = 5, " [Type]", " [Class]")
+						tbi->TypeIsPointer = bTypeIsPointer
+						tbi->TypeName = e
+						tbi->ElementType = IIf(Pos3 > 0, "TypeCopy", "Type")
+						tbi->StartLine = i
+						tbi->FileName = PathFunction
+						If CtlLibrary Then tbi->IncludeFile = Replace(GetRelative(PathFunction, CtlLibrary->IncludeFolder), "\", "/")
+						tbi->Parameters = Trim(Mid(bTrim, Pos1 + Pos5))
+						tbi->Tag = CtlLibrary
+						Types.Add t, tbi
+						typ = tbi
+						If Namespaces.Count > 0 Then
+							Index = GlobalNamespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+							If Index > -1 Then Cast(TypeElement Ptr, GlobalNamespaces.Object(Index))->Elements.Add tOrig, tbi
 						End If
 					End If
 				ElseIf StartsWith(bTrimLCase & " ", "end type ") OrElse StartsWith(bTrimLCase & " ", "end class ") OrElse StartsWith(bTrimLCase & " ", "__startofclassbody__ ") Then
 					inType = False
-				ElseIf CInt(StartsWith(bTrimLCase, "union ")) Then
+				ElseIf StartsWith(bTrimLCase, "union ") Then
 					inUnion = True
 					t = Trim(Mid(bTrim, 7))
 					Pos2 = InStr(t, "'")
@@ -3601,31 +3663,33 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 				ElseIf CInt(StartsWith(bTrimLCase, "end union")) Then
 					inUnion = False
 				ElseIf StartsWith(bTrimLCase & " ", "#define ") Then
-					Pos1 = InStr(9, bTrim, " ")
-					Pos2 = InStr(9, bTrim, "(")
-					Pos3 = InStr(9, bTrim, ")")
+					Dim As UString b2 = Trim(Mid(bTrim, 9))
+					Pos1 = InStr(b2, " ")
+					Pos2 = InStr(b2, "(")
+					Pos3 = InStr(b2, ")")
 					If Pos2 > 0 AndAlso (Pos2 < Pos1 OrElse Pos1 = 0) Then Pos1 = Pos2
 					te = New_( TypeElement)
 					If Pos1 = 0 Then
-						te->Name = Trim(Mid(bTrim, 9))
+						te->Name = b2
 					Else
-						te->Name = Trim(Mid(bTrim, 9, Pos1 - 9))
+						te->Name = Trim(Left(b2, Pos1 - 1))
 					End If
 					te->DisplayName = te->Name
 					te->ElementType = "Define"
-					te->Parameters = Trim(Mid(bTrim, 9))
+					te->Parameters = Trim(b2)
 					Pos4 = InStr(te->Parameters, "'")
 					If Pos4 > 0 Then
 						te->Parameters = Trim(Left(te->Parameters, Pos4 - 1))
 					End If
-					If Pos2 > 0 AndAlso Pos3 > 0 OrElse Pos1 > 0 Then
-						te->Value = Trim(Mid(bTrim, IIf(Pos2 > 0, Pos3 + 1, Pos1 + 1)))
+					If Pos1 > 0 Then
+						te->Value = Trim(Mid(b2, IIf(Pos3, Pos3, Pos1) + 1))
 					End If
 					te->StartLine = i
 					te->EndLine = i
 					If Comment <> "" Then te->Comment= Comment: Comment = ""
 					te->FileName = PathFunction
 					LastIndexFunction = Functions.Add(te->Name, te)
+					GlobalDefines.Add te->Name, te
 					lastfunctionte = te
 					If Namespaces.Count > 0 Then
 						Index = GlobalNamespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
@@ -3657,6 +3721,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 					If Comment <> "" Then te->Comment= Comment: Comment = ""
 					te->FileName = PathFunction
 					LastIndexFunction = Functions.Add(te->Name, te)
+					GlobalDefines.Add te->Name, te
 					lastfunctionte = te
 					If Namespaces.Count > 0 Then
 						Index = GlobalNamespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
@@ -3841,10 +3906,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							End If
 							If Pos1 > 0 Then
 								Split GetChangedCommas(Mid(CurType, Pos1 + 1)), ",", res1()
-'								Pos2 = InStr(CurType, "*")  'David Change. Like Wstring * 200
-'								If Pos2 > 1 Then Pos1 = Pos2
-'								If Pos1 > 1 Then CurType = Left(CurType, Pos1 - 1)
-								If UBound(res1) > -1 Then 
+								If UBound(res1) > -1 Then
 									CurType = ..Left(CurType, Pos1 + Len(res1(0)))
 								End If
 							End If
@@ -3852,7 +3914,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							Split GetChangedCommas(b2), ",", res1()
 						End If
 						For n As Integer = 0 To UBound(res1)
-							res1(n) = Replace(res1(n), ";", ",")
+							res1(n) = Trim(Replace(res1(n), ";", ","))
 							ElementValue = ""
 							If InStr(b2.ToLower, " sub(") = 0 Then
 								Pos1 = InStr(res1(n), "=")
@@ -3868,6 +3930,10 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 '								If Pos2 > 1 Then CurType = Trim(Mid(res1(n), Pos1 + 4, Pos2 - Pos1 - 3)) Else CurType = Trim(Mid(res1(n), Pos1 + 4))
 								res1(n) = Trim(Left(res1(n), Pos1 - 1))
 							End If
+							If CBool(n = 0) AndAlso bOldAs Then
+								CurType = Trim(..Left(CurType, Len(CurType) - Len(res1(n))))
+								CurType = Replace(CurType, "`", "=")
+							End If
 							Pos1 = InStr(res1(n), ":")
 							If Pos1 > 0 Then
 								res1(n) = Trim(Left(res1(n), Pos1 - 1))
@@ -3882,10 +3948,6 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							res1(n) = res1(n).TrimAll
 							Pos1 = InStrRev(res1(n), " ")
 							If Pos1 > 0 Then res1(n) = Trim(Mid(res1(n), Pos1 + 1))
-							If CBool(n = 0) AndAlso bOldAs Then
-								CurType = Trim(..Left(CurType, Len(CurType) - Len(res1(n))))
-								CurType = Replace(CurType, "`", "=")
-							End If
 							If Not (CurType.ToLower.StartsWith("sub") OrElse CurType.ToLower.StartsWith("function")) Then
 								Pos1 = InStrRev(CurType, ".")
 								If Pos1 > 0 Then CurType = Mid(CurType, Pos1 + 1)
@@ -4266,14 +4328,14 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							If Pos1 > 0 Then
 								Split GetChangedCommas(Mid(CurType, Pos1 + 1)), ",", res1()
 								If UBound(res1) > -1 Then 
-									CurType = ..Left(CurType, Pos1 + Len(res1(0)))
+									CurType = Trim(..Left(CurType, Pos1 + Len(res1(0))))
 								End If
 							End If
 						Else
 							Split GetChangedCommas(b2), ",", res1()
 						End If
 						For n As Integer = 0 To UBound(res1)
-							res1(n) = Replace(res1(n), ";", ",")
+							res1(n) = Trim(Replace(res1(n), ";", ","))
 							Pos1 = InStr(res1(n), "=")
 							If Pos1 > 0 Then
 								ElementValue = Trim(Mid(res1(n), Pos1 + 1))
@@ -4351,7 +4413,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 	Next
 	Lines.Clear
 	MutexUnlock tlockSave 'If LoadParameter <> LoadParam.OnlyFilePathOverwrite Then
-	If CInt(LoadParameter <> LoadParam.OnlyFilePath) AndAlso CInt(LoadParameter <> LoadParam.OnlyFilePathOverwrite) Then
+	If CInt(LoadParameter <> LoadParam.OnlyFilePath) AndAlso CInt(LoadParameter <> LoadParam.OnlyFilePathOverwrite) AndAlso CInt(LoadParameter <> LoadParam.OnlyFilePathOverwriteWithContent) Then
 		For i As Integer = 0 To File->Includes.Count - 1
 			LoadFunctions File->Includes.Item(i), , Types, Enums, Functions, TypeProcedures, Args
 			If FormClosing Then Exit Sub
@@ -4367,6 +4429,7 @@ tlockSuggestions = MutexCreate()
 
 Sub StartOfLoadFunctions
 	LoadFunctionsCount += 1
+	MutexLock tlock
 	If LoadFunctionsCount = 1 Then
 		stBar.Panels[2]->Caption = ""
 	End If
@@ -4382,55 +4445,56 @@ Sub EndOfLoadFunctions
 			For i As Integer = ptabCode->TabCount - 1 To 0 Step -1
 				tb = Cast(TabWindow Ptr, ptabCode->Tab(i))
 				If tb Then
-					tb->bExternalIncludesLoaded = False
+					tb->txtCode.Content.ExternalIncludesLoaded = False
 					If AutoSuggestions Then
 						#ifndef __USE_GTK__
-							'PostMessage tb->Handle, EM_SETMODIFY, 0, 0
+							PostMessage tb->Handle, EM_SETMODIFY, 0, 0
 						#endif
 					End If
 				End If
 			Next i
 		Next j
 	End If
+	MutexUnlock tlock
 End Sub
 
 Sub LoadFunctionsSub(Param As Any Ptr)
 	StartOfLoadFunctions
-	MutexLock tlock
 	If Not FormClosing Then
 		If Not IncludeFiles.Contains(QWString(Param)) Then LoadFunctions QWString(Param), FilePathAndIncludeFiles, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
 	End If
-	MutexUnlock tlock
 	EndOfLoadFunctions
 End Sub
 
 Sub LoadOnlyFilePath(Param As Any Ptr)
 	StartOfLoadFunctions
-	MutexLock tlock
 	If Not FormClosing Then
 		If Not IncludeFiles.Contains(QWString(Param)) Then LoadFunctions QWString(Param), LoadParam.OnlyFilePath, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
 	End If
-	MutexUnlock tlock
 	EndOfLoadFunctions
 End Sub
 
 Sub LoadOnlyFilePathOverwrite(Param As Any Ptr)
 	StartOfLoadFunctions
-	MutexLock tlock
 	If Not FormClosing Then
 		LoadFunctions QWString(Param), LoadParam.OnlyFilePathOverwrite, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
 	End If
-	MutexUnlock tlock
+	EndOfLoadFunctions
+End Sub
+
+Sub LoadOnlyFilePathOverwriteWithContent(Param As Any Ptr)
+	StartOfLoadFunctions
+	If Not FormClosing Then
+		LoadFunctions Cast(EditControlContent Ptr, Param)->FileName, LoadParam.OnlyFilePathOverwriteWithContent, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs, , , Param
+	End If
 	EndOfLoadFunctions
 End Sub
 
 Sub LoadOnlyIncludeFiles(Param As Any Ptr)
 	StartOfLoadFunctions
-	MutexLock tlock
 	If Not FormClosing Then
 		LoadFunctions QWString(Param), LoadParam.OnlyIncludeFiles, GlobalTypes, GlobalEnums, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
 	End If
-	MutexUnlock tlock
 	EndOfLoadFunctions
 End Sub
 
@@ -4446,7 +4510,7 @@ Sub LoadHelp
 		parDifferencesFromQB
 		parSeeAlso
 	End Enum
-	Dim As WStringList Ptr pFunctions = @GlobalFunctions
+	Dim As WStringOrStringList Ptr pFunctions = @GlobalFunctions
 	Dim As Boolean InEnglish
 	Dim As Integer Fn = FreeFile_, tEncode
 	If LCase(CurLanguage) = "english" OrElse Dir(ExePath & "/Settings/Others/KeywordsHelp." & CurLanguage & ".txt") = "" Then
@@ -4887,6 +4951,7 @@ Sub LoadSettings
 	'gLocalToolBox = iniSettings.ReadBool("Options", "ShowToolBoxLocal", False)
 	gLocalProperties = iniSettings.ReadBool("Options", "PropertiesLocal", False)
 	'gLocalKeyWords = iniSettings.ReadBool("Options", "KeyWordsLocal", False)
+	ProjectAutoSuggestions = False
 
 	#ifdef __USE_WINAPI__
 		If DarkMode Then
@@ -5431,6 +5496,7 @@ Sub CreateMenusAndToolBars
 	imgList.Add "Update", "Update"
 	imgList.Add "Forum", "Forum"
 	imgList.Add "Fixme", "Fixme"
+	imgList.Add "Suggestions", "Suggestions"
 	'imgListD.Add "StartWithCompileD", "StartWithCompile"
 	'imgListD.Add "StartD", "Start"
 	'imgListD.Add "BreakD", "Break"
@@ -5441,7 +5507,9 @@ Sub CreateMenusAndToolBars
 	LoadHotKeys
 	
 	Var miFile = mnuMain.Add(ML("&File"), "", "File")
-	miFile->Add(ML("&New") & HK("New", "Ctrl+N"), "New", "NewProject", @mClick)
+	miFile->Add(ML("&New Project") & HK("NewProject", "Ctrl+Shift+N"), "Project", "NewProject", @mClick)
+	miFile->Add("-")
+	miFile->Add(ML("&New") & HK("New", "Ctrl+N"), "New", "New", @mClick)
 	miFile->Add(ML("&Open") & "..." & HK("Open", "Ctrl+O"), "Open", "Open", @mClick)
 	'miFile->Add(ML("New Project") & HK("NewProject", "Ctrl+Shift+N"), "Project", "NewProject", @mClick)
 	'miFile->Add(ML("Open Project") & HK("OpenProject", "Ctrl+Shift+O"), "", "OpenProject", @mClick)
@@ -5913,6 +5981,7 @@ Sub CreateMenusAndToolBars
 	tbtParameterInfo = tbEdit.Buttons.Add(, "ParameterInfo", , @mClick, "ParameterInfo", , ML("Parameter Info") & " (Ctrl+J)", True)
 	tbEdit.Buttons.Add tbsSeparator
 	tbtSyntaxCheck = tbEdit.Buttons.Add(, "SyntaxCheck", , @mClick, "SyntaxCheck", , ML("Syntax Check"), True, 0)
+	tbtSuggestions = tbEdit.Buttons.Add(, "Suggestions", , @mClick, "Suggestions", , ML("Suggestions"), True, 0)
 	Var tbButton = tbEdit.Buttons.Add(tbsWholeDropdown, "List", , @mClick, "Try", ML("Error Handling"), ML("Error Handling"), True)
 	'tbButton->DropDownMenu.ImagesList = @imgList
 	dmiNumbering = tbButton->DropDownMenu.Add(ML("Numbering"), "Numbering", "NumberOn", @mClick, , , False)
@@ -6243,6 +6312,7 @@ Sub tvExplorer_NodeActivate(ByRef Sender As Control, ByRef Item As TreeNode)
 			End If
 		End If
 	#endif
+	RestoreStatusText
 	If Item.ImageKey = "Opened" Then Exit Sub
 	If Item.ImageKey = "Project" AndAlso Item.ParentNode = 0 Then Exit Sub
 	Dim As ExplorerElement Ptr ee = Item.Tag
@@ -6289,13 +6359,11 @@ Sub tvExplorer_NodeActivate(ByRef Sender As Control, ByRef Item As TreeNode)
 	Next j
 	If Not t Then
 		If ee <> 0 Then
-			frmMain.Cursor = crWait
 			If InStr(WGet(ee->FileName), "\") = 0 AndAlso InStr(WGet(ee->FileName), "/") = 0 AndAlso WGet(ee->TemplateFileName) <> "" Then
 				AddTab WGet(ee->TemplateFileName), True, @Item
 			Else
 				AddTab WGet(ee->FileName), , @Item
 			End If
-			frmMain.Cursor = 0
 		End If
 	End If
 End Sub
@@ -7751,7 +7819,8 @@ lvSuggestions.Align = DockStyle.alClient
 lvSuggestions.Columns.Add ML("Content"), , 500, cfLeft
 lvSuggestions.Columns.Add ML("Line"), , 50, cfRight
 lvSuggestions.Columns.Add ML("Column"), , 50, cfRight
-lvSuggestions.Columns.Add ML("File"), , 700, cfLeft
+lvSuggestions.Columns.Add ML("File"), , 500, cfLeft
+lvSuggestions.Columns.Add ML("Project"), , 500, cfLeft
 lvSuggestions.OnItemActivate = @lvSuggestions_ItemActivate
 
 Sub lvSearch_ItemActivate(ByRef Sender As Control, ByVal itemIndex As Integer)
@@ -8652,9 +8721,8 @@ End Sub
 
 Sub frmMain_Close(ByRef Sender As Form, ByRef Action As Integer)
 	On Error Goto ErrorHandler
-	FormClosing = True
 	If Not CloseSession Then Action = 0: Return
-	
+	FormClosing = True
 	If frmMain.WindowState <> WindowStates.wsMaximized Then
 		iniSettings.WriteInteger("MainWindow", "Width", frmMain.Width)
 		iniSettings.WriteInteger("MainWindow", "Height", frmMain.Height)
@@ -8846,7 +8914,7 @@ Sub OnProgramQuit() Destructor
 		Tool = pOtherEditors->Item(i)->Object
 		Delete_(Tool)
 	Next i
-	Dim As WStringList Ptr keywordlist
+	Dim As WStringOrStringList Ptr keywordlist
 	For i As Integer = 0 To KeywordLists.Count - 1
 		keywordlist = KeywordLists.Object(i)
 		Delete_(keywordlist)
@@ -8856,7 +8924,7 @@ Sub OnProgramQuit() Destructor
 		tp = TabPanels.Item(i)
 		Delete_(tp)
 	Next i
-	Dim As FileType Ptr File
+	Dim As EditControlContent Ptr File
 	For i As Integer = IncludeFiles.Count - 1 To 0 Step -1
 		File = IncludeFiles.Object(i)
 		If File Then Delete_(File)

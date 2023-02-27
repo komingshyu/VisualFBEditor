@@ -33,7 +33,7 @@ Common Shared As Boolean SyntaxHighlightingIdentifiers
 Common Shared As Boolean ChangeIdentifiersCase
 Common Shared As Boolean ChangeKeyWordsCase
 Common Shared As Boolean AddSpacesToOperators
-Common Shared As WStringList Ptr pkeywordsAsm, pkeywords0, pkeywords1, pkeywords2 ', pkeywords3
+Common Shared As WStringOrStringList Ptr pkeywordsAsm, pkeywords0, pkeywords1, pkeywords2 ', pkeywords3
 
 Type ECColorScheme
 	As Long ForegroundOption, BackgroundOption, FrameOption, IndicatorOption
@@ -96,14 +96,19 @@ Namespace My.Sys.Forms
 		FileName As UString
 		IncludeFile As UString
 		TypeIsPointer As Boolean
+		TypeProcedure As Boolean
 		Declaration As Boolean
 		Locals As Integer
 		StartLine As Integer
 		EndLine As Integer
+		StartChar As Integer
+		EndChar As Integer
 		ControlType As Integer
 		Find As Boolean
+		Used As Boolean
+		Parent As TypeElement Ptr
 		Tag As Any Ptr
-		Elements As WStringList
+		Elements As WStringOrStringList
 		Declare Destructor
 	End Type
 	
@@ -118,6 +123,7 @@ Namespace My.Sys.Forms
 		InAsm As Boolean
 		InCollapse As Boolean
 		InConstruction As TypeElement Ptr
+		InConstructionBlock As TypeElement Ptr
 		InConstructionIndex As Integer
 		InConstructionPart As Integer
 		InWithConstruction As Integer
@@ -131,6 +137,61 @@ Namespace My.Sys.Forms
 		Visible As Boolean
 		Declare Constructor
 		Declare Destructor
+	End Type
+	
+	Type GlobalTypeElements
+		Namespaces As WStringOrStringList
+		Types As WStringOrStringList
+		Enums As WStringOrStringList
+		Defines As WStringOrStringList
+		Functions As WStringOrStringList
+		TypeProcedures As WStringOrStringList
+		Args As WStringOrStringList
+		Declare Constructor
+	End Type
+	
+	Dim Shared Globals As GlobalTypeElements
+	
+	Type EditControlContent
+		Dim WithOldI As Integer = -1
+		Dim WithOldTypeName As String
+		Dim WithTeEnumOld As TypeElement Ptr
+		Dim iPos As Integer
+		Dim As Boolean CStyle
+		DateChanged As Double
+		FileName As UString
+		FileLists As List
+		FileListsLines As List
+		Includes As WStringList
+		IncludeLines As IntegerList
+		CheckedFiles As WStringList
+		ConstructionBlocks As List
+		ExternalFiles As WStringList
+		ExternalFileLines As IntegerList
+		ExternalIncludes As WStringList
+		ExternalIncludesLoaded As Boolean
+		OldIncludes As WStringList
+		OldIncludeLines As IntegerList
+		Namespaces As WStringOrStringList
+		Types As WStringOrStringList
+		Enums As WStringOrStringList
+		Defines As WStringOrStringList
+		Functions As WStringOrStringList
+		TypeProcedures As WStringOrStringList
+		Procedures As WStringOrStringList
+		FunctionsOthers As WStringOrStringList
+		Args As WStringOrStringList
+		LineLabels As WStringOrStringList
+		Globals As GlobalTypeElements Ptr
+		Lines As List
+		Tag As Any Ptr
+		Declare Function ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringOrStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1) As Boolean
+		Declare Function IndexOfInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
+		Declare Function ContainsInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, ByRef Index As Integer, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Boolean
+		Declare Function GetTypeFromValue(Value As String, iSelEndLine As Integer) As String
+		Declare Function GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
+		Declare Function GetConstruction(ByRef sLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
+		Declare Constructor
 	End Type
 	
 	Type EditControl Extends Control
@@ -271,9 +332,9 @@ Namespace My.Sys.Forms
 		Dim As Integer IzohBoshi, QavsBoshi, MatnBoshi
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Dim As String KeyWord, Matn, MatnLCase, OldMatnLCase, MatnLCaseWithoutOldSymbol, MatnWithoutOldSymbol
-		Dim As Boolean WithOldSymbol
+		Dim As Boolean WithOldSymbol, bTypeAs
 		Dim As Integer OldPos, OldLinesCount
-		Dim pkeywords As WStringList Ptr
+		Dim pkeywords As WStringOrStringList Ptr
 		Dim LinePrinted As Boolean
 		'Dim As Boolean ChangeCase
 		Dim CollapseIndex As Integer
@@ -281,7 +342,6 @@ Namespace My.Sys.Forms
 		Declare Sub FontSettings
 		Declare Function MaxLineWidth() As Integer
 		Declare Sub PaintText(CodePane As Integer, iLine As Integer, ByRef s As WString, iStart As Integer, iEnd As Integer, ByRef Colors As ECColorScheme, ByRef addit As WString = "", Bold As Boolean = False, Italic As Boolean = False, Underline As Boolean = False)
-		Declare Function GetLineIndex(Index As Integer, iTo As Integer = 0) As Integer
 		Declare Static Sub HandleIsAllocated(ByRef Sender As Control)
 		Declare Sub SplitLines
 		Declare Sub WordLeft
@@ -291,7 +351,6 @@ Namespace My.Sys.Forms
 		Declare Function GetCharIndexFromOld() As Integer
 		Declare Function CountOfVisibleLines() As Integer
 		Declare Sub CalculateLeftMargin
-		Declare Sub ChangeCollapsibility(LineIndex As Integer)
 		Declare Sub _FillHistory(ByRef item As EditControlHistory Ptr, ByRef Comment As WString)
 		Declare Sub _LoadFromHistory(ByRef item As EditControlHistory Ptr, bToBack As Boolean, ByRef oldItem As EditControlHistory Ptr, bWithoutPaint As Boolean = False)
 		Declare Sub _ClearHistory(Index As Integer = 0)
@@ -300,7 +359,7 @@ Namespace My.Sys.Forms
 		Declare Function InStartOfLine(i As Integer, X As Integer, Y As Integer) As Boolean
 		Declare Function InCollapseRect(i As Integer, X As Integer, Y As Integer) As Boolean
 		Declare Function InIncludeFileRect(i As Integer, X As Integer, Y As Integer) As Boolean
-		Declare Sub ProcessMessage(ByRef msg As Message)
+		Declare Sub ProcessMessage(ByRef MSG As Message)
 		#ifdef __USE_GTK__
 			Declare Static Function Blink_cb(user_data As gpointer) As gboolean
 			Declare Static Function EditControl_OnDraw(widget As GtkWidget Ptr, cr As cairo_t Ptr, data1 As gpointer) As Boolean
@@ -312,34 +371,32 @@ Namespace My.Sys.Forms
 			Dim lVertOffset As Long
 			Dim lHorzOffset As Long
 			Dim As ..Point m_tP
-			Declare Static Sub EC_TimerProc(hwnd As hwnd, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
+			Declare Static Sub EC_TimerProc(HWND As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
 			Declare Sub SetDark(Value As Boolean)
 		#endif
 		Declare Function deltaToScrollAmount(lDelta As Integer) As Integer
 		Declare Sub MiddleScroll
 	Public:
-		FileLists As List
-		FileListsLines As List
-		Includes As WStringList
-		IncludeLines As IntegerList
-		ExternalFiles As WStringList
-		ExternalFileLines As IntegerList
-		ExternalIncludes As WStringList
-		Namespaces As WStringList
-		Types As WStringList
-		Enums As WStringList
-		Functions As WStringList
-		Procedures As WStringList
-		FunctionsOthers As WStringList
-		Args As WStringList
-		LineLabels As WStringList
+		Content As EditControlContent
+		'FileLists As List
+		'FileListsLines As List
+		'Includes As WStringList
+		'IncludeLines As IntegerList
+		'ExternalFiles As WStringList
+		'ExternalFileLines As IntegerList
+		'ExternalIncludes As WStringList
+		'Namespaces As WStringOrStringList
+		'Types As WStringOrStringList
+		'Enums As WStringOrStringList
+		'Functions As WStringOrStringList
+		'Procedures As WStringOrStringList
+		'FunctionsOthers As WStringOrStringList
+		'Args As WStringOrStringList
+		'LineLabels As WStringOrStringList
 		Dim As Boolean bInIncludeFileRect
 		Declare Function CharType(ByRef ch As WString) As Integer
-		Declare Function ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1) As Boolean
-		Declare Function IndexOfInListFiles(pList As WStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
-		Declare Function ContainsInListFiles(pList As WStringList Ptr, ByRef Matn As String, ByRef Index As Integer, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Boolean
 		#ifdef __USE_GTK__
-			Declare Static Function ActivateLink(label As GtkLabel Ptr, uri As gchar Ptr, user_data As gpointer) As Boolean
+			Declare Static Function ActivateLink(Label As GtkLabel Ptr, uri As gchar Ptr, user_data As gpointer) As Boolean
 			Dim As cairo_t Ptr cr
 			Dim As GtkWidget Ptr wText
 			Dim As PangoContext Ptr PCONTEXT
@@ -384,7 +441,8 @@ Namespace My.Sys.Forms
 		Dim As Integer dwClientY, OlddwClientY    ' Высота клиентской области
 		Modified As Boolean
 		WithHistory As Boolean
-		FLines As List
+		FileDropDown As Boolean
+		'FLines As List
 		'VisibleLines As List
 		CurExecutedLine As Integer = -1
 		OldExecutedLine As Integer = -1
@@ -394,7 +452,6 @@ Namespace My.Sys.Forms
 		Dim As Single dwCharX
 		Dim As Single dwCharY
 		Dim As Boolean SyntaxEdit
-		Dim As Boolean CStyle
 		Dim LeftMargin As Integer
 		Dim HScrollPosLeft As Integer
 		Dim HScrollPosRight As Integer
@@ -409,13 +466,13 @@ Namespace My.Sys.Forms
 			pnlIntellisense As Panel
 		#endif
 		ChangingStarted As Boolean
+		DropDownPath As WString Ptr
 		DropDownShowed As Boolean
 		DropDownChar As Integer
 		DropDownToolTipShowed As Boolean
 		DropDownToolTipItemIndex As Integer
 		ToolTipShowed As Boolean
 		ToolTipChar As Integer
-		Declare Function GetConstruction(ByRef sLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
 		Declare Sub SetScrollsInfo()
 		Declare Sub ShowCaretPos(Scroll As Boolean = False)
 		Declare Function TextWidth(ByRef sText As WString) As Integer
@@ -437,8 +494,6 @@ Namespace My.Sys.Forms
 		Declare Function GetWordAtCursor(WithDot As Boolean = False) As String
 		Declare Function GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False) As String
 		Declare Function GetCaretPosY(LineIndex As Integer) As Integer
-		Declare Function GetTypeFromValue(Value As String, iSelEndLine As Integer) As String
-		Declare Function GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
 		Declare Function CharIndexFromPoint(X As Integer, Y As Integer, CodePane As Integer = -1) As Integer
 		Declare Function LineIndexFromPoint(X As Integer, Y As Integer, CodePane As Integer = -1) As Integer
 		Declare Function LinesCount As Integer
@@ -459,8 +514,6 @@ Namespace My.Sys.Forms
 		Declare Property SplittedVertically(Value As Boolean)
 		Declare Property TopLine As Integer
 		Declare Property TopLine(Value As Integer)
-		Declare Sub ChangeCollapseState(LineIndex As Integer, Value As Boolean)
-		Declare Sub ChangeInConstruction(LineIndex As Integer, OldConstructionIndex As Integer, OldConstructionPart As Integer)
 		Declare Sub InsertLine(Index As Integer, ByRef sLine As WString)
 		Declare Sub ReplaceLine(Index As Integer, ByRef sLine As WString)
 		Declare Sub DeleteLine(Index As Integer = -1)
@@ -471,6 +524,10 @@ Namespace My.Sys.Forms
 		Declare Sub ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1)
 		Declare Sub Changing(ByRef Comment As WString = "")
 		Declare Sub Changed(ByRef Comment As WString = "")
+		Declare Sub ChangeCollapsibility(LineIndex As Integer)
+		Declare Sub ChangeCollapseState(LineIndex As Integer, Value As Boolean)
+		Declare Sub ChangeInConstruction(LineIndex As Integer, OldConstructionIndex As Integer, OldConstructionPart As Integer)
+		Declare Function GetLineIndex(Index As Integer, iTo As Integer = 0) As Integer
 		Declare Sub Clear
 		Declare Sub ClearUndo
 		Declare Sub Undo
@@ -502,6 +559,8 @@ Namespace My.Sys.Forms
 		Declare Destructor
 		OnChange As Sub(ByRef Sender As EditControl)
 		OnAutoComplete As Sub(ByRef Sender As EditControl)
+		OnShowDropDown As Sub(ByRef Sender As EditControl)
+		OnDropDownCloseUp As Sub(ByRef Sender As EditControl)
 		OnValidate As Sub(ByRef Sender As EditControl)
 		OnSelChange As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer, ByVal CurrentCharIndex As Integer)
 		OnLineChange As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer, ByVal OldLine As Integer)
@@ -542,7 +601,7 @@ Namespace My.Sys.Forms
 		Declare Sub cairo_rectangle_(cr As cairo_t Ptr, x As Double, y As Double, x1 As Double, y1 As Double, z As Boolean)
 	#endif
 	
-	Declare Function GetKeyWordCase(ByRef KeyWord As String, KeyWordsList As WStringList Ptr = 0, OriginalCaseWord As String = "") As String
+	Declare Function GetKeyWordCase(ByRef KeyWord As String, KeyWordsList As WStringOrStringList Ptr = 0, OriginalCaseWord As String = "") As String
 	
 	Declare Function TextWithoutQuotesAndComments(subject As String, OldCommentIndex As Integer = 0, WithoutComments As Boolean = True, WithoutBracket As Boolean = False) As String
 	

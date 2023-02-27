@@ -56,6 +56,14 @@
 	#define MAX_PATH 260
 #endif
 
+#if 0
+	Type WStringOrStringList As StringList
+	Type WStringOrStringListItem As StringListItem
+#else
+	Type WStringOrStringList As WStringList
+	Type WStringOrStringListItem As WStringListItem
+#EndIf
+
 Extern "rtlib"
 	Declare Function LineInputWstr Alias "fb_FileLineInputWstr"(ByVal filenumber As Long, ByVal dst As WString Ptr, ByVal maxchars As Integer) As Long
 End Extern
@@ -112,7 +120,7 @@ Common Shared As MenuItem Ptr miPlainText, miUtf8, miUtf8BOM, miUtf16BOM, miUtf3
 
 Common Shared As Boolean AutoIncrement
 Common Shared As Boolean AutoComplete
-Common Shared As Boolean AutoSuggestions
+Common Shared As Boolean AutoSuggestions, ProjectAutoSuggestions
 Common Shared As Boolean AutoCreateRC
 Common Shared As Boolean AutoCreateBakFiles, gLocalProperties
 Common Shared As Boolean AddRelativePathsToRecent
@@ -169,28 +177,31 @@ Type ToolType
 	Declare Function GetCommand(ByRef FileName As WString = "", WithoutProgram As Boolean = False) As UString
 End Type
 
-Type FileType
-	FileName As UString
-	DateChanged As Double
-	Includes As WStringList
-	IncludeLines As IntegerList
-	Namespaces As WStringList
-	Types As WStringList
-	Enums As WStringList
-	Procedures As WStringList
-	Args As WStringList
-	LinesCount As Integer
-	InProcess As Boolean
-End Type
+'Type FileType
+'	FileName As UString
+'	DateChanged As Double
+'	Includes As WStringList
+'	IncludeLines As IntegerList
+'	Namespaces As WStringOrStringList
+'	Types As WStringOrStringList
+'	Enums As WStringOrStringList
+'	Procedures As WStringOrStringList
+'	Args As WStringOrStringList
+'	LineLabels As WStringOrStringList
+'	Lines As List
+'	InProcess As Boolean
+'End Type
 
 Common Shared As List Ptr pTools, pControlLibraries
-Common Shared As WStringList Ptr pComps, pGlobalNamespaces, pGlobalTypes, pGlobalEnums, pGlobalFunctions, pGlobalTypeProcedures, pGlobalArgs, pAddIns, pIncludeFiles, pLoadPaths, pIncludePaths, pLibraryPaths
+Common Shared As WStringOrStringList Ptr pComps, pGlobalNamespaces, pGlobalTypes, pGlobalEnums, pGlobalDefines, pGlobalFunctions, pGlobalTypeProcedures, pGlobalArgs
+Common Shared As WStringList Ptr pAddIns, pIncludeFiles, pLoadPaths, pIncludePaths, pLibraryPaths
 'Common Shared As WStringList Ptr pLocalTypes, pLocalEnums, pLocalProcedures, pLocalFunctions, pLocalFunctionsOthers, pLocalArgs,
 Common Shared As Dictionary Ptr pHelps, pCompilers, pMakeTools, pDebuggers, pTerminals, pOtherEditors
 
 Enum LoadParam
 	OnlyFilePath
 	OnlyFilePathOverwrite
+	OnlyFilePathOverwriteWithContent
 	OnlyIncludeFiles
 	FilePathAndIncludeFiles
 End Enum
@@ -280,10 +291,11 @@ Declare Function GetXY(XorY As Integer) As Integer
 #endif
 Declare Function FolderExists(ByRef FolderName As WString) As Boolean
 Declare Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
-Declare Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAndIncludeFiles, ByRef Types As WStringList, ByRef Enums As WStringList, ByRef Functions As WStringList, ByRef Args As WStringList, ByRef TypeProcedures As WStringList, ec As Control Ptr = 0, CtlLibrary As Library Ptr = 0, OldFile As FileType Ptr = 0)
+Declare Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAndIncludeFiles, ByRef Types As WStringOrStringList, ByRef Enums As WStringOrStringList, ByRef Functions As WStringOrStringList, ByRef Args As WStringOrStringList, ByRef TypeProcedures As WStringOrStringList, ec As Control Ptr = 0, CtlLibrary As Library Ptr = 0, CurFile As Any Ptr = 0, OldFile As Any Ptr = 0)
 Declare Sub LoadFunctionsSub(Param As Any Ptr)
 Declare Sub LoadOnlyFilePath(Param As Any Ptr)
 Declare Sub LoadOnlyFilePathOverwrite(Param As Any Ptr)
+Declare Sub LoadOnlyFilePathOverwriteWithContent(Param As Any Ptr)
 Declare Sub LoadOnlyIncludeFiles(Param As Any Ptr)
 Declare Sub LoadFromTabWindow(Param As Any Ptr)
 Declare Sub LoadToolBox(ForLibrary As Library Ptr = 0)

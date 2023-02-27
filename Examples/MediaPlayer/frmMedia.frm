@@ -1,12 +1,12 @@
 ﻿' MediaPlayer 媒体播放器
-' Copyright (c) 2022 CM.Wang
+' Copyright (c) 2023 CM.Wang
 ' Freeware. Use at your own risk.
 
 '#Region "Form"
 	#if defined(__FB_MAIN__) AndAlso Not defined(__MAIN_FILE__)
 		#define __MAIN_FILE__ __FILE__
 		#ifdef __FB_WIN32__
-			#cmdline "Form1.rc"
+			#cmdline "frmMedia.rc"
 		#endif
 	#endif
 	#include once "mff/Form.bi"
@@ -28,6 +28,11 @@
 	#include once "string.bi"
 	
 	Using My.Sys.Forms
+	
+	InitDarkMode()
+	
+	#define JIF(x) If (FAILED(hr = (x))) \ {MSG(TEXT("FAILED(hr=0x%x) in ") TEXT(#x) TEXT("\n"), hr); Return hr; }
+	#define LIF(x) If (FAILED(hr = (x))) \ {MSG(TEXT("FAILED(hr=0x%x) in ") TEXT(#x) TEXT("\n"), hr); }
 	
 	Public Enum DS_Status
 		DS_Open
@@ -124,8 +129,12 @@
 		pIGraphBuilder As IGraphBuilder Ptr     'GraphBuilder Object
 		pIEnumFilters As IEnumFilters Ptr
 		
+		aHeight As Long
+		aWidth As Long
+		hwScale As Double
+		
 		Declare Sub DSCtrl(Index As DS_Status)
-		Declare Function DSCreate(hWnd As hWnd, wszFileName As WString) As Long
+		Declare Function DSCreate(hWnd As HWND, wszFileName As WString) As Boolean
 		Declare Sub DSUnload()
 		Declare Static Sub _TextBox1_DblClick(ByRef Sender As Control)
 		Declare Sub TextBox1_DblClick(ByRef Sender As Control)
@@ -157,10 +166,12 @@
 		Declare Sub Picture1_Message(ByRef Sender As Control, ByRef msg As Message)
 		Declare Static Sub _ComboBoxEx1_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 		Declare Sub ComboBoxEx1_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
+		Declare Static Sub _chkDark_Click(ByRef Sender As CheckBox)
+		Declare Sub chkDark_Click(ByRef Sender As CheckBox)
 		Declare Constructor
 		
 		Dim As Panel Panel1, Panel2, Panel3, Panel4, Panel5, Panel6
-		Dim As CommandButton cmdOpen, cmdPlay, cmdClose
+		Dim As CommandButton cmdOpen, cmdPlay, cmdClose, cmdFull, cmdBrowse, cmdScaleH, cmdScaleO
 		Dim As TextBox TextBox1
 		Dim As TrackBar tbVolume, tbBalance, tbPosition
 		Dim As Label lblVolume, lblBalance, lblPosition, lblLength
@@ -169,7 +180,7 @@
 		Dim As TimerComponent TimerComponent1
 		Dim As ImageList ImageList1
 		Dim As ComboBoxEx ComboBoxEx1
-		Dim As CheckBox chkLoop
+		Dim As CheckBox chkLoop, chkDark
 	End Type
 	
 	Constructor frmMediaType
@@ -177,11 +188,14 @@
 		With This
 			.Name = "frmMedia"
 			.Text = "VFBE Media Player"
+			#ifdef __USE_GTK__
+				This.Icon.LoadFromFile(ExePath & ".\res\MediaPlayer.ico")
+			#else
+				This.Icon.LoadFromResourceID(1)
+			#endif
 			#ifdef __FB_64BIT__
-				'...instructions for 64bit OSes...
 				.Caption = "VFBE Media Player64"
 			#else
-				'...instructions for other OSes
 				.Caption = "VFBE Media Player32"
 			#endif
 			.Designer = @This
@@ -189,7 +203,7 @@
 			.OnClose = @_Form_Close
 			.OnResize = @_Form_Resize
 			.StartPosition = FormStartPosition.CenterScreen
-			.SetBounds 0, 0, 700, 480
+			.SetBounds 0, 0, 700, 520
 		End With
 		' Panel1
 		With Panel1
@@ -215,7 +229,7 @@
 			.Text = "Panel3"
 			.TabIndex = 2
 			.Align = DockStyle.alLeft
-			.SetBounds 0, 0, 420, 40
+			.SetBounds 0, 0, 470, 40
 			.Parent = @Panel1
 		End With
 		' Panel4
@@ -224,7 +238,7 @@
 			.Text = "Panel4"
 			.TabIndex = 3
 			.Align = DockStyle.alLeft
-			.SetBounds 0, 0, 230, 60
+			.SetBounds 0, 0, 220, 60
 			.Parent = @Panel2
 		End With
 		' Panel5
@@ -251,7 +265,7 @@
 			.Text = "Open"
 			.TabIndex = 6
 			.Caption = "Open"
-			.SetBounds 10, 10, 60, 22
+			.SetBounds 10, 10, 50, 22
 			.Designer = @This
 			.OnClick = @_cmdBtn_Click
 			.Parent = @Panel3
@@ -263,7 +277,7 @@
 			.TabIndex = 7
 			.Caption = "Play"
 			.Enabled = False
-			.SetBounds 80, 10, 60, 22
+			.SetBounds 60, 10, 50, 22
 			.Designer = @This
 			.OnClick = @_cmdBtn_Click
 			.Parent = @Panel3
@@ -272,23 +286,82 @@
 		With cmdClose
 			.Name = "cmdClose"
 			.Text = "CommandButton4"
-			.TabIndex = 9
+			.TabIndex = 8
 			.ControlIndex = 4
 			.Caption = "Close"
 			.Enabled = False
-			.SetBounds 150, 10, 60, 22
+			.SetBounds 110, 10, 50, 22
 			.Designer = @This
 			.OnClick = @_cmdBtn_Click
+			.Parent = @Panel3
+		End With
+		' cmdFull
+		With cmdFull
+			.Name = "cmdFull"
+			.Text = "F"
+			.TabIndex = 9
+			.Size = Type<My.Sys.Drawing.Size>(30, 22)
+			.Caption = "F"
+			.Enabled = False
+			.Hint = "Full screen of vedio"
+			.SetBounds 170, 10, 30, 22
+			.Designer = @This
+			.OnClick = @_cmdBtn_Click
+			.Parent = @Panel3
+		End With
+		' cmdScaleH
+		With cmdScaleH
+			.Name = "cmdScaleH"
+			.Text = "1/2"
+			.TabIndex = 10
+			.Caption = "1/2"
+			.Enabled = False
+			.Hint = "1/2 of the original size of vedio"
+			.SetBounds 200, 10, 30, 22
+			.Designer = @This
+			.OnClick = @_cmdBtn_Click
+			.Parent = @Panel3
+		End With
+		' cmdScaleO
+		With cmdScaleO
+			.Name = "cmdScaleO"
+			.Text = "1"
+			.TabIndex = 11
+			.Caption = "1"
+			.Enabled = False
+			.Hint = "Original size of vedio"
+			.SetBounds 230, 10, 30, 22
+			.Designer = @This
+			.OnClick = @_cmdBtn_Click
+			.Parent = @Panel3
+		End With
+		' cmdBrowse
+		With cmdBrowse
+			.Name = "cmdBrowse"
+			.Text = "..."
+			.TabIndex = 13
+			.ControlIndex = 5
+			.Location = Type<My.Sys.Drawing.Point>(250, 10)
+			.Align = DockStyle.alNone
+			.Size = Type<My.Sys.Drawing.Size>(30, 22)
+			.Caption = "..."
+			.Anchor.Right = AnchorStyle.asAnchor
+			.SetBounds 440, 10, 30, 22
+			.Designer = @This
+			.OnClick = @_TextBox1_DblClick
 			.Parent = @Panel3
 		End With
 		' ComboBoxEx1
 		With ComboBoxEx1
 			.Name = "ComboBoxEx1"
-			.Text = "ComboBoxEx1"
-			.TabIndex = 10
+			.Text = "Net Radio List"
+			.TabIndex = 12
 			.ImagesList = @ImageList1
 			.DropDownCount = 28
-			.SetBounds 220, 10, 200, 22
+			.Style = ComboBoxEditStyle.cbDropDown
+			.Location = Type<My.Sys.Drawing.Point>(290, 10)
+			.Size = Type<My.Sys.Drawing.Size>(160, 22)
+			.SetBounds 270, 10, 160, 22
 			.Designer = @This
 			.OnSelected = @_ComboBoxEx1_Selected
 			.Parent = @Panel3
@@ -297,13 +370,18 @@
 		With TextBox1
 			.Name = "TextBox1"
 			.Text = "F:\OfficePC_Update\!Media\632734Y0314.mp4"
-			.TabIndex = 11
+			.Hint = "Double click to select a file from local disk."
+			.TabIndex = 14
 			.Align = DockStyle.alClient
 			.ExtraMargins.Right = 10
-			.ExtraMargins.Left = 10
+			.ExtraMargins.Left = 0
 			.ExtraMargins.Top = 10
-			.ExtraMargins.Bottom = 10
-			.SetBounds 430, 10, 314, 22
+			.ExtraMargins.Bottom = 9
+			.Size = Type<My.Sys.Drawing.Size>(204, 22)
+			.Anchor.Left = AnchorStyle.asAnchor
+			.Anchor.Right = AnchorStyle.asAnchor
+			.Location = Type<My.Sys.Drawing.Point>(430, 10)
+			.SetBounds 470, 9, 204, 22
 			.Designer = @This
 			.OnDblClick = @_TextBox1_DblClick
 			.Parent = @Panel1
@@ -312,15 +390,17 @@
 		With Picture1
 			.Name = "Picture1"
 			.Text = "Picture1"
-			.TabIndex = 12
-			.BorderStyle = BorderStyles.bsClient
+			.TabIndex = 15
+			.BorderStyle = BorderStyles.bsNone
 			.Align = DockStyle.alClient
-			.ExtraMargins.Right = 10
-			.ExtraMargins.Left = 10
+			.ExtraMargins.Right = 0
+			.ExtraMargins.Left = 0
 			.SubClass = False
 			.ShowHint = True
-			.BackColor = 0
-			.SetBounds 10, 40, 734, 341
+			.BackColor = 8421504
+			.Visible = True
+			.ForeColor = 8421504
+			.SetBounds 0, 40, 684, 341
 			.Designer = @This
 			.OnMessage = @_Picture1_Message
 			.Parent = @This
@@ -329,7 +409,7 @@
 		With lblVolume
 			.Name = "lblVolume"
 			.Text = "Volume: "
-			.TabIndex = 13
+			.TabIndex = 16
 			.Alignment = AlignmentConstants.taLeft
 			.Align = DockStyle.alNone
 			.ID = 1004
@@ -342,11 +422,11 @@
 		With tbVolume
 			.Name = "tbVolume"
 			.Text = "tbVolume"
-			.TabIndex = 14
+			.TabIndex = 17
 			.ExtraMargins.Left = 2
 			.MaxValue = 0
 			.MinValue = -10000
-			.Position = -1000
+			.Position = 0
 			.Enabled = False
 			.ThumbLength = 20
 			.TickStyle = TickStyles.tsAuto
@@ -364,7 +444,7 @@
 		With lblBalance
 			.Name = "lblBalance"
 			.Text = "Balance: "
-			.TabIndex = 15
+			.TabIndex = 18
 			.Alignment = AlignmentConstants.taLeft
 			.Caption = "Balance: "
 			.Enabled = False
@@ -375,7 +455,7 @@
 		With tbBalance
 			.Name = "tbBalance"
 			.Text = "tbBalance"
-			.TabIndex = 16
+			.TabIndex = 19
 			.MaxValue = 5000
 			.MinValue = -5000
 			.Enabled = False
@@ -396,19 +476,22 @@
 		With lblPosition
 			.Name = "lblPosition"
 			.Text = "Position: "
-			.TabIndex = 17
-			.SetBounds 10, 5, 180, 16
+			.TabIndex = 20
+			.Enabled = False
+			.Size = Type<My.Sys.Drawing.Size>(160, 16)
+			.SetBounds 10, 5, 160, 16
 			.Parent = @Panel6
 		End With
 		' lblLength
 		With lblLength
 			.Name = "lblLength"
 			.Text = "Length: "
-			.TabIndex = 18
+			.TabIndex = 21
 			.Align = DockStyle.alRight
 			.ExtraMargins.Top = 5
 			.ExtraMargins.Right = 10
 			.Alignment = AlignmentConstants.taRight
+			.Enabled = False
 			.SetBounds 284, 5, 160, 15
 			.Parent = @Panel6
 		End With
@@ -416,9 +499,9 @@
 		With tbPosition
 			.Name = "tbPosition"
 			.Text = "tbPosition"
-			.TabIndex = 19
+			.TabIndex = 22
 			.Align = DockStyle.alClient
-			.PageSize = 10
+			.PageSize = 20
 			.MaxValue = 100
 			.TickMark = TickMarks.tmBoth
 			.TickStyle = TickStyles.tsAuto
@@ -434,6 +517,32 @@
 			.OnMouseDown = @_tbPosition_MouseDown
 			.OnMouseUp = @_tbPosition_MouseUp
 			.Parent = @Panel5
+		End With
+		' chkLoop
+		With chkLoop
+			.Name = "chkLoop"
+			.Text = "Loop"
+			.TabIndex = 23
+			.Caption = "Loop"
+			.Checked = True
+			.Enabled = False
+			.Size = Type<My.Sys.Drawing.Size>(50, 16)
+			.SetBounds 180, 5, 50, 16
+			.Designer = @This
+			.Parent = @Panel6
+		End With
+		' chkDark
+		With chkDark
+			.Name = "chkDark"
+			.Text = "Dark"
+			.TabIndex = 24
+			.Caption = "Dark"
+			.Location = Type<My.Sys.Drawing.Point>(280, 5)
+			.Size = Type<My.Sys.Drawing.Size>(50, 16)
+			.SetBounds 240, 5, 50, 16
+			.Designer = @This
+			.OnClick = @_chkDark_Click
+			.Parent = @Panel6
 		End With
 		' OpenFileDialog1
 		With OpenFileDialog1
@@ -457,18 +566,11 @@
 			.Designer = @This
 			.Parent = @Panel3
 		End With
-		' chkLoop
-		With chkLoop
-			.Name = "chkLoop"
-			.Text = "Loop"
-			.TabIndex = 19
-			.Caption = "Loop"
-			.Checked = True
-			.SetBounds 210, 5, 60, 16
-			.Designer = @This
-			.Parent = @Panel6
-		End With
 	End Constructor
+	
+	Private Sub frmMediaType._chkDark_Click(ByRef Sender As CheckBox)
+		(*Cast(frmMediaType Ptr, Sender.Designer)).chkDark_Click(Sender)
+	End Sub
 	
 	Private Sub frmMediaType._ComboBoxEx1_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 		*Cast(frmMediaType Ptr, Sender.Designer).ComboBoxEx1_Selected(Sender, ItemIndex)
@@ -684,10 +786,12 @@ Private Sub frmMediaType.DSCtrl(Index As DS_Status)
 				tbPosition.Frequency = CInt(d / 10)
 				lblLength.Text = "Length: " & Format(d, "#,#0.000")
 				lblLength.Enabled = True
+				chkLoop.Enabled = True
 			Else
 				tbPosition.Enabled = False
 				lblLength.Text = "Length: NA"
 				lblLength.Enabled = False
+				chkLoop.Enabled = False
 			End If
 			tbVolume.Position = tbVolume.Position
 			tbBalance.Position = tbBalance.Position
@@ -697,8 +801,11 @@ Private Sub frmMediaType.DSCtrl(Index As DS_Status)
 			b = True
 		End If
 	Case DS_Status.DS_Close
+		lblLength.Enabled = False
+		chkLoop.Enabled = False
 		TimerComponent1.Enabled = False
 		tbPosition.Position = 0
+		cmdFull.Enabled = False
 		DSUnload
 	Case DS_Status.DS_Play
 		cmdPlay.Text = "Pause"
@@ -725,24 +832,24 @@ Private Sub frmMediaType.DSCtrl(Index As DS_Status)
 	cmdClose.Enabled = b
 End Sub
 
-Private Function frmMediaType.DSCreate(hWnd As HWND, wszFileName As WString) As Long
+Private Function frmMediaType.DSCreate(hWnd As HWND, wszFileName As WString) As Boolean
 	Dim hr As HRESULT
 	hr = CoCreateInstance(@CLSID_FilterGraph, NULL, CLSCTX_ALL, @IID_IGraphBuilder, @pIGraphBuilder)
+	If pIGraphBuilder = NULL Then This.Caption = Mid(This.Caption, 1, Len(" VFBE Media Player64"))  & " -Error - Can't create Filter Graph！" : Return False
 	
-	If pIGraphBuilder = NULL Then Exit Function
-	
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IMediaControl, @pIMediaControl)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IBasicAudio, @pIBasicAudio)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IBasicVideo, @pIBasicVideo)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IMediaEvent, @pIMediaEvent)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IMediaEventEx, @pIMediaEventEx)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IVideoWindow, @pIVideoWindow)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IMediaPosition, @pIMediaPosition)
-	hr = IGraphBuilder_QueryInterface(pIGraphBuilder, @IID_IFilterInfo, @pIEnumFilters)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IMediaControl, @pIMediaControl)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IBasicAudio, @pIBasicAudio)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IBasicVideo, @pIBasicVideo)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IMediaEvent, @pIMediaEvent)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IMediaEventEx, @pIMediaEventEx)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IVideoWindow, @pIVideoWindow)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IMediaPosition, @pIMediaPosition)
+	hr = pIGraphBuilder->lpVtbl->QueryInterface(pIGraphBuilder, @IID_IFilterInfo, @pIEnumFilters)
 	
 	'Render the file
 	hr = pIMediaControl->lpVtbl->RenderFile(pIMediaControl, StrPtr(wszFileName))
-	
+	'Need Install decoding package like lav
+	If hr < 0 Then This.Caption = Mid(This.Caption, 1, Len(" VFBE Media Player64"))  & " -Error - Can't Render File! Install LAV from https://github.com/Nevcairiel/LAVFilters/releases" : Return False
 	'Set the window owner and style
 	hr = pIVideoWindow->lpVtbl->put_Visible(pIVideoWindow, OAFALSE)
 	hr = pIVideoWindow->lpVtbl->put_Owner(pIVideoWindow, Cast(OAHWND, hWnd))
@@ -751,27 +858,44 @@ Private Function frmMediaType.DSCreate(hWnd As HWND, wszFileName As WString) As 
 	'Have the graph signal event via window callbacks for performance
 	hr = pIMediaEventEx->lpVtbl->SetNotifyWindow(pIMediaEventEx, Cast(OAHWND, hWnd), WM_GRAPHNOTIFY, 0)
 	
-	'Set the window position
-	Form_Resize(Me, 0, 0)
+	Dim As Long lVisible
+	hr = pIVideoWindow->lpVtbl->get_Visible(pIVideoWindow, @lVisible)
 	
-	'Make the window visible
-	hr = pIVideoWindow->lpVtbl->put_Visible(pIVideoWindow, OATRUE)
-	
-	Function = True
+	Debug.Print "lVisible = " & lVisible
+	Debug.Print "hr = " & hr
+	If (FAILED(hr)) Then
+		Debug.Print "audio only"
+		This.Height = aHeight
+	Else
+		Debug.Print "with vedio"
+		Dim vWidth As Long
+		Dim vHeight As Long
+		pIBasicVideo->lpVtbl->get_VideoWidth(pIBasicVideo, @vWidth)
+		pIBasicVideo->lpVtbl->get_VideoHeight(pIBasicVideo, @vHeight)
+		hwScale= vHeight / vWidth
+		This.Height = Picture1.Width*hwScale+ aHeight
+		Form_Resize(Me, 0, 0)
+		'Make the videowindow visible
+		hr = pIVideoWindow->lpVtbl->put_Visible(pIVideoWindow, OATRUE)
+		cmdFull.Enabled = True
+	End If
+	cmdScaleH.Enabled = cmdFull.Enabled 
+	cmdScaleO.Enabled = cmdFull.Enabled 
+	Return True
 End Function
 
 Private Sub frmMediaType.DSUnload()
 	If pIVideoWindow Then pIVideoWindow->lpVtbl->put_Visible(pIVideoWindow, OAFALSE)
 	
-	If pIMediaControl Then IMediaControl_Release(pIMediaControl)
-	If pIBasicAudio Then IBasicAudio_Release(pIBasicAudio)
-	If pIBasicVideo Then IBasicVideo_Release(pIBasicVideo)
-	If pIMediaEvent Then IMediaEvent_Release(pIMediaEvent)
-	If pIMediaEventEx Then IMediaEventEx_Release(pIMediaEventEx)
-	If pIVideoWindow Then IVideoWindow_Release(pIVideoWindow)
-	If pIMediaPosition Then IMediaPosition_Release(pIMediaPosition)
-	If pIGraphBuilder Then IGraphBuilder_Release(pIGraphBuilder)
-	If pIEnumFilters Then IGraphBuilder_Release(pIEnumFilters)
+	If pIMediaControl Then pIMediaControl->lpVtbl->Release(pIMediaControl)
+	If pIBasicAudio Then pIBasicAudio->lpVtbl->Release(pIBasicAudio)
+	If pIBasicVideo Then pIBasicVideo->lpVtbl->Release(pIBasicVideo)
+	If pIMediaEvent Then pIMediaEvent->lpVtbl->Release(pIMediaEvent)
+	If pIMediaEventEx Then pIMediaEventEx->lpVtbl->Release(pIMediaEventEx)
+	If pIVideoWindow Then pIVideoWindow->lpVtbl->Release(pIVideoWindow)
+	If pIMediaPosition Then pIMediaPosition->lpVtbl->Release(pIMediaPosition)
+	If pIGraphBuilder Then pIGraphBuilder->lpVtbl->Release(pIGraphBuilder)
+	If pIEnumFilters Then pIEnumFilters->lpVtbl->Release(pIEnumFilters)
 	
 	pIMediaControl = NULL
 	pIBasicAudio = NULL
@@ -786,11 +910,14 @@ End Sub
 Private Sub frmMediaType.TextBox1_DblClick(ByRef Sender As Control)
 	If OpenFileDialog1.Execute() Then
 		TextBox1.Text = OpenFileDialog1.FileName
+		cmdPlay.SetFocus
 	End If
 End Sub
 
 Private Sub frmMediaType.Form_Create(ByRef Sender As Control)
 	Dim hr As HRESULT = CoInitialize(0)
+	aHeight = This.Height - Picture1.Height
+	aWidth = This.Width - Picture1.Width
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)
 	
 	ImageList1.Add "CHN"
@@ -804,7 +931,7 @@ Private Sub frmMediaType.Form_Create(ByRef Sender As Control)
 	
 	Dim i As Integer
 	For i = 0 To 35
-		ComboBoxEx1.Items.Add(urlsa(0, i), icons(i), icons(i), icons(i), icons(i))
+		ComboBoxEx1.Items.Add(urlsa(0, i), @icons(i), icons(i), icons(i), icons(i))
 	Next
 End Sub
 
@@ -814,15 +941,19 @@ Private Sub frmMediaType.Form_Close(ByRef Sender As Form, ByRef Action As Intege
 End Sub
 
 Private Sub frmMediaType.Form_Resize(ByRef Sender As Control, NewWidth As Integer, NewHeight As Integer)
+	'If Picture1.Visible= False Then Exit Sub
 	Dim rc As Rect
 	GetClientRect(Picture1.Handle, @rc)
 	If pIVideoWindow Then
 		pIVideoWindow->lpVtbl->SetWindowPosition(pIVideoWindow, rc.Left, rc.Top, rc.Right, rc.Bottom)
 		RedrawWindow Picture1.Handle, @rc, 0, RDW_INVALIDATE Or RDW_UPDATENOW
 	End If
+	If This.Height < aHeight Then This.Height = aHeight
 End Sub
 
 Private Sub frmMediaType.cmdBtn_Click(ByRef Sender As Control)
+	Dim vWidth As Long
+	Dim vHeight As Long
 	Select Case Sender.Name
 	Case "cmdOpen"
 		DSCtrl(DS_Status.DS_Open)
@@ -837,6 +968,26 @@ Private Sub frmMediaType.cmdBtn_Click(ByRef Sender As Control)
 		DSCtrl(DS_Status.DS_Stop)
 	Case "cmdClose"
 		DSCtrl(DS_Status.DS_Close)
+	Case "cmdFull"
+		If pIVideoWindow = NULL Then Exit Sub
+		Dim lMode As Long
+		pIVideoWindow->lpVtbl->get_FullScreenMode(pIVideoWindow, @lMode)
+		If lMode = OAFALSE Then
+			lMode = OATRUE
+		Else
+			lMode = OAFALSE
+		End If
+		pIVideoWindow->lpVtbl->put_FullScreenMode(pIVideoWindow, lMode)
+	Case "cmdScaleH"
+		pIBasicVideo->lpVtbl->get_VideoWidth(pIBasicVideo, @vWidth)
+		pIBasicVideo->lpVtbl->get_VideoHeight(pIBasicVideo, @vHeight)
+		This.Width = vWidth / 2 + aWidth
+		This.Height = vHeight / 2 + aHeight
+	Case "cmdScaleO"
+		pIBasicVideo->lpVtbl->get_VideoWidth(pIBasicVideo, @vWidth)
+		pIBasicVideo->lpVtbl->get_VideoHeight(pIBasicVideo, @vHeight)
+		This.Width = vWidth + aWidth
+		This.Height = vHeight + aHeight
 	End Select
 End Sub
 
@@ -939,5 +1090,10 @@ End Sub
 
 Private Sub frmMediaType.ComboBoxEx1_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 	TextBox1.Text = urlsa(1, ItemIndex)
+	This.Caption = Mid(This.Caption, 1, Len(" VFBE Media Player64"))
 End Sub
 
+Private Sub frmMediaType.chkDark_Click(ByRef Sender As CheckBox)
+	SetDarkMode(chkDark.Checked, chkDark.Checked)
+	InvalidateRect(0, 0, True)
+End Sub
