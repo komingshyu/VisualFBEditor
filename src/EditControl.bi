@@ -112,6 +112,14 @@ Namespace My.Sys.Forms
 		Declare Destructor
 	End Type
 	
+	Type ConstructionBlock
+		Construction As TypeElement Ptr
+		ConstructionIndex As Integer
+		ConstructionPart As Integer
+		InConstructionBlock As ConstructionBlock Ptr
+		Elements As WStringOrStringList
+	End Type
+	
 	Type EditControlLine
 		Bookmark As Boolean
 		Breakpoint As Boolean
@@ -123,7 +131,7 @@ Namespace My.Sys.Forms
 		InAsm As Boolean
 		InCollapse As Boolean
 		InConstruction As TypeElement Ptr
-		InConstructionBlock As TypeElement Ptr
+		InConstructionBlock As ConstructionBlock Ptr
 		InConstructionIndex As Integer
 		InConstructionPart As Integer
 		InWithConstruction As Integer
@@ -177,9 +185,8 @@ Namespace My.Sys.Forms
 		Enums As WStringOrStringList
 		Defines As WStringOrStringList
 		Functions As WStringOrStringList
-		TypeProcedures As WStringOrStringList
 		Procedures As WStringOrStringList
-		FunctionsOthers As WStringOrStringList
+		TypeProcedures As WStringOrStringList
 		Args As WStringOrStringList
 		LineLabels As WStringOrStringList
 		Globals As GlobalTypeElements Ptr
@@ -332,7 +339,7 @@ Namespace My.Sys.Forms
 		Dim As Integer IzohBoshi, QavsBoshi, MatnBoshi
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Dim As String KeyWord, Matn, MatnLCase, OldMatnLCase, MatnLCaseWithoutOldSymbol, MatnWithoutOldSymbol
-		Dim As Boolean WithOldSymbol, bTypeAs
+		Dim As Boolean WithOldSymbol, bTypeAs, bInAsm
 		Dim As Integer OldPos, OldLinesCount
 		Dim pkeywords As WStringOrStringList Ptr
 		Dim LinePrinted As Boolean

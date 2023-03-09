@@ -336,6 +336,7 @@ Sub ChangeMenuItemsEnabled
 	miSyntaxCheck->Enabled = bEnabled
 	tbtSyntaxCheck->Enabled = bEnabled
 	tbtSuggestions->Enabled = bEnabled
+	miSuggestions->Enabled = bEnabled
 	miCompile->Enabled = bEnabled
 	tbtCompile->Enabled = bEnabled
 	miCompileAll->Enabled = bEnabled
@@ -519,7 +520,7 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 			End If
 			.txtCode.ScrollToCaret
 			ChangeMenuItemsEnabled
-			frmMain.Cursor = 0
+			frmMain.Cursor = crArrow
 		End With
 		If tb->cboClass.Items.Count < 2 Then
 			miForm->Enabled = False
@@ -1732,7 +1733,11 @@ Sub TabWindow.FillAllProperties()
 	ptabRight->Tag = @This
 	ptabRight->UpdateLock
 	cboFunction.Items.Clear
-	cboFunction.Items.Add "(" & ML("Events") & ")", , "Event", "Event"
+	If cboClass.ItemIndex = 0 Then
+		cboFunction.Items.Add WStr("(") & ML("Declarations") & ")" & WChr(0), , "Sub", "Sub"
+	Else
+		cboFunction.Items.Add "(" & ML("Events") & ")", , "Event", "Event"
+	End If
 	cboFunction.ItemIndex = 0
 	plvProperties->Nodes.Clear
 	plvEvents->Nodes.Clear
@@ -2865,7 +2870,7 @@ Sub cboClass_Change(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 			For i As Integer = 0 To tb->txtCode.Content.Functions.Count - 1
 				Var te = Cast(TypeElement Ptr, tb->txtCode.Content.Functions.Object(i))
 				If te->ElementType = "Property" Then imgKey = "Property" Else imgKey = "Sub"
-				.Items.Add te->DisplayName, te, imgKey, imgKey
+				If Not (CBool(InStr(te->DisplayName, "._") > 0) AndAlso CreateStaticEventHandlersWithAnUnderscoreAtTheBeginning) Then .Items.Add te->DisplayName, te, imgKey, imgKey
 			Next
 		End With
 	Else
@@ -3617,6 +3622,27 @@ Function AddExternalIncludes(ByRef Content As EditControlContent, ItemFile As Ed
 	Return False
 End Function
 
+Sub FillFromConstructionBlock(cb As ConstructionBlock Ptr, ByRef Text As String)
+	If cb = 0 Then Return
+	If Text = "" Then
+		Dim te As TypeElement Ptr
+		For i As Integer = 0 To cb->Elements.Count - 1
+			te = cb->Elements.Object(i)
+			FListItems.Add te->Name, te
+		Next i
+	Else
+		Var tIndex = cb->Elements.IndexOf(Text)
+		If tIndex <> -1 Then
+			Dim te As TypeElement Ptr
+			For i As Integer = 0 To cb->Elements.Count - 1
+				te = cb->Elements.Object(i)
+				If te AndAlso LCase(te->Name) = LCase(Text) Then FListItems.Add te->Name, te
+			Next i
+		End If
+	End If
+	FillFromConstructionBlock(cb->InConstructionBlock, Text)
+End Sub
+
 Sub FillAllIntellisenses(ByRef Starts As WString = "")
 	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 	If tb = 0 Then Exit Sub
@@ -3686,6 +3712,18 @@ Sub FillAllIntellisenses(ByRef Starts As WString = "")
 				If Not AddSorted(tb, te->Name, te, Starts, c) Then Exit Sub
 			End If
 		Next
+	End If
+	If ECLine Then
+		If ECLine->InConstructionBlock Then
+			FListItems.Clear
+			FillFromConstructionBlock ECLine->InConstructionBlock, ""
+			For i As Integer = 0 To FListItems.Count - 1
+				te = FListItems.Object(i)
+				If te <> 0 Then
+					If Not AddSorted(tb, te->Name, te, Starts, c) Then Exit Sub
+				End If
+			Next
+		End If
 	End If
 	'If tb->bLineChanged Then
 	'	UpdateIncludedFilesList tb, iSelStartLine
@@ -4427,12 +4465,12 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Dim As EditControlLine Ptr FECLine = tb->txtCode.Content.Lines.Item(iSelEndLine)
-		If FECLine > 0 AndAlso FECLine->InConstruction > 0 Then
-			Index = Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.IndexOf(LCase(sWord))
-			If Index <> -1 Then
-				Var lst = @Cast(TypeElement Ptr, FECLine->InConstruction)->Elements
-				For i As Integer = Index To lst->Count - 1
-					te = lst->Object(i)
+		If FECLine > 0 Then
+			If FECLine->InConstructionBlock > 0 Then
+				FListItems.Clear
+				FillFromConstructionBlock FECLine->InConstructionBlock, sWord
+				For i As Integer = 0 To FListItems.Count - 1
+					te = FListItems.Object(i)
 					If te <> 0 AndAlso LCase(te->Name) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
 						Parameter = te->Parameters
 						iPos = InStr(LCase(Parameter), LCase(sWord))
@@ -4444,71 +4482,89 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 					End If
 				Next
 			End If
-			TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
-			Var Pos1 = InStr(TypeName, ".")
-			If CBool(Pos1 > 0) OrElse EndsWith(TypeName, "[Constructor]") OrElse EndsWith(TypeName, "[Destructor]") Then
-				If Pos1 > 0 Then
-					TypeName = ..Left(TypeName, Pos1 - 1)
-				Else
-					TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
+			If FECLine->InConstruction > 0 Then
+				Index = Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.IndexOf(LCase(sWord))
+				If Index <> -1 Then
+					Var lst = @Cast(TypeElement Ptr, FECLine->InConstruction)->Elements
+					For i As Integer = Index To lst->Count - 1
+						te = lst->Object(i)
+						If te <> 0 AndAlso LCase(te->Name) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
+							Parameter = te->Parameters
+							iPos = InStr(LCase(Parameter), LCase(sWord))
+							FuncName = Mid(Parameter, iPos, Len(sWord))
+							Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
+							ParametersList.Add te->Parameters
+							Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
+							If te->Comment <> "" Then Comments &= "" & te->Comment
+						End If
+					Next
 				End If
-				If TypeName <> "" Then
-					If tb->txtCode.Content.Types.Contains(TypeName) Then
-						tb->FillIntellisense TypeName, FromClassName, @tb->txtCode.Content.Types, True
-					ElseIf tb->txtCode.Content.Enums.Contains(TypeName) Then
-						tb->FillIntellisense TypeName, FromClassName, @tb->txtCode.Content.Enums, True
-					ElseIf pComps->Contains(TypeName) Then
-						tb->FillIntellisense TypeName, FromClassName, pComps, True
-					ElseIf pGlobalTypes->Contains(TypeName) Then
-						tb->FillIntellisense TypeName, FromClassName, pGlobalTypes, True
-					ElseIf pGlobalEnums->Contains(TypeName) Then
-						tb->FillIntellisense TypeName, FromClassName, pGlobalEnums, True
+				TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
+				Var Pos1 = InStr(TypeName, ".")
+				If CBool(Pos1 > 0) OrElse EndsWith(TypeName, "[Constructor]") OrElse EndsWith(TypeName, "[Destructor]") Then
+					If Pos1 > 0 Then
+						TypeName = ..Left(TypeName, Pos1 - 1)
+					Else
+						TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
 					End If
-					If FListItems.Contains(sWord) Then
-						For i As Integer = 0 To FListItems.Count - 1
-							te = FListItems.Object(i)
-							If te <> 0 AndAlso LCase(te->Name) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
-								Parameter = te->Parameters
-								iPos = InStr(LCase(Parameter), LCase(sWord))
-								FuncName = Mid(Parameter, iPos, Len(sWord))
-								Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
-								ParametersList.Add te->Parameters
-								Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-								If te->Comment <> "" Then Comments &= "" & te->Comment
+					If TypeName <> "" Then
+						If tb->txtCode.Content.Types.Contains(TypeName) Then
+							tb->FillIntellisense TypeName, FromClassName, @tb->txtCode.Content.Types, True
+						ElseIf tb->txtCode.Content.Enums.Contains(TypeName) Then
+							tb->FillIntellisense TypeName, FromClassName, @tb->txtCode.Content.Enums, True
+						ElseIf pComps->Contains(TypeName) Then
+							tb->FillIntellisense TypeName, FromClassName, pComps, True
+						ElseIf pGlobalTypes->Contains(TypeName) Then
+							tb->FillIntellisense TypeName, FromClassName, pGlobalTypes, True
+						ElseIf pGlobalEnums->Contains(TypeName) Then
+							tb->FillIntellisense TypeName, FromClassName, pGlobalEnums, True
+						End If
+						If FListItems.Contains(sWord) Then
+							For i As Integer = 0 To FListItems.Count - 1
+								te = FListItems.Object(i)
+								If te <> 0 AndAlso LCase(te->Name) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
+									Parameter = te->Parameters
+									iPos = InStr(LCase(Parameter), LCase(sWord))
+									FuncName = Mid(Parameter, iPos, Len(sWord))
+									Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
+									ParametersList.Add te->Parameters
+									Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
+									If te->Comment <> "" Then Comments &= "" & te->Comment
+								End If
+							Next
+						End If
+						FListItems.Clear
+						For i As Integer = 0 To tb->txtCode.Content.Functions.Count - 1
+							te = tb->txtCode.Content.Functions.Object(i)
+							If te <> 0 AndAlso LCase(Trim(te->Name)) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
+								Var Pos1 = InStr(te->DisplayName, ".")
+								If Pos1 > 0 AndAlso IsBase(TypeName, ..Left(te->DisplayName, Pos1 - 1), tb) Then
+									Parameter = te->Parameters
+									iPos = InStr(LCase(Parameter), LCase(sWord))
+									FuncName = Mid(Parameter, iPos, Len(sWord))
+									Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
+									ParametersList.Add te->Parameters
+									Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
+									If te->Comment <> "" Then Comments &= "" & te->Comment
+								End If
+							End If
+						Next
+						For i As Integer = pGlobalTypeProcedures->Count - 1 To 0 Step -1
+							te = pGlobalTypeProcedures->Object(i)
+							If te <> 0 AndAlso LCase(Trim(te->Name)) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
+								Var Pos1 = InStr(te->DisplayName, ".")
+								If CBool(Pos1 > 0) AndAlso IsBase(TypeName, ..Left(te->DisplayName, Pos1 - 1), tb) Then
+									Parameter = te->Parameters
+									iPos = InStr(LCase(Parameter), LCase(sWord))
+									FuncName = Mid(Parameter, iPos, Len(sWord))
+									Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
+									ParametersList.Add te->Parameters
+									Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
+									If te->Comment <> "" Then Comments &= "" & te->Comment
+								End If
 							End If
 						Next
 					End If
-					FListItems.Clear
-					For i As Integer = 0 To tb->txtCode.Content.Functions.Count - 1
-						te = tb->txtCode.Content.Functions.Object(i)
-						If te <> 0 AndAlso LCase(Trim(te->Name)) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
-							Var Pos1 = InStr(te->DisplayName, ".")
-							If Pos1 > 0 AndAlso IsBase(TypeName, ..Left(te->DisplayName, Pos1 - 1), tb) Then
-								Parameter = te->Parameters
-								iPos = InStr(LCase(Parameter), LCase(sWord))
-								FuncName = Mid(Parameter, iPos, Len(sWord))
-								Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
-								ParametersList.Add te->Parameters
-								Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-								If te->Comment <> "" Then Comments &= "" & te->Comment
-							End If
-						End If
-					Next
-					For i As Integer = pGlobalTypeProcedures->Count - 1 To 0 Step -1
-						te = pGlobalTypeProcedures->Object(i)
-						If te <> 0 AndAlso LCase(Trim(te->Name)) = LCase(sWord) AndAlso CInt(Not ParametersList.Contains(te->Parameters)) Then
-							Var Pos1 = InStr(te->DisplayName, ".")
-							If CBool(Pos1 > 0) AndAlso IsBase(TypeName, ..Left(te->DisplayName, Pos1 - 1), tb) Then
-								Parameter = te->Parameters
-								iPos = InStr(LCase(Parameter), LCase(sWord))
-								FuncName = Mid(Parameter, iPos, Len(sWord))
-								Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
-								ParametersList.Add te->Parameters
-								Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-								If te->Comment <> "" Then Comments &= "" & te->Comment
-							End If
-						End If
-					Next
 				End If
 			End If
 		End If
@@ -5519,7 +5575,7 @@ End Sub
 			Dim As Designer Ptr Des = user_data
 			allocation->x = Cast(Integer, g_object_get_data(G_OBJECT(widget), "@@@Left"))
 			allocation->y = Cast(Integer, g_object_get_data(G_OBJECT(widget), "@@@Top"))
-			allocation->Width = Des->DotSize
+			allocation->width = Des->DotSize
 			allocation->height = Des->DotSize
 			Return True
 		End Function
@@ -5551,9 +5607,9 @@ Sub AnalyzeTab(Param As Any Ptr)
 	End If
 	If GetQuitThread(Project, tb) Then SetLastThread Project, tb, 0: Exit Sub
 	Dim As EditControlLine Ptr FECLine
-	Dim As Integer i, j, l, IzohBoshi, QavsBoshi, MatnBoshi, iC, t, u, tIndex, r, q, Pos1
+	Dim As Integer i, j, l, IzohBoshi, QavsBoshi, MatnBoshi, iC, t, u, tIndex, tIndex1, r, q, Pos1
 	Dim As WString Ptr s
-	Dim As Boolean bQ, LinePrinted, WithOldSymbol, bKeyWord, TwoDots, OneDot, bWithoutWith, CStyle, ContinueFromNext, bTypeAs
+	Dim As Boolean bQ, LinePrinted, WithOldSymbol, bKeyWord, TwoDots, OneDot, bWithoutWith, CStyle, ContinueFromNext, bTypeAs, bInAsm, bFind
 	Dim As String KeyWord, Matn, MatnLCase, OldMatnLCase, MatnLCaseWithoutOldSymbol, MatnWithoutOldSymbol, OriginalCaseWord, TypeName1, OldTypeName
 	Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 	Dim As ListViewItem Ptr LastItem
@@ -5561,6 +5617,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 	Dim As TypeElement Ptr te, te1, te2, Oldte
 	Dim As WStringOrStringList Ptr pkeywords
 	Dim As EditControlContent Ptr ecc
+	Dim As ConstructionBlock Ptr cb
 	Dim As List Contents
 	Dim As List TabWindows
 	If Project Then
@@ -5583,28 +5640,43 @@ Sub AnalyzeTab(Param As Any Ptr)
 	End If
 	For kk As Integer = 0 To Contents.Count - 1
 		ecc = Contents.Item(kk)
-		For i As Integer = ecc->Functions.Count - 1 To 0 Step -1
-			te = ecc->Functions.Object(i)
+		For i As Integer = ecc->Types.Count - 1 To 0 Step -1
+			te = ecc->Types.Object(i)
 			te->Used = False
 			For j As Integer = te->Elements.Count - 1 To 0 Step -1
 				te1 = te->Elements.Object(j)
 				te1->Used = False
-				For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-					te2 = Cast(TypeElement Ptr, te1->Elements.Object(k))
-					te2->Used = False
-				Next
 			Next
+		Next
+		For i As Integer = ecc->Enums.Count - 1 To 0 Step -1
+			te = ecc->Enums.Object(i)
+			te->Used = False
 		Next
 		For i As Integer = ecc->Namespaces.Count - 1 To 0 Step -1
 			te = ecc->Namespaces.Object(i)
 			te->Used = False
 		Next
-		For i As Integer = ecc->FunctionsOthers.Count - 1 To 0 Step -1
-			te = ecc->FunctionsOthers.Object(i)
-			te->Used = False
+		For i As Integer = ecc->TypeProcedures.Count - 1 To 0 Step -1
+			te = ecc->TypeProcedures.Object(i)
 			For j As Integer = te->Elements.Count - 1 To 0 Step -1
 				te1 = te->Elements.Object(j)
 				te1->Used = False
+			Next
+		Next
+		For i As Integer = ecc->Procedures.Count - 1 To 0 Step -1
+			te = ecc->Procedures.Object(i)
+			te->Used = False
+			If te->Declaration Then Continue For
+			For j As Integer = te->Elements.Count - 1 To 0 Step -1
+				te1 = te->Elements.Object(j)
+				te1->Used = False
+			Next
+		Next
+		For i As Integer = ecc->ConstructionBlocks.Count - 1 To 0 Step -1
+			cb = ecc->ConstructionBlocks.Item(i)
+			For j As Integer = cb->Elements.Count - 1 To 0 Step -1
+				te = cb->Elements.Object(j)
+				te->Used = False
 			Next
 		Next
 		For i As Integer = ecc->LineLabels.Count - 1 To 0 Step -1
@@ -5614,10 +5686,6 @@ Sub AnalyzeTab(Param As Any Ptr)
 		For i As Integer = ecc->Args.Count - 1 To 0 Step -1
 			te = ecc->Args.Object(i)
 			te->Used = False
-			For j As Integer = te->Elements.Count - 1 To 0 Step -1
-				te1 = te->Elements.Object(j)
-				te1->Used = False
-			Next
 		Next
 	Next kk
 	For kk As Integer = 0 To Contents.Count - 1
@@ -5701,20 +5769,22 @@ Sub AnalyzeTab(Param As Any Ptr)
 									bKeyWord = False
 									tIndex = -1
 									OriginalCaseWord = ""
-									If (FECLine->InAsm OrElse StartsWith(LCase(Trim(*s, Any !"\t ")), "asm")) AndAlso CBool(MatnLCase <> "asm") Then
+									bInAsm = (FECLine->InAsm OrElse StartsWith(LCase(Trim(*s, Any !"\t ")), "asm")) AndAlso CBool(MatnLCase <> "asm")
+									If bInAsm Then
 										tIndex = pkeywordsAsm->IndexOf(MatnLCase)
 										If tIndex > -1 Then
 											sc = @Keywords(KeywordLists.IndexOfObject(pkeywordsAsm)) '@Asm
 											OriginalCaseWord = pkeywordsAsm->Item(tIndex)
 											bKeyWord = True
 										End If
-									Else
-										TwoDots = CBool(r = 46 AndAlso q = 46)
-										OneDot = False
-										bWithoutWith = False
-										
-										'Membership
-										If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
+									End If
+									TwoDots = CBool(r = 46 AndAlso q = 46)
+									OneDot = False
+									bWithoutWith = False
+									
+									'Membership
+									If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
+										If Not bInAsm Then
 											If CBool(tIndex = -1) AndAlso (Not TwoDots) AndAlso (CBool(r = 46) OrElse CBool(q = 45 AndAlso r = 62)) Then
 												OneDot = True
 												ecc->GetLeftArgTypeName(z, j, te, , OldTypeName, , bWithoutWith)
@@ -5726,7 +5796,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 													OneDot = False
 												ElseIf te > 0 Then
 													tIndex = 0
-													te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
+													If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
 													OriginalCaseWord = te->Name
 													If SyntaxHighlightingIdentifiers Then
 														Select Case LCase(te->ElementType)
@@ -5765,6 +5835,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 															OriginalCaseWord = ecc->Defines.Item(tIndex)
 															pkeywords = @ecc->Defines
 															te = ecc->Defines.Object(tIndex)
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
 															If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
 																sc = @ColorDefines
 															End If
@@ -5776,6 +5847,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 													tIndex = ecc->IndexOfInListFiles(pGlobalDefines, MatnLCase, pFiles, pFileLines)
 													If tIndex <> -1 Then
 														te = pGlobalDefines->Object(tIndex)
+														te->Used = True
 														OriginalCaseWord = pGlobalDefines->Item(tIndex)
 														pkeywords = pGlobalDefines
 														If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
@@ -5784,8 +5856,10 @@ Sub AnalyzeTab(Param As Any Ptr)
 													End If
 												End If
 											End If
+										End If
 											
-											If Not OneDot Then
+										If Not OneDot Then
+											If Not bInAsm Then
 												If tIndex = -1 AndAlso OldMatnLCase <> "as" Then
 													For i As Integer = 0 To FECLine->Args.Count - 1
 														tIndex = Cast(TypeElement Ptr, FECLine->Args.Item(i))->Elements.IndexOf(MatnLCase)
@@ -5810,19 +5884,98 @@ Sub AnalyzeTab(Param As Any Ptr)
 														End If
 													Next
 												End If
+											End If
 												
-												'Procedure
-												If (Not TwoDots) AndAlso tIndex = -1 AndAlso FECLine->InConstruction > 0 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
-													tIndex = Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.IndexOf(MatnLCaseWithoutOldSymbol)
-													If tIndex <> -1 Then
-														If Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->StartLine > z AndAlso Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->ElementType <> "LineLabel" Then
-															tIndex = -1
+											'Procedure
+											If (Not TwoDots) AndAlso (tIndex = -1) AndAlso (FECLine->InConstructionBlock > 0) AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
+												te = GetFromConstructionBlock(FECLine->InConstructionBlock, MatnLCaseWithoutOldSymbol, z)
+												If te > 0 Then
+													tIndex = 0
+													pkeywords = @Cast(ConstructionBlock Ptr, FECLine->InConstructionBlock)->Elements
+													OriginalCaseWord = te->Name
+													If SyntaxHighlightingIdentifiers Then
+														If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
+														Select Case LCase(te->ElementType)
+														Case "sub"
+															sc = @ColorSubs
+														Case "function"
+															sc = @ColorGlobalFunctions
+														Case "property"
+															sc = @ColorProperties
+														Case "byrefparameter"
+															sc = @ColorByRefParameters
+														Case "byvalparameter"
+															sc = @ColorByValParameters
+														Case "field", "event"
+															sc = @ColorFields
+														Case "enumitem"
+															sc = @ColorEnumMembers
+														Case "linelabel"
+															sc = @ColorLineLabels
+														Case Else
+															sc = @ColorLocalVariables
+														End Select
+													End If
+												End If
+											End If
+											
+											If (Not TwoDots) AndAlso tIndex = -1 AndAlso FECLine->InConstruction > 0 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
+												tIndex = Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.IndexOf(MatnLCaseWithoutOldSymbol)
+												If tIndex <> -1 Then
+													If Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->StartLine > z AndAlso Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->ElementType <> "LineLabel" Then
+														tIndex = -1
+													Else
+														pkeywords = @Cast(TypeElement Ptr, FECLine->InConstruction)->Elements
+														OriginalCaseWord = pkeywords->Item(tIndex)
+														te = pkeywords->Object(tIndex)
+														If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
+															Select Case LCase(te->ElementType)
+															Case "sub"
+																sc = @ColorSubs
+															Case "function"
+																sc = @ColorGlobalFunctions
+															Case "property"
+																sc = @ColorProperties
+															Case "byrefparameter"
+																sc = @ColorByRefParameters
+															Case "byvalparameter"
+																sc = @ColorByValParameters
+															Case "field", "event"
+																sc = @ColorFields
+															Case "enumitem"
+																sc = @ColorEnumMembers
+															Case "linelabel"
+																sc = @ColorLineLabels
+															Case Else
+																sc = @ColorLocalVariables
+															End Select
+														End If
+													End If
+												End If
+												
+												If tIndex = -1 Then
+													TypeName1 = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
+													Pos1 = InStr(TypeName1, ".")
+													If (CBool(Pos1 > 0) OrElse EndsWith(TypeName1, "[Constructor]") OrElse EndsWith(TypeName1, "[Destructor]")) AndAlso (CBool(FECLine->InConstruction->StartLine <> z) OrElse FECLine->InConstruction->Declaration) Then
+														If Pos1 > 0 Then
+															TypeName1 = ..Left(TypeName1, Pos1 - 1)
 														Else
-															pkeywords = @Cast(TypeElement Ptr, FECLine->InConstruction)->Elements
-															OriginalCaseWord = pkeywords->Item(tIndex)
-															te = pkeywords->Object(tIndex)
-															If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
+															TypeName1 = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
+														End If
+														If ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, @ecc->Types, pFiles, pFileLines, True, , , te, z) Then
+														ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, @ecc->Enums, pFiles, pFileLines, True, , , te, z) Then
+														ElseIf (ecc->Globals <> 0) AndAlso ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, @ecc->Globals->Types, pFiles, pFileLines, True, , , te, z) Then
+														ElseIf (ecc->Globals <> 0) AndAlso ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, @ecc->Globals->Enums, pFiles, pFileLines, True, , , te, z) Then
+														ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, pComps, pFiles, pFileLines, True, , , te) Then
+														ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
+														ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
+														End If
+														If te > 0 Then
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
+															OriginalCaseWord = te->Name
+															tIndex = 0
+															If SyntaxHighlightingIdentifiers Then
 																Select Case LCase(te->ElementType)
 																Case "sub"
 																	sc = @ColorSubs
@@ -5830,63 +5983,20 @@ Sub AnalyzeTab(Param As Any Ptr)
 																	sc = @ColorGlobalFunctions
 																Case "property"
 																	sc = @ColorProperties
-																Case "byrefparameter"
-																	sc = @ColorByRefParameters
-																Case "byvalparameter"
-																	sc = @ColorByValParameters
 																Case "field", "event"
 																	sc = @ColorFields
-																Case "enumitem"
-																	sc = @ColorEnumMembers
-																Case "linelabel"
-																	sc = @ColorLineLabels
 																Case Else
 																	sc = @ColorLocalVariables
 																End Select
 															End If
 														End If
 													End If
-													
-													If tIndex = -1 Then
-														TypeName1 = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
-														Pos1 = InStr(TypeName1, ".")
-														If (CBool(Pos1 > 0) OrElse EndsWith(TypeName1, "[Constructor]") OrElse EndsWith(TypeName1, "[Destructor]")) AndAlso (CBool(FECLine->InConstruction->StartLine <> z) OrElse FECLine->InConstruction->Declaration) Then
-															If Pos1 > 0 Then
-																TypeName1 = ..Left(TypeName1, Pos1 - 1)
-															Else
-																TypeName1 = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
-															End If
-															If ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, @ecc->Types, pFiles, pFileLines, True, , , te, z) Then
-															ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, @ecc->Enums, pFiles, pFileLines, True, , , te, z) Then
-															ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, pComps, pFiles, pFileLines, True, , , te) Then
-															ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
-															ElseIf ecc->ContainsIn(TypeName1, MatnLCaseWithoutOldSymbol, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
-															End If
-															If te > 0 Then
-																te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
-																OriginalCaseWord = te->Name
-																tIndex = 0
-																If SyntaxHighlightingIdentifiers Then
-																	Select Case LCase(te->ElementType)
-																	Case "sub"
-																		sc = @ColorSubs
-																	Case "function"
-																		sc = @ColorGlobalFunctions
-																	Case "property"
-																		sc = @ColorProperties
-																	Case "field", "event"
-																		sc = @ColorFields
-																	Case Else
-																		sc = @ColorLocalVariables
-																	End Select
-																End If
-															End If
-														End If
-													End If
 												End If
 											End If
 										End If
-										
+									End If
+									
+									If Not bInAsm Then
 										If Not OneDot Then
 											' Keywords
 											If tIndex = -1 Then
@@ -5904,40 +6014,42 @@ Sub AnalyzeTab(Param As Any Ptr)
 												Next
 											End If
 										End If
+									End If
 										
-										If WithOldSymbol Then MatnLCase = MatnLCaseWithoutOldSymbol
-										
-										If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
-											If Not OneDot Then
-												'Module
-												If (tIndex = -1) AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
-													tIndex = ecc->Args.IndexOf(MatnLCase)
-													If tIndex <> -1 Then
-														If Cast(TypeElement Ptr, ecc->Args.Object(tIndex))->StartLine > z Then
-															tIndex = -1
-														Else
-															'tb->OriginalCaseWord = tb->txtCode.Args.Item(tIndex)
-															pkeywords = @ecc->Args
-															te = Cast(TypeElement Ptr, ecc->Args.Object(tIndex))
-															If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
-																Select Case te->ElementType
-																Case "EnumItem"
-																	sc = @ColorEnumMembers
-																Case "CommonVariable"
-																	sc = @ColorCommonVariables
-																Case "Constant"
-																	sc = @ColorConstants
-																Case "SharedVariable"
-																	sc = @ColorSharedVariables
-																Case Else
-																	sc = @ColorLocalVariables
-																End Select
-															End If
+									If WithOldSymbol Then MatnLCase = MatnLCaseWithoutOldSymbol
+									
+									If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
+										If Not OneDot Then
+											'Module
+											If (tIndex = -1) AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
+												tIndex = ecc->Args.IndexOf(MatnLCase)
+												If tIndex <> -1 Then
+													If Cast(TypeElement Ptr, ecc->Args.Object(tIndex))->StartLine > z Then
+														tIndex = -1
+													Else
+														'tb->OriginalCaseWord = tb->txtCode.Args.Item(tIndex)
+														pkeywords = @ecc->Args
+														te = Cast(TypeElement Ptr, ecc->Args.Object(tIndex))
+														If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
+															Select Case te->ElementType
+															Case "EnumItem"
+																sc = @ColorEnumMembers
+															Case "CommonVariable"
+																sc = @ColorCommonVariables
+															Case "Constant"
+																sc = @ColorConstants
+															Case "SharedVariable"
+																sc = @ColorSharedVariables
+															Case Else
+																sc = @ColorLocalVariables
+															End Select
 														End If
 													End If
 												End If
-												
+											End If
+											
+											If Not bInAsm Then
 												If tIndex = -1 AndAlso (OldMatnLCase <> "as") Then
 													tIndex = ecc->Procedures.IndexOf(MatnLCase)
 													If tIndex <> -1 Then
@@ -5948,7 +6060,37 @@ Sub AnalyzeTab(Param As Any Ptr)
 															pkeywords = @ecc->Procedures
 															te = Cast(TypeElement Ptr, ecc->Procedures.Object(tIndex))
 															If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
+																If Not te->Used Then
+																	If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then 
+																		te->Used = True
+																		If te->Declaration Then
+																			bFind = False
+																			For ii As Integer = tIndex + 1 To ecc->Procedures.Count - 1
+																				te1 = ecc->Procedures.Object(ii)
+																				If LCase(te1->Name) <> MatnLCase Then Exit For
+																				If Not te1->Declaration Then
+																					te1->Used = True
+																					bFind = True
+																					Exit For
+																				End If
+																			Next
+																			If (Not bFind) AndAlso ecc->Globals > 0 Then
+																				tIndex1 = ecc->Globals->Functions.IndexOf(MatnLCase)
+																				If tIndex1 <> -1 Then
+																					For ii As Integer = tIndex1 To ecc->Globals->Functions.Count - 1
+																						te1 = ecc->Globals->Functions.Object(ii)
+																						If LCase(te1->Name) <> MatnLCase Then Exit For
+																						If Not te1->Declaration Then
+																							te1->Used = True
+																							bFind = True
+																							Exit For
+																						End If
+																					Next
+																				End If
+																			End If
+																		End If
+																	End If
+																End If
 																Select Case LCase(te->ElementType)
 																Case "constructor", "destructor"
 																	sc = @ColorGlobalTypes
@@ -5975,7 +6117,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 														If (Not bTypeAs) AndAlso te->StartLine > z Then
 															tIndex = -1
 														Else
-															te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
 															If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalTypes
 															'tb->OriginalCaseWord = tb->txtCode.Types.Item(tIndex)
 															pkeywords = @ecc->Types
@@ -5990,7 +6132,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 														If (Not bTypeAs) AndAlso te->StartLine > z Then
 															tIndex = -1
 														Else
-															te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
 															If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalEnums
 															'tb->OriginalCaseWord = tb->txtCode.Enums.Item(tIndex)
 															pkeywords = @ecc->Enums
@@ -6005,16 +6147,18 @@ Sub AnalyzeTab(Param As Any Ptr)
 														If te->StartLine > z Then
 															tIndex = -1
 														Else
-															te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
+															If (te->StartLine < z) OrElse MatnBoshi > te->StartChar Then te->Used = True
 															If SyntaxHighlightingIdentifiers Then sc = @ColorGlobalNamespaces
 															'tb->OriginalCaseWord = tb->txtCode.Namespaces.Item(tIndex)
 															pkeywords = @ecc->Namespaces
 														End If
 													End If
 												End If
+											End If
 												
-												'Project
-												If ecc->Globals > 0 Then
+											'Project
+											If ecc->Globals > 0 Then
+												If Not bInAsm Then
 													If tIndex = -1 Then
 														If bTypeAs Then
 															tIndex = ecc->Globals->Types.IndexOf(MatnLCase)
@@ -6032,7 +6176,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 													
 													If tIndex = -1 Then
 														If bTypeAs Then
-															tIndex = ecc->Globals->Types.IndexOf(MatnLCase)
+															tIndex = ecc->Globals->Enums.IndexOf(MatnLCase)
 														Else
 															tIndex = ecc->IndexOfInListFiles(@ecc->Globals->Enums, MatnLCase, pFiles, pFileLines)
 														End If
@@ -6049,36 +6193,50 @@ Sub AnalyzeTab(Param As Any Ptr)
 															pkeywords = @ecc->Globals->Enums
 														End If
 													End If
+												End If
 													
-													If tIndex = -1 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
-														tIndex = ecc->IndexOfInListFiles(@ecc->Globals->Args, MatnLCase, pFiles, pFileLines)
-														If tIndex <> -1 Then
-															te = ecc->Globals->Args.Object(tIndex)
-															te->Used = True
-															OriginalCaseWord = ecc->Globals->Args.Item(tIndex)
-															pkeywords = @ecc->Globals->Args
-															If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																Select Case te->ElementType
-																Case "EnumItem"
-																	sc = @ColorEnumMembers
-																Case "CommonVariable"
-																	sc = @ColorCommonVariables
-																Case "Constant"
-																	sc = @ColorConstants
-																Case "SharedVariable"
-																	sc = @ColorSharedVariables
-																Case Else
-																	sc = @ColorLocalVariables
-																End Select
-															End If
+												If tIndex = -1 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
+													tIndex = ecc->IndexOfInListFiles(@ecc->Globals->Args, MatnLCase, pFiles, pFileLines)
+													If tIndex <> -1 Then
+														te = ecc->Globals->Args.Object(tIndex)
+														te->Used = True
+														OriginalCaseWord = ecc->Globals->Args.Item(tIndex)
+														pkeywords = @ecc->Globals->Args
+														If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
+															Select Case te->ElementType
+															Case "EnumItem"
+																sc = @ColorEnumMembers
+															Case "CommonVariable"
+																sc = @ColorCommonVariables
+															Case "Constant"
+																sc = @ColorConstants
+															Case "SharedVariable"
+																sc = @ColorSharedVariables
+															Case Else
+																sc = @ColorLocalVariables
+															End Select
 														End If
 													End If
-													
+												End If
+												
+												If Not bInAsm Then
 													If tIndex = -1 Then
 														tIndex = ecc->IndexOfInListFiles(@ecc->Globals->Functions, MatnLCase, pFiles, pFileLines)
 														If tIndex <> -1 Then
 															te = ecc->Globals->Functions.Object(tIndex)
-															te->Used = True
+															If Not te->Used Then
+																te->Used = True
+																If te->Declaration Then
+																	For ii As Integer = tIndex + 1 To ecc->Globals->Functions.Count - 1
+																		te1 = ecc->Globals->Functions.Object(ii)
+																		If LCase(te1->Name) <> MatnLCase Then Exit For
+																		If Not te1->Declaration Then
+																			te1->Used = True
+																			Exit For
+																		End If
+																	Next
+																End If
+															End If
 															OriginalCaseWord = ecc->Globals->Functions.Item(tIndex)
 															pkeywords = @ecc->Globals->Functions
 															If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
@@ -6153,30 +6311,32 @@ Sub AnalyzeTab(Param As Any Ptr)
 														pkeywords = pGlobalEnums
 													End If
 												End If
-												
-												If tIndex = -1 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
-													tIndex = ecc->IndexOfInListFiles(pGlobalArgs, MatnLCase, pFiles, pFileLines)
-													If tIndex <> -1 Then
-														te = pGlobalArgs->Object(tIndex)
-														OriginalCaseWord = pGlobalArgs->Item(tIndex)
-														pkeywords = pGlobalArgs
-														If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-															Select Case te->ElementType
-															Case "EnumItem"
-																sc = @ColorEnumMembers
-															Case "CommonVariable"
-																sc = @ColorCommonVariables
-															Case "Constant"
-																sc = @ColorConstants
-															Case "SharedVariable"
-																sc = @ColorSharedVariables
-															Case Else
-																sc = @ColorLocalVariables
-															End Select
-														End If
+											End If
+											
+											If tIndex = -1 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
+												tIndex = ecc->IndexOfInListFiles(pGlobalArgs, MatnLCase, pFiles, pFileLines)
+												If tIndex <> -1 Then
+													te = pGlobalArgs->Object(tIndex)
+													OriginalCaseWord = pGlobalArgs->Item(tIndex)
+													pkeywords = pGlobalArgs
+													If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
+														Select Case te->ElementType
+														Case "EnumItem"
+															sc = @ColorEnumMembers
+														Case "CommonVariable"
+															sc = @ColorCommonVariables
+														Case "Constant"
+															sc = @ColorConstants
+														Case "SharedVariable"
+															sc = @ColorSharedVariables
+														Case Else
+															sc = @ColorLocalVariables
+														End Select
 													End If
 												End If
-												
+											End If
+											
+											If Not bInAsm Then
 												If tIndex = -1 Then
 													tIndex = ecc->IndexOfInListFiles(pGlobalFunctions, MatnLCase, pFiles, pFileLines)
 													If tIndex <> -1 Then
@@ -6212,16 +6372,16 @@ Sub AnalyzeTab(Param As Any Ptr)
 														pkeywords = pGlobalNamespaces
 													End If
 												End If
-												
-												If tIndex = -1 Then
-													tIndex = ecc->LineLabels.IndexOf(MatnLCase)
-													If tIndex <> -1 Then
-														te = ecc->LineLabels.Object(tIndex)
-														te->Used = True
-														If SyntaxHighlightingIdentifiers Then sc = @ColorLineLabels
-														OriginalCaseWord = ecc->LineLabels.Item(tIndex)
-														pkeywords = @ecc->LineLabels
-													End If
+											End If
+											
+											If tIndex = -1 Then
+												tIndex = ecc->LineLabels.IndexOf(MatnLCase)
+												If tIndex <> -1 Then
+													te = ecc->LineLabels.Object(tIndex)
+													te->Used = True
+													If SyntaxHighlightingIdentifiers Then sc = @ColorLineLabels
+													OriginalCaseWord = ecc->LineLabels.Item(tIndex)
+													pkeywords = @ecc->LineLabels
 												End If
 											End If
 										End If
@@ -6247,6 +6407,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 											If (Not CStyle) AndAlso CBool(Matn <> "_") AndAlso CBool(OldMatnLCase <> "defined") AndAlso CBool(OldMatnLCase <> "ifdef") AndAlso CBool(OldMatnLCase <> "ifndef") AndAlso CBool(r <> Asc("&")) AndAlso (Not StartsWith(Trim(LCase(*s), Any !"\t "), "#define")) AndAlso (Not StartsWith(Trim(LCase(*s), Any !"\t "), "#undef")) Then
 												If GetQuitThread(Project, tb) Then SetLastThread Project, tb, 0: Exit Sub
 												MutexLock tlockSuggestions
+												ThreadsEnter
 												Dim As Integer ii = 0, AddIndex = -1
 												Dim As UString ErrorText = ML("Error: Identifier not declared") & ", " & Matn & ". " & ML("Declare it")
 												Dim As UString FileName_ = ecc->FileName
@@ -6296,6 +6457,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 													'	tpSuggestions->Caption = ML("Suggestions") & IIf(lvSuggestions.ListItems.Count, " (" & lvSuggestions.ListItems.Count & " " & ML("Pos") & ")", "")
 													'End If
 												End If
+												ThreadsLeave
 												MutexUnlock tlockSuggestions
 											End If
 										End If
@@ -6311,7 +6473,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 								'End If
 								MatnBoshi = 0
 							End If
-						ElseIf IIf(CStyle, Mid(*s, j, 2) = "//", IIf(FECLine->InAsm, Chr(t) = "#", Chr(t) = "'")) Then
+						ElseIf IIf(CStyle, Mid(*s, j, 2) = "//", IIf(FECLine->InAsm, Chr(t) = "#" OrElse Chr(t) = "'", Chr(t) = "'")) Then
 							'FECLine->Ends.Add l, @Comments
 							Exit Do
 						'ElseIf tb->txtCode.CharType(Mid(*s, j, 1)) = 2 Then
@@ -6334,8 +6496,8 @@ Sub AnalyzeTab(Param As Any Ptr)
 	Dim As List NotUsedIdentifiers
 	For kk As Integer = 0 To Contents.Count - 1
 		ecc = Contents.Item(kk)
-		For i As Integer = 0 To ecc->Functions.Count - 1
-			te = ecc->Functions.Object(i)
+		For i As Integer = 0 To ecc->Types.Count - 1
+			te = ecc->Types.Object(i)
 			If te->Used = False Then
 				NotUsedIdentifiers.Add te
 			End If
@@ -6344,13 +6506,13 @@ Sub AnalyzeTab(Param As Any Ptr)
 				If te1->Used = False Then
 					NotUsedIdentifiers.Add te1
 				End If
-				For k As Integer = 0 To te1->Elements.Count - 1
-					te2 = Cast(TypeElement Ptr, te1->Elements.Object(k))
-					If te2->Used = False Then
-						NotUsedIdentifiers.Add te2
-					End If
-				Next
 			Next
+		Next
+		For i As Integer = 0 To ecc->Enums.Count - 1
+			te = ecc->Enums.Object(i)
+			If te->Used = False Then
+				NotUsedIdentifiers.Add te
+			End If
 		Next
 		For i As Integer = 0 To ecc->Namespaces.Count - 1
 			te = ecc->Namespaces.Object(i)
@@ -6358,15 +6520,34 @@ Sub AnalyzeTab(Param As Any Ptr)
 				NotUsedIdentifiers.Add te
 			End If
 		Next
-		For i As Integer = 0 To ecc->FunctionsOthers.Count - 1
-			te = ecc->FunctionsOthers.Object(i)
-			If te->Used = False Then
-				NotUsedIdentifiers.Add te
-			End If
+		For i As Integer = 0 To ecc->TypeProcedures.Count - 1
+			te = ecc->TypeProcedures.Object(i)
 			For j As Integer = 0 To te->Elements.Count - 1
 				te1 = te->Elements.Object(j)
 				If te1->Used = False Then
 					NotUsedIdentifiers.Add te1
+				End If
+			Next
+		Next
+		For i As Integer = 0 To ecc->Procedures.Count - 1
+			te = ecc->Procedures.Object(i)
+			If te->Used = False Then
+				NotUsedIdentifiers.Add te
+			End If
+			If te->Declaration Then Continue For
+			For j As Integer = 0 To te->Elements.Count - 1
+				te1 = te->Elements.Object(j)
+				If te1->Used = False Then
+					NotUsedIdentifiers.Add te1
+				End If
+			Next
+		Next
+		For i As Integer = ecc->ConstructionBlocks.Count - 1 To 0 Step -1
+			cb = ecc->ConstructionBlocks.Item(i)
+			For j As Integer = cb->Elements.Count - 1 To 0 Step -1
+				te = cb->Elements.Object(j)
+				If te->Used = False Then
+					NotUsedIdentifiers.Add te
 				End If
 			Next
 		Next
@@ -6381,15 +6562,10 @@ Sub AnalyzeTab(Param As Any Ptr)
 			If te->Used = False Then
 				NotUsedIdentifiers.Add te
 			End If
-			For j As Integer = 0 To te->Elements.Count - 1
-				te1 = te->Elements.Object(j)
-				If te1->Used = False Then
-					NotUsedIdentifiers.Add te1
-				End If
-			Next
 		Next
 	Next kk
 	MutexLock tlockSuggestions
+	ThreadsEnter
 	For i As Integer = 0 To NotUsedIdentifiers.Count - 1
 		te = NotUsedIdentifiers.Item(i)
 		If CBool(LCase(te->ElementType) = "constructor") OrElse CBool(LCase(te->ElementType) = "destructor") OrElse te->TypeProcedure Then Continue For
@@ -6461,6 +6637,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 	If tpSuggestions->Caption <> ML("Suggestions") & IIf(lvSuggestions.ListItems.Count, " (" & lvSuggestions.ListItems.Count & " " & ML("Pos") & ")", "") Then
 		tpSuggestions->Caption = ML("Suggestions") & IIf(lvSuggestions.ListItems.Count, " (" & lvSuggestions.ListItems.Count & " " & ML("Pos") & ")", "")
 	End If
+	ThreadsLeave
 	MutexUnlock tlockSuggestions
 	SetLastThread Project, tb, 0
 End Sub
@@ -6576,7 +6753,7 @@ Sub GetIncludeFiles(ByRef Content As EditControlContent, Project As ProjectEleme
 	End If
 End Sub
 
-Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As WString, ByRef FileName As WString, func As TypeElement Ptr, LineIndex As Integer, ECLine As EditControlLine Ptr, tb As TabWindow Ptr = 0)
+Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As WString, ByRef FileName As WString, func As TypeElement Ptr, LineIndex As Integer, ECLine As EditControlLine Ptr, Declaration As Boolean, tb As TabWindow Ptr = 0)
 	If Parameters <> "" Then
 		If ECLine Then ECLine->Args.Add func
 		Dim As UString CurType, res1(Any), ElementValue
@@ -6633,6 +6810,7 @@ Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As
 				If Pos1 > 0 Then CurType = Mid(CurType, Pos1 + 1)
 			End If
 			te->Name = res1(n)
+			te->Declaration = Declaration
 			te->DisplayName = res1(n)
 			te->TypeIsPointer = CurType.ToLower.EndsWith(" pointer") OrElse CurType.ToLower.EndsWith(" ptr")
 			'te->ElementType = IIf(StartsWith(LCase(te->TypeName), "sub("), "Event", "Property")
@@ -6652,15 +6830,9 @@ End Sub
 
 Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As ProjectElement Ptr, ByRef Content As EditControlContent)
 	Dim As TypeElement Ptr te, te1, tbi, func
-	Content.Types.Clear
-	For i As Integer = Content.Functions.Count - 1 To 0 Step -1
-		te = Content.Functions.Object(i)
-		'If NotForms Then
-		'	If te->ElementType = "Type" AndAlso te->FileName <> FileName Then
-		'		txtCode.Types.Add te->Name, te
-		'		Continue For
-		'	End If
-		'End If
+	Dim As ConstructionBlock Ptr cb
+	For i As Integer = Content.Types.Count - 1 To 0 Step -1
+		te = Content.Types.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
 			te1 = te->Elements.Object(j)
 			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
@@ -6670,20 +6842,47 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		Delete_( Cast(TypeElement Ptr, Content.Functions.Object(i)))
-		'Functions.Remove i
+		Delete_( Cast(TypeElement Ptr, Content.Types.Object(i)))
+	Next
+	For i As Integer = Content.Enums.Count - 1 To 0 Step -1
+		Delete_( Cast(TypeElement Ptr, Content.Enums.Object(i)))
 	Next
 	For i As Integer = Content.Namespaces.Count - 1 To 0 Step -1
 		Delete_( Cast(TypeElement Ptr, Content.Namespaces.Object(i)))
 	Next
-	For i As Integer = Content.FunctionsOthers.Count - 1 To 0 Step -1
-		te = Content.FunctionsOthers.Object(i)
+	For i As Integer = Content.TypeProcedures.Count - 1 To 0 Step -1
+		te = Content.TypeProcedures.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			te1 = te->Elements.Object(j)
+			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+			Next
+			te1->Elements.Clear
 			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		Delete_( Cast(TypeElement Ptr, Content.FunctionsOthers.Object(i)))
-		'FunctionsOthers.Remove i
+		Delete_( Cast(TypeElement Ptr, Content.TypeProcedures.Object(i)))
+	Next
+	For i As Integer = Content.Procedures.Count - 1 To 0 Step -1
+		te = Content.Procedures.Object(i)
+		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			te1 = te->Elements.Object(j)
+			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+			Next
+			te1->Elements.Clear
+			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		Next
+		te->Elements.Clear
+		Delete_( Cast(TypeElement Ptr, Content.Procedures.Object(i)))
+	Next
+	For i As Integer = Content.ConstructionBlocks.Count - 1 To 0 Step -1
+		cb = Content.ConstructionBlocks.Item(i)
+		For j As Integer = cb->Elements.Count - 1 To 0 Step -1
+			Delete_( Cast(TypeElement Ptr, cb->Elements.Object(j)))
+		Next
+		cb->Elements.Clear
+		Delete_(Cast(ConstructionBlock Ptr, Content.ConstructionBlocks.Item(i)))
 	Next
 	For i As Integer = Content.LineLabels.Count - 1 To 0 Step -1
 		Delete_( Cast(TypeElement Ptr, Content.LineLabels.Object(i)))
@@ -6696,11 +6895,13 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 		Delete_( Cast(TypeElement Ptr, Content.Args.Object(i)))
 		'Args.Remove i
 	Next
+	Content.Types.Clear
 	Content.Defines.Clear
 	Content.Functions.Clear
-	Content.FunctionsOthers.Clear
+	Content.ConstructionBlocks.Clear
 	Content.Namespaces.Clear
 	Content.Enums.Clear
+	Content.TypeProcedures.Clear
 	Content.Procedures.Clear
 	Content.LineLabels.Clear
 	Content.Args.Clear
@@ -6711,6 +6912,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 	Dim As UString sFileName = FileName
 	Dim As TabWindow Ptr tb
 	Dim As EditControlLine Ptr ECLine
+	Dim As ConstructionBlock Ptr block
 	Dim As UString Comments, b, b0, b1, b2, bTrim, bTrimLCase, b0Trim, b0TrimLCase
 	Dim As WStringList WithArgs, Namespaces, Includes
 	Dim As Integer WithConstructionLine = -1, OldWithConstructionLine = -1
@@ -6718,7 +6920,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 	Dim As Boolean IsBas = EndsWith(LCase(FileName), ".bas") OrElse EndsWith(LCase(FileName), ".frm"), inFunc, bFind, bCurrentFile
 	Dim As Integer IncludesCount
 	Dim As Boolean IncludesChanged
-	Dim As List Constructs
+	Dim As List Constructs, ConstructBlocks
 	If IsBas Then
 		WLet(FLine1, ..Left(FileName, Len(FileName) - 4) & ".bi")
 		WLetEx FLine2, GetFileName(*FLine1), True
@@ -6841,6 +7043,8 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 			ECLine->FileList = LastFileList
 			ECLine->FileListLines = LastFileListLines
 			ECLine->InConstruction = 0
+			ECLine->InConstructionBlock = 0
+			If block Then ECLine->InConstructionBlock = block
 			If inFunc Then ECLine->InConstruction = func
 			b1 = Replace(*ECLine->Text, !"\t", " ")
 			If StartsWith(Trim(b1), "'") Then
@@ -6942,6 +7146,27 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 						End If
 					#endif
 				Else
+					If (ECLine->ConstructionIndex >= 0) AndAlso (ECLine->ConstructionIndex <> C_P_If) AndAlso (ECLine->ConstructionIndex <> C_P_Region) Then
+						If ECLine->ConstructionPart > 0 Then
+							If ConstructBlocks.Count > 0 Then ConstructBlocks.Remove ConstructBlocks.Count - 1
+							If ConstructBlocks.Count > 0 Then
+								block = ConstructBlocks.Item(ConstructBlocks.Count - 1)
+							Else
+								block = 0
+							End If
+							If ECLine->ConstructionPart <> 2 Then ECLine->InConstructionBlock = block
+						End If
+						If ECLine->ConstructionPart < 2 Then
+							Var cb = New_(ConstructionBlock)
+							cb->ConstructionIndex = ECLine->ConstructionIndex
+							cb->ConstructionPart = ECLine->ConstructionPart
+							cb->InConstructionBlock = block
+							ConstructBlocks.Add cb
+							Content.ConstructionBlocks.Add cb
+							block = cb
+							ECLine->InConstructionBlock = block
+						End If
+					End If
 					If ECLine->ConstructionIndex >= 0 AndAlso Constructions(ECLine->ConstructionIndex).Accessible Then
 						If ECLine->ConstructionPart = 0 Then
 							Pos1 = 0
@@ -7012,6 +7237,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 								te->FileName = sFileName
 								te->Tag = tb
 								ECLine->InConstruction = te
+								If block Then block->Construction = te
 								If (te->Name = "") AndAlso Constructs.Count > 0 Then
 									func = Constructs.Item(Constructs.Count - 1)
 								Else
@@ -7026,12 +7252,13 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 								ElseIf ECLine->ConstructionIndex = C_Type OrElse ECLine->ConstructionIndex = C_Class OrElse ECLine->ConstructionIndex = C_Union Then
 									Content.Types.Add te->Name, te
 									Project->Globals.Types.Add te->Name, te
-								ElseIf Not TypeProcedure Then
+								ElseIf TypeProcedure Then
+									Content.TypeProcedures.Add te->Name, te
+									Project->Globals.TypeProcedures.Add te->Name, te
+								Else
 									Content.Procedures.Add te->Name, te
 									Project->Globals.Functions.Add te->Name, te
 									If ECLine->ConstructionIndex = C_P_Macro Then Content.Defines.Add te->Name, te
-								Else
-									Project->Globals.TypeProcedures.Add te->Name, te
 								End If
 								If Not TypeProcedure Then
 									If Namespaces.Count > 0 Then
@@ -7040,7 +7267,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 									End If
 								End If
 								If Pos2 > 0 AndAlso Pos5 > 0 Then
-									SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, 0, tb
+									SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, 0, False, tb
 									'Dim As UString CurType, res1(Any), ElementValue
 									'Split GetChangedCommas(Parameters), ",", res1()
 									'For n As Integer = 0 To UBound(res1)
@@ -7197,17 +7424,29 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 						If Comments <> "" Then te->Comment = Comments: Comments = ""
 						te->FileName = sFileName
 						te->Tag = tb
-						Content.FunctionsOthers.Add te->DisplayName, te
-						Content.Procedures.Add te->Name, te
+						'Content.FunctionsOthers.Add te->DisplayName, te
 						Content.Defines.Add te->Name, te
-						Project->Globals.Functions.Add te->Name, te
-						If Namespaces.Count > 0 Then
-							Var Index = Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-							If Index > -1 Then Cast(TypeElement Ptr, Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+						If inFunc AndAlso CBool(func <> 0) Then
+							If block AndAlso block->ConstructionIndex <> C_Enum AndAlso block->ConstructionIndex <> C_Type AndAlso block->ConstructionIndex <> C_Union AndAlso block->ConstructionIndex <> C_Class Then
+								block->Elements.Add te->Name, te
+							Else
+								func->Elements.Add te->Name, te
+							End If
+						Else
+							If block Then 
+								block->Elements.Add te->Name, te
+							Else
+								Content.Procedures.Add te->Name, te
+								Project->Globals.Functions.Add te->Name, te
+								If Namespaces.Count > 0 Then
+									Var Index = Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+									If Index > -1 Then Cast(TypeElement Ptr, Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+								End If
+							End If
 						End If
 						Pos2 = InStr(b2, ")")
 						If Pos2 > 0 AndAlso Pos5 > 0 Then
-							SplitParameters b2, Pos5, Mid(b2, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, tb
+							SplitParameters b2, Pos5, Mid(b2, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, False, tb
 							'Var teDeclare = te
 							'Dim As UString CurType, res1(Any), ElementValue
 							'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
@@ -7294,18 +7533,6 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 							te->Parameters = Trim(res1(n))
 							te->FileName = sFileName
 							If func Then func->Elements.Add te->Name, te
-							te = New_( TypeElement)
-							te->Name = t
-							If tbi AndAlso tbi->Name <> "" Then
-								te->DisplayName = tbi->Name & "." & te->Name
-							Else
-								te->DisplayName = te->Name
-							End If
-							te->ElementType = "EnumItem"
-							te->Value = ElementValue
-							te->StartLine = i
-							te->Parameters = Trim(res1(n))
-							te->FileName = sFileName
 							Content.Args.Add te->Name, te
 							Project->Globals.Args.Add te->Name, te
 						Next n
@@ -7380,12 +7607,12 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 						If inFunc AndAlso func <> 0 AndAlso LCase(te->ElementType) <> "constructor" AndAlso LCase(te->ElementType) <> "destructor" Then
 							func->Elements.Add te->Name, te
 						Else
-							Content.FunctionsOthers.Add te->DisplayName, te
+							'Content.FunctionsOthers.Add te->DisplayName, te
 							Content.Procedures.Add te->Name, te
 							Project->Globals.Functions.Add te->Name, te
 						End If
 						If Pos2 > 0 AndAlso Pos5 > 0 Then
-							SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, tb
+							SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, True, tb
 							'Var teDeclare = te
 							'Dim As UString CurType, res1(Any), ElementValue
 							'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
@@ -7460,7 +7687,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 						End If
 					Else
 						If CInt(StartsWith(bTrimLCase, "as ")) OrElse _
-							CInt(InStr(b0TrimLCase, " as ")) OrElse _
+							CInt(CInt(InStr(b0TrimLCase, " as ")) AndAlso CInt(InStr(b0TrimLCase, " as #") = 0)) OrElse _
 							CInt(StartsWith(bTrimLCase, "const ")) OrElse _
 							CInt(StartsWith(bTrimLCase, "common ")) OrElse _
 							CInt(StartsWith(bTrimLCase, "var ")) Then
@@ -7595,12 +7822,23 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 								te->FileName = sFileName
 								te->Tag = tb
 								If inFunc AndAlso CBool(func <> 0) AndAlso Not bShared Then
-									func->Elements.Add te->Name, te
+									If block AndAlso block->ConstructionIndex <> C_Enum AndAlso block->ConstructionIndex <> C_Type AndAlso block->ConstructionIndex <> C_Union AndAlso block->ConstructionIndex <> C_Class Then
+										block->Elements.Add te->Name, te
+									Else
+										func->Elements.Add te->Name, te
+									End If
 								ElseIf StartsWith(bTrimLCase, "type ") Then
 									Content.Types.Add te->Name, te
-								Else
+								ElseIf bShared Then
 									Content.Args.Add te->Name, te
 									Project->Globals.Args.Add te->Name, te
+								Else
+									If block Then 
+										block->Elements.Add te->Name, te
+									Else
+										Content.Args.Add te->Name, te
+										Project->Globals.Args.Add te->Name, te
+									End If
 									If Namespaces.Count > 0 Then
 										Var Index = Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
 										If Index > -1 Then Cast(TypeElement Ptr, Content.Namespaces.Object(Index))->Elements.Add te->Name, te
@@ -7611,7 +7849,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 									Pos2 = InStrRev(bTrim, ")")
 									Pos5 = InStr(bTrim, "(")
 									If Pos2 > 0 AndAlso Pos5 > 0 Then
-										SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, tb
+										SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, True, tb
 										'Var teDeclare = te
 										'Dim As UString CurType, res1(Any), ElementValue
 										'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
@@ -7806,16 +8044,10 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 		cboClass.ItemIndex = 0
 	End If
 	'LoadFunctionsWithContent FileName, Project, txtCode.Content
-	Dim As TypeElement Ptr te, te1, func, block
-	txtCode.Content.Types.Clear
-	For i As Integer = txtCode.Content.Functions.Count - 1 To 0 Step -1
-		te = txtCode.Content.Functions.Object(i)
-		'If NotForms Then
-		'	If te->ElementType = "Type" AndAlso te->FileName <> FileName Then
-		'		txtCode.Types.Add te->Name, te
-		'		Continue For
-		'	End If
-		'End If
+	Dim As TypeElement Ptr te, te1, func
+	Dim As ConstructionBlock Ptr block, cb
+	For i As Integer = txtCode.Content.Types.Count - 1 To 0 Step -1
+		te = txtCode.Content.Types.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
 			te1 = te->Elements.Object(j)
 			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
@@ -7825,20 +8057,47 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		Delete_( Cast(TypeElement Ptr, txtCode.Content.Functions.Object(i)))
-		'Functions.Remove i
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.Types.Object(i)))
+	Next
+	For i As Integer = txtCode.Content.Enums.Count - 1 To 0 Step -1
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.Enums.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.Namespaces.Count - 1 To 0 Step -1
 		Delete_( Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(i)))
 	Next
-	For i As Integer = txtCode.Content.FunctionsOthers.Count - 1 To 0 Step -1
-		te = txtCode.Content.FunctionsOthers.Object(i)
+	For i As Integer = txtCode.Content.TypeProcedures.Count - 1 To 0 Step -1
+		te = txtCode.Content.TypeProcedures.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			te1 = te->Elements.Object(j)
+			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+			Next
+			te1->Elements.Clear
 			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		Delete_( Cast(TypeElement Ptr, txtCode.Content.FunctionsOthers.Object(i)))
-		'FunctionsOthers.Remove i
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.TypeProcedures.Object(i)))
+	Next
+	For i As Integer = txtCode.Content.Procedures.Count - 1 To 0 Step -1
+		te = txtCode.Content.Procedures.Object(i)
+		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			te1 = te->Elements.Object(j)
+			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+			Next
+			te1->Elements.Clear
+			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		Next
+		te->Elements.Clear
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.Procedures.Object(i)))
+	Next
+	For i As Integer = txtCode.Content.ConstructionBlocks.Count - 1 To 0 Step -1
+		cb = txtCode.Content.ConstructionBlocks.Item(i)
+		For j As Integer = cb->Elements.Count - 1 To 0 Step -1
+			Delete_( Cast(TypeElement Ptr, cb->Elements.Object(j)))
+		Next
+		cb->Elements.Clear
+		Delete_(Cast(ConstructionBlock Ptr, txtCode.Content.ConstructionBlocks.Item(i)))
 	Next
 	For i As Integer = txtCode.Content.LineLabels.Count - 1 To 0 Step -1
 		Delete_( Cast(TypeElement Ptr, txtCode.Content.LineLabels.Object(i)))
@@ -7854,11 +8113,13 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 	For i As Integer = AnyTexts.Count - 1 To 0 Step -1
 		Delete_( Cast(WString Ptr, AnyTexts.Object(i)))
 	Next
+	txtCode.Content.Types.Clear
 	txtCode.Content.Defines.Clear
 	txtCode.Content.Functions.Clear
-	txtCode.Content.FunctionsOthers.Clear
+	txtCode.Content.ConstructionBlocks.Clear
 	txtCode.Content.Namespaces.Clear
 	txtCode.Content.Enums.Clear
+	txtCode.Content.TypeProcedures.Clear
 	txtCode.Content.Procedures.Clear
 	txtCode.Content.LineLabels.Clear
 	txtCode.Content.Args.Clear
@@ -7877,7 +8138,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 	Dim As Boolean IsBas = EndsWith(LCase(FileName), ".bas") OrElse EndsWith(LCase(FileName), ".frm"), inFunc
 	Dim FileEncoding As FileEncodings, NewLineType As NewLineTypes
 	Dim As Integer WithConstructionLine = -1, OldWithConstructionLine = -1
-	Dim As List Constructs
+	Dim As List Constructs, ConstructBlocks
 	If IsBas Then
 		WLet(FLine1, ..Left(FileName, Len(FileName) - 4) & ".bi")
 		WLetEx FLine2, GetFileName(*FLine1), True
@@ -8015,7 +8276,9 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 			ECLine->FileList = LastFileList
 			ECLine->FileListLines = LastFileListLines
 			ECLine->InConstruction = 0
+			ECLine->InConstructionBlock = 0
 			If inFunc Then ECLine->InConstruction = func
+			If block Then ECLine->InConstructionBlock = block
 			WLet(FLine, *ECLine->Text)
 			b1 = Replace(*ECLine->Text, !"\t", " ")
 			If StartsWith(Trim(b1), "'") Then
@@ -8097,26 +8360,45 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 					End If
 				End If
 				If StartsWith(bTrimLCase, "#include ") Then
-					#ifndef __USE_GTK__
-						Pos1 = InStr(b, """")
-						If Pos1 > 0 Then
-							Pos2 = InStr(Pos1 + 1, b, """")
-							WLetEx FPath, GetRelativePath(Mid(b, Pos1 + 1, Pos2 - Pos1 - 1), FileName), True
-							If ptxtCode = @txtCode Then
-								If IncludesChanged Then
-									txtCode.Content.Includes.Add *FPath
-									txtCode.Content.IncludeLines.Add j
-									Includes.Add *FPath
-								End If
-								OldIncludeLine = j
+					Pos1 = InStr(b, """")
+					If Pos1 > 0 Then
+						Pos2 = InStr(Pos1 + 1, b, """")
+						WLetEx FPath, GetRelativePath(Mid(b, Pos1 + 1, Pos2 - Pos1 - 1), FileName), True
+						If ptxtCode = @txtCode Then
+							If IncludesChanged Then
+								txtCode.Content.Includes.Add *FPath
+								txtCode.Content.IncludeLines.Add j
+								Includes.Add *FPath
 							End If
-							If Not pLoadPaths->Contains(*FPath) Then
-								Var AddedIndex = pLoadPaths->Add(*FPath)
-								ThreadCounter(ThreadCreate_(@LoadFunctionsSub, @pLoadPaths->Item(AddedIndex)))
-							End If
+							OldIncludeLine = j
 						End If
-					#endif
+						If Not pLoadPaths->Contains(*FPath) Then
+							Var AddedIndex = pLoadPaths->Add(*FPath)
+							ThreadCounter(ThreadCreate_(@LoadFunctionsSub, @pLoadPaths->Item(AddedIndex)))
+						End If
+					End If
 				Else
+					If (ECLine->ConstructionIndex >= 0) AndAlso (ECLine->ConstructionIndex <> C_P_If) AndAlso (ECLine->ConstructionIndex <> C_P_Region) Then
+						If ECLine->ConstructionPart > 0 Then
+							If ConstructBlocks.Count > 0 Then ConstructBlocks.Remove ConstructBlocks.Count - 1
+							If ConstructBlocks.Count > 0 Then
+								block = ConstructBlocks.Item(ConstructBlocks.Count - 1)
+							Else
+								block = 0
+							End If
+							If ECLine->ConstructionPart <> 2 Then ECLine->InConstructionBlock = block
+						End If
+						If ECLine->ConstructionPart < 2 Then
+							Var cb = New_(ConstructionBlock)
+							cb->ConstructionIndex = ECLine->ConstructionIndex
+							cb->ConstructionPart = ECLine->ConstructionPart
+							cb->InConstructionBlock = block
+							ConstructBlocks.Add cb
+							txtCode.Content.ConstructionBlocks.Add cb
+							block = cb
+							ECLine->InConstructionBlock = block
+						End If
+					End If
 					If ECLine->ConstructionIndex >= 0 AndAlso Constructions(ECLine->ConstructionIndex).Accessible Then
 						If ECLine->ConstructionPart = 0 Then
 							Pos1 = 0
@@ -8187,6 +8469,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 								te->FileName = sFileName
 								te->Tag = tb
 								ECLine->InConstruction = te
+								If block Then block->Construction = te
 								If (te->Name = "") AndAlso Constructs.Count > 0 Then
 									func = Constructs.Item(Constructs.Count - 1)
 								Else
@@ -8199,7 +8482,9 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									txtCode.Content.Enums.Add te->Name, te
 								ElseIf ECLine->ConstructionIndex = C_Type OrElse ECLine->ConstructionIndex = C_Class OrElse ECLine->ConstructionIndex = C_Union Then
 									txtCode.Content.Types.Add te->Name, te
-								ElseIf Not TypeProcedure Then
+								ElseIf TypeProcedure Then
+									txtCode.Content.TypeProcedures.Add te->Name, te
+								Else
 									txtCode.Content.Procedures.Add te->Name, te
 									If ECLine->ConstructionIndex = C_P_Macro Then txtCode.Content.Defines.Add te->Name, te
 								End If
@@ -8210,7 +8495,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									End If
 								End If
 								If Pos2 > 0 AndAlso Pos5 > 0 Then
-									SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, 0, tb
+									SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, 0, False, tb
 									'Dim As UString CurType, res1(Any), ElementValue
 									'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
 									'For n As Integer = 0 To UBound(res1)
@@ -8290,15 +8575,6 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									inPubProPri = 2
 								End If
 							End If
-							'Var te = New_(TypeElement)
-							'te->StartLine = i
-							'te->EndLine = i
-							'te->FileName = sFileName
-							'If inFunc Then
-							'	te->Parent = func
-							'End If
-							'te->Tag = tb
-							'txtCode.Content.ConstructionBlocks.Add te
 						End If
 					ElseIf ECLine->ConstructionIndex = C_Namespace Then
 						If ECLine->ConstructionPart = 0 Then
@@ -8377,16 +8653,28 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 						If Comments <> "" Then te->Comment = Comments: Comments = ""
 						te->FileName = sFileName
 						te->Tag = tb
-						txtCode.Content.FunctionsOthers.Add te->DisplayName, te
-						txtCode.Content.Procedures.Add te->Name, te
+						'txtCode.Content.FunctionsOthers.Add te->DisplayName, te
 						txtCode.Content.Defines.Add te->Name, te
-						If Namespaces.Count > 0 Then
-							Var Index = txtCode.Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-							If Index > -1 Then Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+						If inFunc AndAlso CBool(func <> 0) Then
+							If block AndAlso block->ConstructionIndex <> C_Enum AndAlso block->ConstructionIndex <> C_Type AndAlso block->ConstructionIndex <> C_Union AndAlso block->ConstructionIndex <> C_Class Then
+								block->Elements.Add te->Name, te
+							Else
+								func->Elements.Add te->Name, te
+							End If
+						Else
+							If block Then 
+								block->Elements.Add te->Name, te
+							Else
+								txtCode.Content.Procedures.Add te->Name, te
+								If Namespaces.Count > 0 Then
+									Var Index = txtCode.Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+									If Index > -1 Then Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+								End If
+							End If
 						End If
 						Pos2 = InStr(b2, ")")
 						If Pos2 > 0 AndAlso Pos5 > 0 Then
-							SplitParameters b2, Pos5, Mid(b2, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, tb
+							SplitParameters b2, Pos5, Mid(b2, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, False, tb
 							'Var teDeclare = te
 							'Dim As UString CurType, res1(Any), ElementValue
 							'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
@@ -8473,18 +8761,6 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 							te->Parameters = Trim(res1(n))
 							te->FileName = sFileName
 							If func Then func->Elements.Add te->Name, te
-							te = New_( TypeElement)
-							te->Name = t
-							If tbi AndAlso tbi->Name <> "" Then
-								te->DisplayName = tbi->Name & "." & te->Name
-							Else
-								te->DisplayName = te->Name
-							End If
-							te->ElementType = "EnumItem"
-							te->Value = ElementValue
-							te->StartLine = i
-							te->Parameters = Trim(res1(n))
-							te->FileName = sFileName
 							txtCode.Content.Args.Add te->Name, te
 						Next n
 					ElseIf StartsWith(bTrimLCase, "declare ") Then
@@ -8558,11 +8834,11 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 						If inFunc AndAlso func <> 0 AndAlso LCase(te->ElementType) <> "constructor" AndAlso LCase(te->ElementType) <> "destructor" Then
 							func->Elements.Add te->Name, te
 						Else
-							txtCode.Content.FunctionsOthers.Add te->DisplayName, te
+							'txtCode.Content.FunctionsOthers.Add te->DisplayName, te
 							txtCode.Content.Procedures.Add te->Name, te
 						End If
 						If Pos2 > 0 AndAlso Pos5 > 0 Then
-							SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, tb
+							SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, True, tb
 							'Var teDeclare = te
 							'Dim As UString CurType, res1(Any), ElementValue
 							'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
@@ -8637,7 +8913,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 						End If
 					Else
 						If CInt(StartsWith(bTrimLCase, "as ")) OrElse _
-							CInt(InStr(b0TrimLCase, " as ")) OrElse _
+							CInt(CInt(InStr(b0TrimLCase, " as ")) AndAlso CInt(InStr(b0TrimLCase, " as #") = 0)) OrElse _
 							CInt(StartsWith(bTrimLCase, "const ")) OrElse _
 							CInt(StartsWith(bTrimLCase, "common ")) OrElse _
 							CInt(StartsWith(bTrimLCase, "var ")) Then
@@ -8769,11 +9045,21 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 								te->FileName = sFileName
 								te->Tag = tb
 								If inFunc AndAlso CBool(func <> 0) AndAlso Not bShared Then
-									func->Elements.Add te->Name, te
+									If block AndAlso block->ConstructionIndex <> C_Enum AndAlso block->ConstructionIndex <> C_Type AndAlso block->ConstructionIndex <> C_Union AndAlso block->ConstructionIndex <> C_Class Then
+										block->Elements.Add te->Name, te
+									Else
+										func->Elements.Add te->Name, te
+									End If
 								ElseIf StartsWith(bTrimLCase, "type ") Then
 									txtCode.Content.Types.Add te->Name, te
-								Else
+								ElseIf bShared Then
 									txtCode.Content.Args.Add te->Name, te
+								Else
+									If block Then
+										block->Elements.Add te->Name, te
+									Else
+										txtCode.Content.Args.Add te->Name, te
+									End If
 									If Namespaces.Count > 0 Then
 										Var Index = txtCode.Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
 										If Index > -1 Then Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(Index))->Elements.Add te->Name, te
@@ -8784,7 +9070,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									Pos2 = InStrRev(bTrim, ")")
 									Pos5 = InStr(bTrim, "(")
 									If Pos2 > 0 AndAlso Pos5 > 0 Then
-										SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, tb
+										SplitParameters bTrim, Pos5, Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1), sFileName, te, i, ECLine, True, tb
 										'Var teDeclare = te
 										'Dim As UString CurType, res1(Any), ElementValue
 										'Split GetChangedCommas(Mid(bTrim, Pos5 + 1, Pos2 - Pos5 - 1)), ",", res1()
@@ -9210,12 +9496,12 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 				t = False
 				For i As Integer = 1 To cboFunction.Items.Count - 1
 					If LCase(cboFunction.Items.Item(i)->Text) > LCase(te2->DisplayName) Then
-						cboFunction.Items.Add te2->DisplayName, te2, imgKey, imgKey, , , i
+						If Not (CBool(InStr(te->DisplayName, "._") > 0) AndAlso CreateStaticEventHandlersWithAnUnderscoreAtTheBeginning) Then cboFunction.Items.Add te2->DisplayName, te2, imgKey, imgKey, , , i
 						t = True
 						Exit For
 					End If
 				Next i
-				If Not t Then cboFunction.Items.Add te2->DisplayName, te2, imgKey, imgKey
+				If Not t AndAlso Not (CBool(InStr(te->DisplayName, "._") > 0) AndAlso CreateStaticEventHandlersWithAnUnderscoreAtTheBeginning) Then cboFunction.Items.Add te2->DisplayName, te2, imgKey, imgKey
 			End If
 			'End If
 		Next
@@ -9807,27 +10093,59 @@ Destructor TabWindow
 	cboClass.Items.Clear
 	cboFunction.Items.Clear
 	Dim As TypeElement Ptr te, te1
-	For i As Integer = txtCode.Content.Functions.Count - 1 To 0 Step -1
-		te = txtCode.Content.Functions.Object(i)
+	Dim As ConstructionBlock Ptr cb
+	For i As Integer = txtCode.Content.Types.Count - 1 To 0 Step -1
+		te = txtCode.Content.Types.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
 			te1 = te->Elements.Object(j)
 			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
 				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
 			Next
+			te1->Elements.Clear
 			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
-		Delete_( Cast(TypeElement Ptr, txtCode.Content.Functions.Object(i)))
+		te->Elements.Clear
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.Types.Object(i)))
+	Next
+	For i As Integer = txtCode.Content.Enums.Count - 1 To 0 Step -1
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.Enums.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.Namespaces.Count - 1 To 0 Step -1
 		Delete_( Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(i)))
 	Next
-	For i As Integer = txtCode.Content.FunctionsOthers.Count - 1 To 0 Step -1
-		te = txtCode.Content.FunctionsOthers.Object(i)
+	For i As Integer = txtCode.Content.TypeProcedures.Count - 1 To 0 Step -1
+		te = txtCode.Content.TypeProcedures.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			te1 = te->Elements.Object(j)
+			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+			Next
+			te1->Elements.Clear
 			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		Delete_( Cast(TypeElement Ptr, txtCode.Content.FunctionsOthers.Object(i)))
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.TypeProcedures.Object(i)))
+	Next
+	For i As Integer = txtCode.Content.Procedures.Count - 1 To 0 Step -1
+		te = txtCode.Content.Procedures.Object(i)
+		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			te1 = te->Elements.Object(j)
+			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+				Delete_(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+			Next
+			te1->Elements.Clear
+			Delete_( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		Next
+		te->Elements.Clear
+		Delete_( Cast(TypeElement Ptr, txtCode.Content.Procedures.Object(i)))
+	Next
+	For i As Integer = txtCode.Content.ConstructionBlocks.Count - 1 To 0 Step -1
+		cb = txtCode.Content.ConstructionBlocks.Item(i)
+		For j As Integer = cb->Elements.Count - 1 To 0 Step -1
+			Delete_( Cast(TypeElement Ptr, cb->Elements.Object(j)))
+		Next
+		cb->Elements.Clear
+		Delete_(Cast(ConstructionBlock Ptr, txtCode.Content.ConstructionBlocks.Item(i)))
 	Next
 	For i As Integer = txtCode.Content.LineLabels.Count - 1 To 0 Step -1
 		Delete_( Cast(TypeElement Ptr, txtCode.Content.LineLabels.Object(i)))
@@ -9849,9 +10167,10 @@ Destructor TabWindow
 		Delete_( Cast(IntegerList Ptr, txtCode.Content.FileListsLines.Item(i)))
 	Next
 	txtCode.Content.Functions.Clear
-	txtCode.Content.FunctionsOthers.Clear
+	txtCode.Content.ConstructionBlocks.Clear
 	txtCode.Content.Namespaces.Clear
 	txtCode.Content.Types.Clear
+	txtCode.Content.TypeProcedures.Clear
 	txtCode.Content.Procedures.Clear
 	txtCode.Content.LineLabels.Clear
 	txtCode.Content.Args.Clear
@@ -12071,6 +12390,23 @@ Sub TabWindow.Define
 				.Item(.Count - 1)->Text(4) = te2->FileName
 				.Item(.Count - 1)->Text(5) = te2->Comment
 				.Item(.Count - 1)->Tag = te2->Tag
+			End If
+			If ECLine Then
+				If ECLine->InConstructionBlock > 0 Then
+					FListItems.Clear
+					FillFromConstructionBlock ECLine->InConstructionBlock, sWord
+					For i As Integer = 0 To FListItems.Count - 1
+						te = FListItems.Object(i)
+						If te->StartLine = iSelEndLine Then Continue For
+						.Add te->DisplayName
+						.Item(.Count - 1)->Text(1) = te->Parameters
+						.Item(.Count - 1)->Text(2) = WStr(te->StartLine + 1)
+						.Item(.Count - 1)->Text(3) = WStr(te->StartChar)
+						.Item(.Count - 1)->Text(4) = te->FileName
+						.Item(.Count - 1)->Text(5) = te->Comment
+						.Item(.Count - 1)->Tag = te->Tag
+					Next
+				End If
 			End If
 			If cboFunction.ItemIndex > -1 Then te1 = cboFunction.Items.Item(cboFunction.ItemIndex)->Object
 			Pos1 = InStr(cboFunction.Text, "["): If Pos1 > 0 Then FuncName = Trim(..Left(cboFunction.Text, Pos1 - 1)): TypeName = FuncName

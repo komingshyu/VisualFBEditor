@@ -66,7 +66,7 @@ Dim Shared As TrackBar trLeft
 Dim Shared As MainMenu mnuMain
 Dim Shared As MenuItem Ptr mnuStartWithCompile, mnuStart, mnuBreak, mnuEnd, mnuRestart, mnuStandardToolBar, mnuEditToolBar, mnuProjectToolBar, mnuBuildToolBar, mnuRunToolBar, mnuSplit, mnuSplitHorizontally, mnuSplitVertically, mnuWindowSeparator, miRecentProjects, miRecentFiles, miRecentFolders, miRecentSessions, miSetAsMain, miTabSetAsMain, miTabReloadHistoryCode, miRemoveFiles, miToolBars
 Dim Shared As MenuItem Ptr miSaveProject, miSaveProjectAs, miCloseProject, miCloseFolder, miSave, miSaveAs, miSaveAll, miClose, miCloseAll, miCloseSession, miPrint, miPrintPreview, miPageSetup, miOpenProjectFolder, miProjectProperties, miExplorerOpenProjectFolder, miExplorerProjectProperties, miExplorerCloseProject, miRemoveFileFromProject
-Dim Shared As MenuItem Ptr miUndo, miRedo, miCutCurrentLine, miCut, miCopy, miPaste, miSingleComment, miBlockComment, miUncommentBlock, miDuplicate, miSelectAll, miIndent, miOutdent, miFormat, miUnformat, miFormatProject, miUnformatProject, miAddSpaces, miCompleteWord, miParameterInfo, miStepInto, miStepOver, miStepOut, miRunToCursor, miGDBCommand, miAddWatch, miToggleBreakpoint, miClearAllBreakpoints, miSetNextStatement, miShowNextStatement
+Dim Shared As MenuItem Ptr miUndo, miRedo, miCutCurrentLine, miCut, miCopy, miPaste, miSingleComment, miBlockComment, miUncommentBlock, miDuplicate, miSelectAll, miIndent, miOutdent, miFormat, miUnformat, miFormatProject, miUnformatProject, miAddSpaces, miSuggestions, miCompleteWord, miParameterInfo, miStepInto, miStepOver, miStepOut, miRunToCursor, miGDBCommand, miAddWatch, miToggleBreakpoint, miClearAllBreakpoints, miSetNextStatement, miShowNextStatement
 Dim Shared As MenuItem Ptr miNumbering, miMacroNumbering, miRemoveNumbering, miProcedureNumbering, miProcedureMacroNumbering, miRemoveProcedureNumbering, miProjectMacroNumbering, miProjectMacroNumberingStartsOfProcedures, miRemoveProjectNumbering, miPreprocessorNumbering, miRemovePreprocessorNumbering, miProjectPreprocessorNumbering, miRemoveProjectPreprocessorNumbering, miOnErrorResumeNext, miOnErrorGoto, miOnErrorGotoResumeNext, miOnLocalErrorGoto, miOnLocalErrorGotoResumeNext, miRemoveErrorHandling
 Dim Shared As MenuItem Ptr dmiNumbering, dmiMacroNumbering, dmiRemoveNumbering, dmiProcedureNumbering, dmiProcedureMacroNumbering, dmiRemoveProcedureNumbering, dmiProjectMacroNumbering, dmiProjectMacroNumberingStartsOfProcedures, dmiRemoveProjectNumbering, dmiPreprocessorNumbering, dmiRemovePreprocessorNumbering, dmiProjectPreprocessorNumbering, dmiRemoveProjectPreprocessorNumbering, dmiOnErrorResumeNext, dmiOnErrorGoto, dmiOnErrorGotoResumeNext, dmiOnLocalErrorGoto, dmiOnLocalErrorGotoResumeNext, dmiRemoveErrorHandling, dmiMake, dmiMakeClean
 Dim Shared As MenuItem Ptr miCode, miForm, miCodeAndForm, miCollapseCurrent, miCollapseAllProcedures, miCollapseAll, miUnCollapseCurrent, miUnCollapseAllProcedures, miUnCollapseAll, miImageManager, miAddProcedure, miFind, miReplace, miFindNext, miFindPrevious, miGoto, miDefine, miToggleBookmark, miNextBookmark, miPreviousBookmark, miClearAllBookmarks, miSyntaxCheck, miCompile, miCompileAll, miBuildBundle, miBuildAPK, miGenerateSignedBundle, miGenerateSignedAPK, miMake, miMakeClean
@@ -3586,13 +3586,13 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							t = Trim(Mid(bTrim, Pos1 + Pos5, Pos2 - Pos1 - Pos5))
 							e = Trim(Mid(bTrim, Pos2 + 9))
 						ElseIf Pos3 > 0 Then
-							If Trim(Left(LCase(bTrim), Pos3)) = "type" Then  'Like "Type As    Short gint16, gshort, gunichar2"
-								b = Trim(Mid(bTrim, Pos3 + 3)) : Pos5 = InStr(b, " ")
-								t = Trim(Left(b, Pos5))
-								e = ""
+							If Trim(Left(LCase(bTrim), Pos3)) = "type" Then  'Like "Type As    Short gint16, gshort, gunichar2" Then
+								Pos5 = InStrRev(bTrim, " ")
+								t = Trim(Mid(bTrim, Pos5 + 1))
+								e = Trim(Mid(bTrim, Pos3 + 4, Pos5 - (Pos3 + 4)))
 							Else
-							t = Trim(Mid(bTrim, Pos1 + Pos5, Pos3 - Pos1 - Pos5))
-							e = Trim(Mid(bTrim, Pos3 + 4))
+								t = Trim(Mid(bTrim, Pos1 + Pos5, Pos3 - Pos1 - Pos5))
+								e = Trim(Mid(bTrim, Pos3 + 4))
 							End If 
 						Else
 							Pos2 = InStr(Pos1 + Pos5, bTrim, " ")
@@ -3631,11 +3631,14 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If CtlLibrary Then tbi->IncludeFile = Replace(GetRelative(PathFunction, CtlLibrary->IncludeFolder), "\", "/")
 						tbi->Parameters = Trim(Mid(bTrim, Pos1 + Pos5))
 						tbi->Tag = CtlLibrary
-						Types.Add t, tbi
 						typ = tbi
-						If Namespaces.Count > 0 Then
-							Index = GlobalNamespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-							If Index > -1 Then Cast(TypeElement Ptr, GlobalNamespaces.Object(Index))->Elements.Add tOrig, tbi
+						If Types.Contains(t, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->FileName = PathFunction Then
+						Else
+							Types.Add t, tbi
+							If Namespaces.Count > 0 Then
+								Index = GlobalNamespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+								If Index > -1 Then Cast(TypeElement Ptr, GlobalNamespaces.Object(Index))->Elements.Add tOrig, tbi
+							End If
 						End If
 					End If
 				ElseIf StartsWith(bTrimLCase & " ", "end type ") OrElse StartsWith(bTrimLCase & " ", "end class ") OrElse StartsWith(bTrimLCase & " ", "__startofclassbody__ ") Then
@@ -3887,7 +3890,17 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							b2 = Trim(Mid(b2, 7))
 						End If
 						Pos1 = InStr(b2, "'")
-						If Pos1 > 0 Then
+						Pos2 = InStr(b2, "/'")
+						If Pos2 > 0 AndAlso Pos2 < Pos1 Then
+							Pos1 = InStr(b2, "'/")
+							If Pos1 = 0 Then
+								TypeComment = Trim(Mid(b2, Pos2 + 2))
+								b2 = Trim(Left(b2, Pos2 - 1))
+							Else
+								TypeComment = Trim(Mid(b2, Pos2 + 2, Pos1 - 1 - (Pos2 + 2)))
+								b2 = Trim(Left(b2, Pos2 - 1)) & " " & Trim(Mid(b2, Pos1 + 3))
+							End If
+						ElseIf Pos1 > 0 Then
 							TypeComment = Trim(Mid(b2, Pos1 + 1))
 							b2 = Trim(Left(b2, Pos1 - 1))
 						End If
@@ -4298,7 +4311,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						End If
 						LastIndexFunction = TypeProcedures.Add(te->Name, te)
 						lastfunctionte = te
-					ElseIf CInt(Not inType) AndAlso CInt(Not inEnum) AndAlso CInt(Not InFunc) AndAlso _
+					ElseIf (CInt(Not inType) AndAlso CInt(Not inEnum) AndAlso CInt(Not InFunc) OrElse InStr(bTrimLCase, " shared ") > 0) AndAlso _
 						CInt(CInt(StartsWith(bTrimLCase, "dim ")) OrElse _
 						CInt(StartsWith(bTrimLCase, "common ")) OrElse _
 						CInt(StartsWith(bTrimLCase, "static ")) OrElse _
@@ -5632,6 +5645,7 @@ Sub CreateMenusAndToolBars
 	miUnformatProject = miEdit->Add(ML("&Unformat Project") & HK("UnformatProject"), "", "UnformatProject", @mClick, , , False)
 	miAddSpaces = miEdit->Add(ML("Add &Spaces") & HK("AddSpaces"), "", "AddSpaces", @mClick, , , False)
 	miEdit->Add("-")
+	miSuggestions = miEdit->Add(ML("Suggestions") & HK("Suggestions"), "Suggestions", "Suggestions", @mClick, , , False)
 	miCompleteWord = miEdit->Add(ML("Complete Word") & HK("CompleteWord", "Ctrl+Space"), "CompleteWord", "CompleteWord", @mClick, , , False)
 	miParameterInfo = miEdit->Add(ML("Parameter Info") & HK("ParameterInfo", "Ctrl+J"), "ParameterInfo", "ParameterInfo", @mClick, , , False)
 	miEdit->Add("-")

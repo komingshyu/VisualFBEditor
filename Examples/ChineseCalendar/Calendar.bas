@@ -1,5 +1,4 @@
 ﻿' Gregorian Calendar Lunar Calendar公历农历
-' Chinese Calendar 中国日历
 ' Copyright (c) 2023 CM.Wang
 ' Freeware. Use at your own risk.
 
@@ -600,7 +599,7 @@ Private Sub Calendar.sInitDate(ByVal y As Long, ByVal m As Long, ByVal d As Long
 	mvarIsLeap = False
 	For i = 1 To 12
 		'闰月
-		If leap > 0 And i = (leap + 1) And mvarIsLeap = False Then
+		If (leap > 0) And (i = (leap + 1)) And (mvarIsLeap = False) Then
 			mvarIsLeap = True
 			i = i - 1
 			temp = leapDays(mvarlYear)   '计算闰月天数
