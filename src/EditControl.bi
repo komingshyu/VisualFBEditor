@@ -24,7 +24,7 @@ End Enum
 Common Shared As Boolean AutoIndentation
 Common Shared As Boolean ShowSpaces
 Common Shared As Integer TabWidth
-Common Shared As Integer HistoryLimit
+Common Shared As Integer HistoryLimit, AutoSaveCharMax
 Common Shared As Integer IntellisenseLimit
 Common Shared As Integer TabAsSpaces
 Common Shared As KeyWordsCase ChoosedKeyWordsCase
@@ -47,6 +47,34 @@ Common Shared As ECColorScheme ColorOperators, ColorProperties, ColorComps, Colo
 Common Shared As Integer EditorFontSize
 Common Shared As WString Ptr EditorFontName
 Common Shared As WString Ptr CurrentTheme
+
+Enum
+	C_If '0
+	C_P_If '1
+	C_P_Macro '2
+	C_Extern '3
+	C_Try '4
+	C_Asm '5
+	C_Select_Case '6
+	C_For '7
+	C_Do '8
+	C_While '9
+	C_With '10
+	C_Scope '11
+	C_P_Region '12
+	C_Namespace '13
+	C_Enum '14
+	C_Class '15
+	C_Type '16
+	C_Union '17
+	C_Sub '18
+	C_Function '19
+	C_Property '20
+	C_Operator '21
+	C_Constructor '22
+	C_Destructor '23
+	C_Count '24
+End Enum
 
 Type Construction
 	Name0 As String * 50
@@ -84,19 +112,52 @@ Namespace My.Sys.Forms
 		Declare Destructor
 	End Type
 	
+	Enum ElementTypes
+		E_ByRefParameter
+		E_ByValParameter
+		E_ExternVariable
+		E_CommonVariable
+		E_SharedVariable
+		E_LocalVariable
+		E_Constant
+		E_Event
+		E_Field
+		E_Define
+		E_Keyword
+		E_KeywordFunction
+		E_KeywordSub
+		E_KeywordOperator
+		E_Macro
+		E_Namespace
+		E_Enum
+		E_EnumItem
+		E_LineLabel
+		E_Class
+		E_Type
+		E_TypeCopy
+		E_Union
+		E_Sub
+		E_Function
+		E_Property
+		E_Operator
+		E_Constructor
+		E_Destructor
+	End Enum
+	
 	Type TypeElement
 		Name As String
 		DisplayName As String
+		OwnerTypeName As String
 		EnumTypeName As String
 		TypeName As String
+		InCondition As String
 		Value As UString
-		ElementType As String
+		ElementType As ElementTypes
 		Parameters As UString
 		Comment As UString
 		FileName As UString
 		IncludeFile As UString
 		TypeIsPointer As Boolean
-		TypeProcedure As Boolean
 		Declaration As Boolean
 		Locals As Integer
 		StartLine As Integer
@@ -106,7 +167,6 @@ Namespace My.Sys.Forms
 		ControlType As Integer
 		Find As Boolean
 		Used As Boolean
-		Parent As TypeElement Ptr
 		Tag As Any Ptr
 		Elements As WStringOrStringList
 		Declare Destructor
@@ -117,31 +177,50 @@ Namespace My.Sys.Forms
 		ConstructionIndex As Integer
 		ConstructionPart As Integer
 		InConstructionBlock As ConstructionBlock Ptr
+		Condition As String
 		Elements As WStringOrStringList
+	End Type
+	
+	Type EditControlStatement
+		ConstructionIndex As Integer
+		ConstructionPart As Integer
+		ConstructionPartCount As Integer
+		InAsm As Boolean
+		InConstruction As TypeElement Ptr
+		InConstructionBlock As ConstructionBlock Ptr
+		InConstructionIndex As Integer
+		InConstructionPart As Integer
+		InWithConstruction As Integer
+		Text As WString Ptr = 0
+		Declare Destructor
 	End Type
 	
 	Type EditControlLine
 		Bookmark As Boolean
 		Breakpoint As Boolean
 		Collapsed As Boolean
+		CollapsedFully As Boolean
 		Collapsible As Boolean
 		CommentIndex As Integer
 		ConstructionIndex As Integer
 		ConstructionPart As Integer
+		ConstructionPartCount As Integer
 		InAsm As Boolean
-		InCollapse As Boolean
 		InConstruction As TypeElement Ptr
 		InConstructionBlock As ConstructionBlock Ptr
 		InConstructionIndex As Integer
 		InConstructionPart As Integer
 		InWithConstruction As Integer
-		Multiline As Boolean
+		InCondition As String
 		FileList As WStringList Ptr
 		FileListLines As IntegerList Ptr
 		Text As WString Ptr = 0
 		Args As List
 		Ends As IntegerList
 		EndsCompleted As Boolean
+		Statements As List
+		MainStatement As EditControlStatement Ptr
+		LineContinues As Boolean
 		Visible As Boolean
 		Declare Constructor
 		Declare Destructor
@@ -193,11 +272,14 @@ Namespace My.Sys.Forms
 		Lines As List
 		Tag As Any Ptr
 		Declare Function ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringOrStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1) As Boolean
+		Declare Function IndexOfInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, InCondition As String) As Integer
+		Declare Function ContainsInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, InCondition As String, ByRef Index As Integer) As Boolean
 		Declare Function IndexOfInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
 		Declare Function ContainsInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, ByRef Index As Integer, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Boolean
 		Declare Function GetTypeFromValue(Value As String, iSelEndLine As Integer) As String
 		Declare Function GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
 		Declare Function GetConstruction(ByRef sLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
+		Declare Sub ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "", EC As Any Ptr = 0)
 		Declare Constructor
 	End Type
 	
@@ -207,6 +289,7 @@ Namespace My.Sys.Forms
 		Dim FVisibleLinesCount As Integer
 		Dim FECLine As EditControlLine Ptr
 		Dim FECLineNext As EditControlLine Ptr
+		Dim FECStatement As EditControlStatement Ptr
 		Dim bAddText As Boolean
 		Dim bOldCommented As Boolean
 		Dim curHistory As Integer
@@ -531,7 +614,7 @@ Namespace My.Sys.Forms
 		Declare Sub ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1)
 		Declare Sub Changing(ByRef Comment As WString = "")
 		Declare Sub Changed(ByRef Comment As WString = "")
-		Declare Sub ChangeCollapsibility(LineIndex As Integer)
+		Declare Sub ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "")
 		Declare Sub ChangeCollapseState(LineIndex As Integer, Value As Boolean)
 		Declare Sub ChangeInConstruction(LineIndex As Integer, OldConstructionIndex As Integer, OldConstructionPart As Integer)
 		Declare Function GetLineIndex(Index As Integer, iTo As Integer = 0) As Integer
@@ -610,7 +693,7 @@ Namespace My.Sys.Forms
 	
 	Declare Function GetKeyWordCase(ByRef KeyWord As String, KeyWordsList As WStringOrStringList Ptr = 0, OriginalCaseWord As String = "") As String
 	
-	Declare Function TextWithoutQuotesAndComments(subject As String, OldCommentIndex As Integer = 0, WithoutComments As Boolean = True, WithoutBracket As Boolean = False) As String
+	Declare Function TextWithoutQuotesAndComments(subject As String, OldCommentIndex As Integer = 0, WithoutComments As Boolean = True, WithoutBracket As Boolean = False, WithoutDoubleSpaces As Boolean = False) As String
 	
 	#ifdef __USE_GTK__
 		Declare Function EditControl_OnDraw(widget As GtkWidget Ptr, cr As cairo_t Ptr, data1 As gpointer) As Boolean

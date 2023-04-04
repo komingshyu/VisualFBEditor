@@ -16,7 +16,7 @@
 #define APP_TITLE "Visual FB Editor"
 #define VER_MAJOR "1"
 #define VER_MINOR "3"
-#define VER_PATCH "4"
+#define VER_PATCH "5"
 Const VERSION    = VER_MAJOR + "." + VER_MINOR + "." + VER_PATCH
 Const BUILD_DATE = __DATE__
 Const SIGN       = APP_TITLE + " " + VERSION
@@ -449,7 +449,7 @@ Sub mClick(Sender As My.Sys.Object)
 			End If
 		End If
 	Case "SaveAs", "Close", "SyntaxCheck", "Compile", "CompileAndRun", "Run", "RunToCursor", "SplitHorizontally", "SplitVertically", _
-		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SortLines", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
+		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SortLines", "DeleteBlankLines", "ConvertToLowercase", "ConvertToUppercase", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
 		"AddWatch", "ShowVar", "NextBookmark", "PreviousBookmark", "ClearAllBookmarks", "Code", "Form", "CodeAndForm", "AddProcedure" '
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If tb = 0 Then Exit Sub
@@ -458,6 +458,9 @@ Sub mClick(Sender As My.Sys.Object)
 		Case "SaveAs":                      tb->SaveAs:  frmMain.Caption = tb->FileName & " - " & App.Title
 		Case "Close":                       CloseTab(tb)
 		Case "SortLines":                   tb->SortLines
+		Case "DeleteBlankLines":            tb->DeleteBlankLines
+		Case "ConvertToLowercase":           tb->ConvertToLowercase
+		Case "ConvertToUppercase":           tb->ConvertToUppercase
 		Case "SplitHorizontally":           tb->txtCode.SplittedHorizontally = Not mnuSplitHorizontally->Checked
 		Case "SplitVertically":             tb->txtCode.SplittedVertically = Not mnuSplitVertically->Checked
 		Case "SplitUp", "SplitDown", "SplitLeft", "SplitRight":

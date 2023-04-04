@@ -694,7 +694,7 @@ pfOptions = @fOptions
 			.Text = "HorizontalBox1"
 			.TabIndex = 110
 			.Align = DockStyle.alTop
-			.SetBounds 10, 0, 417, 359
+			.SetBounds 10, 0, 420, 387
 			.Designer = @This
 			.Parent = @pnlCodeEditor
 		End With
@@ -2585,6 +2585,42 @@ pfOptions = @fOptions
 			.Designer = @This
 			.Parent = @hbxColors
 		End With
+		' pnlAutoSaveCharMax
+		With pnlAutoSaveCharMax
+			.Name = "pnlAutoSaveCharMax"
+			.Text = "Panel1"
+			.TabIndex = 230
+			.Align = DockStyle.alTop
+			.ControlIndex = 18
+			.SetBounds 0, 337, 420, 20
+			.Designer = @This
+			.Parent = @vbxCodeEditor
+		End With
+		' lbAutoSaveCharMax
+		With lbAutoSaveCharMax
+			.Name = "lbAutoSaveCharMax"
+			.Text = ML("Autosave after entered chars") & ": "
+			.ExtraMargins.Top = 2
+			.ExtraMargins.Left = 40
+			.ExtraMargins.Right = 0
+			.Align = DockStyle.alClient
+			.TabIndex = 231
+			.SetBounds 40, 2, 175, 18
+			.Parent = @pnlAutoSaveCharMax
+		End With
+		' txtAutoSaveCharMax
+		With txtAutoSaveCharMax
+			.Name = "txtAutoSaveCharMax"
+			.ExtraMargins.Top = 0
+			.ExtraMargins.Right = 130
+			.ExtraMargins.Left = 0
+			.Align = DockStyle.alRight
+			.ExtraMargins.Bottom = 2
+			.TabIndex = 232
+			.SetBounds 215, 0, 72, 18
+			.Text = "100"
+			.Parent = @pnlAutoSaveCharMax
+		End With
 	End Constructor
 	
 	Private Sub frmOptions._txtColorIndicator_KeyPress(ByRef Sender As Control, Key As Integer)
@@ -2652,7 +2688,7 @@ End Sub
 Sub frmOptions.LoadSettings()
 	With fOptions
 		.tvOptions.SelectedNode = .tvOptions.Nodes.Item(0)
-		.TreeView1_SelChange .tvOptions, *.tvOptions.Nodes.Item(0)
+		.TreeView1_SelChange .tvOptions, * (.tvOptions.Nodes.Item(0))
 		.chkTabAsSpaces.Checked = TabAsSpaces
 		.cboTabStyle.ItemIndex = ChoosedTabStyle
 		.cboCase.ItemIndex = ChoosedKeyWordsCase
@@ -2668,6 +2704,7 @@ Sub frmOptions.LoadSettings()
 		.txtHistoryLimit.Text = Str(HistoryLimit)
 		.txtIntellisenseLimit.Text = Str(IntellisenseLimit)
 		.txtHistoryCodeDays.Text = Str(HistoryCodeDays)
+		.txtAutoSaveCharMax.Text = Str(AutoSaveCharMax)
 		.txtMFFpath.Text = *MFFPath
 		.chkIncludeMFFPath.Checked = IncludeMFFPath
 		.txtProjectsPath.Text = *ProjectsPath
@@ -2897,7 +2934,7 @@ Sub frmOptions.LoadSettings()
 		WLet(.EditFontName, *EditorFontName)
 		.EditFontSize = EditorFontSize
 		.lblFont.Font.Name = *EditorFontName
-		.lblFont.Caption = *.EditFontName & ", " & .EditFontSize & "pt"
+		.lblFont.Caption = * (.EditFontName) & ", " & .EditFontSize & "pt"
 		WLet(.InterfFontName, *InterfaceFontName)
 		WLet(.oldInterfFontName, *InterfaceFontName)
 		.InterfFontSize = InterfaceFontSize
@@ -2905,7 +2942,7 @@ Sub frmOptions.LoadSettings()
 		.oldDisplayMenuIcons = DisplayMenuIcons
 		.oldDarkMode = DarkMode
 		.lblInterfaceFont.Font.Name = *InterfaceFontName
-		.lblInterfaceFont.Caption = *.InterfFontName & ", " & .InterfFontSize & "pt"
+		.lblInterfaceFont.Caption = * (.InterfFontName) & ", " & .InterfFontSize & "pt"
 	End With
 End Sub
 
@@ -3285,6 +3322,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Sender As Control)
 		Else
 			HistoryCodeDays = Val(.txtHistoryCodeDays.Text)
 		End If
+		AutoSaveCharMax = Val(.txtAutoSaveCharMax.text)
 		UseMakeOnStartWithCompile = .chkUseMakeOnStartWithCompile.Checked
 		LimitDebug = .chkLimitDebug.Checked
 		DisplayWarningsInDebug = .chkDisplayWarningsInDebug.Checked
@@ -3329,9 +3367,9 @@ Private Sub frmOptions.cmdApply_Click(ByRef Sender As Control)
 		ChoosedKeyWordsCase = .cboCase.ItemIndex
 		AddSpacesToOperators = .chkAddSpacesToOperators.Checked
 		WLet(CurrentTheme, .cboTheme.Text)
-		WLet(EditorFontName, *.EditFontName)
+		WLet(EditorFontName, * (.EditFontName))
 		EditorFontSize = .EditFontSize
-		WLet(InterfaceFontName, *.InterfFontName)
+		WLet(InterfaceFontName, * (.InterfFontName))
 		InterfaceFontSize = .InterfFontSize
 		DisplayMenuIcons = .chkDisplayIcons.Checked
 		ShowMainToolBar = .chkShowMainToolbar.Checked
@@ -3461,6 +3499,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Sender As Control)
 		piniSettings->WriteInteger "Options", "HistoryLimit", HistoryLimit
 		piniSettings->WriteInteger "Options", "IntellisenseLimit", IntellisenseLimit
 		piniSettings->WriteInteger "Options", "HistoryCodeDays", HistoryCodeDays
+		piniSettings->WriteInteger "Options", "AutoSaveCharMax", AutoSaveCharMax
 		piniSettings->WriteInteger "Options", "HistoryCodeCleanDay", HistoryCodeCleanDay
 		piniSettings->WriteBool "Options", "UseMakeOnStartWithCompile", UseMakeOnStartWithCompile
 		piniSettings->WriteBool "Options", "LimitDebug", LimitDebug
@@ -3827,13 +3866,13 @@ End Sub
 
 Private Sub frmOptions.cmdFont_Click(ByRef Sender As Control)
 	With fOptions
-		.FontD.Font.Name = *.EditFontName
+		.FontD.Font.Name = * (.EditFontName)
 		.FontD.Font.Size = .EditFontSize
 		If .FontD.Execute Then
 			WLet(.EditFontName, .FontD.Font.Name)
 			.EditFontSize = .FontD.Font.Size
-			.lblFont.Font.Name = *.EditFontName
-			.lblFont.Caption = *.EditFontName & ", " & .EditFontSize & "pt"
+			.lblFont.Font.Name = * (.EditFontName)
+			.lblFont.Caption = * (.EditFontName) & ", " & .EditFontSize & "pt"
 		End If
 	End With
 End Sub
@@ -4571,13 +4610,13 @@ End Sub
 
 Private Sub frmOptions.cmdInterfaceFont_Click(ByRef Sender As Control)
 	With fOptions
-		.FontD.Font.Name = *.InterfFontName
+		.FontD.Font.Name = * (.InterfFontName)
 		.FontD.Font.Size = .InterfFontSize
 		If .FontD.Execute Then
 			WLet(.InterfFontName, .FontD.Font.Name)
 			.InterfFontSize = .FontD.Font.Size
-			.lblInterfaceFont.Font.Name = *.InterfFontName
-			.lblInterfaceFont.Caption = *.InterfFontName & ", " & .InterfFontSize & "pt"
+			.lblInterfaceFont.Font.Name = * (.InterfFontName)
+			.lblInterfaceFont.Caption = *(.InterfFontName) & ", " & .InterfFontSize & "pt"
 		End If
 	End With
 End Sub

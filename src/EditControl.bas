@@ -11,10 +11,6 @@
 #endif
 
 Dim Shared As WStringList KeywordLists 'keywords0, keywords1, keywords2, keywords3
-'pkeywords0 = @keywords0
-'pkeywords1 = @keywords1
-'pkeywords2 = @keywords2
-'pkeywords3 = @keywords3
 
 Namespace My.Sys.Forms
 	Destructor EditControlHistory
@@ -25,6 +21,10 @@ Namespace My.Sys.Forms
 		Lines.Clear
 	End Destructor
 	
+	Destructor EditControlStatement
+		If This.Text <> 0 Then Deallocate_( This.Text)
+	End Destructor
+	
 	Constructor EditControlLine
 		'WLet(Text, "")
 		Visible = True
@@ -32,63 +32,38 @@ Namespace My.Sys.Forms
 	
 	Destructor EditControlLine
 		If This.Text <> 0 Then Deallocate_( This.Text)
+		For i As Integer = Statements.Count - 1 To 0 Step -1
+			Delete_(Cast(EditControlStatement Ptr, Statements.Item(i)))
+		Next
 	End Destructor
 End Namespace
 
-Enum
-	C_If
-	C_P_If
-	C_P_Macro
-	C_Extern
-	C_Try
-	C_Asm
-	C_Select_Case
-	C_For
-	C_Do
-	C_While
-	C_With
-	C_Scope
-	C_P_Region
-	C_Namespace
-	C_Enum
-	C_Class
-	C_Type
-	C_Union
-	C_Sub
-	C_Function
-	C_Property
-	C_Operator
-	C_Constructor
-	C_Destructor
-	C_Count
-End Enum
-
 ' Add Try End_Try
 ReDim Constructions(C_Count - 1) As Construction
-Constructions(0)  = Type<Construction>("If",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "ElseIf",   "Else",       "",        "End If",          "Then ", True,  False)
-Constructions(1)  = Type<Construction>("#If",           "#IfDef",             "#IfNDef",             "",                   "",                          "",                           "",                "",                       "",                        "#ElseIf",  "#Else",      "",        "#EndIf",          "",      True,  False)
-Constructions(2)  = Type<Construction>("#Macro",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "#EndMacro",       "",      True,  True)
-Constructions(3)  = Type<Construction>("Extern",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Extern",      "As ",   True,  False)
-Constructions(4)  = Type<Construction>("Try",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Catch",    "Finally",    "",        "EndTry",          "",      True,  False)
-Constructions(5)  = Type<Construction>("Asm",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Asm",         " ",     True,  False)
-Constructions(6)  = Type<Construction>("Select Case",   "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Case",     "",           "",        "End Select",      "",      True,  False)
-Constructions(7)  = Type<Construction>("For",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Next",            "",      True,  False)
-Constructions(8)  = Type<Construction>("Do",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Loop",            "",      True,  False)
-Constructions(9)  = Type<Construction>("While",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Wend",            "",      True,  False)
-Constructions(10) = Type<Construction>("With",          "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End With",        "",      True,  False)
-Constructions(11) = Type<Construction>("Scope",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Scope",       "",      True,  False)
-Constructions(12) = Type<Construction>("'#Region",      "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "'#End Region",    "",      True,  False)
-Constructions(13) = Type<Construction>("Namespace",     "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Namespace",   "",      True,  False)
-Constructions(14) = Type<Construction>("Enum",          "Public Enum",        "Private Enum",        "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Enum",        "",      True,  True)
-Constructions(15) = Type<Construction>("Class",         "Public Class",       "Private Class",       "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Class",       "As ",   True,  True)
-Constructions(16) = Type<Construction>("Type",          "Public Type",        "Private Type",        "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Type",        "As ",   True,  True)
-Constructions(17) = Type<Construction>("Union",         "Public Union",       "Private Union",       "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Union",       "",      True,  True)
-Constructions(18) = Type<Construction>("Sub",           "Public Sub",         "Private Sub",         "Virtual Sub",        "Public Virtual Sub",        "Private Virtual Sub",        "Static Sub",      "Public Static Sub",      "Private Static Sub",      "",         "",           "",        "End Sub",         "",      True,  True)
-Constructions(19) = Type<Construction>("Function",      "Public Function",    "Private Function",    "Virtual Function",   "Public Virtual Function",   "Private Virtual Function",   "Static Function", "Public Static Function", "Private Static Function", "",         "",           "",        "End Function",    "",      True,  True)
-Constructions(20) = Type<Construction>("Property",      "Public Property",    "Private Property",    "Virtual Property",   "Public Virtual Property",   "Private Virtual Property",   "",                "",                       "",                        "",         "",           "",        "End Property",    "",      True,  True)
-Constructions(21) = Type<Construction>("Operator",      "Public Operator",    "Private Operator",    "Virtual Operator",   "Public Virtual Operator",   "Private Virtual Operator",   "",                "",                       "",                        "",         "",           "",        "End Operator",    "",      True,  True)
-Constructions(22) = Type<Construction>("Constructor",   "Public Constructor", "Private Constructor", "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Constructor", "",      True,  True)
-Constructions(23) = Type<Construction>("Destructor",    "Public Destructor",  "Private Destructor",  "Virtual Destructor", "Public Virtual Destructor", "Private Virtual Destructor", "",                "",                       "",                        "",         "",           "",        "End Destructor",  "",      True,  True)
+Constructions(C_If)             = Type<Construction>("If",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "ElseIf",   "Else",       "",        "End If",          "Then ", True,  False)
+Constructions(C_P_If)           = Type<Construction>("#If",           "#IfDef",             "#IfNDef",             "",                   "",                          "",                           "",                "",                       "",                        "#ElseIf",  "#Else",      "",        "#EndIf",          "",      True,  False)
+Constructions(C_P_Macro)        = Type<Construction>("#Macro",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "#EndMacro",       "",      True,  True)
+Constructions(C_Extern)         = Type<Construction>("Extern",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Extern",      "As ",   True,  False)
+Constructions(C_Try)            = Type<Construction>("Try",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Catch",    "Finally",    "",        "EndTry",          "",      True,  False)
+Constructions(C_Asm)            = Type<Construction>("Asm",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Asm",         " ",     True,  False)
+Constructions(C_Select_Case)    = Type<Construction>("Select Case",   "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Case",     "",           "",        "End Select",      "",      True,  False)
+Constructions(C_For)            = Type<Construction>("For",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Next",            "",      True,  False)
+Constructions(C_Do)             = Type<Construction>("Do",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Loop",            "",      True,  False)
+Constructions(C_While)          = Type<Construction>("While",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Wend",            "",      True,  False)
+Constructions(C_With)           = Type<Construction>("With",          "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End With",        "",      True,  False)
+Constructions(C_Scope)          = Type<Construction>("Scope",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Scope",       "",      True,  False)
+Constructions(C_P_Region)       = Type<Construction>("'#Region",      "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "'#End Region",    "",      True,  False)
+Constructions(C_Namespace)      = Type<Construction>("Namespace",     "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Namespace",   "",      True,  False)
+Constructions(C_Enum)           = Type<Construction>("Enum",          "Public Enum",        "Private Enum",        "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Enum",        "",      True,  True)
+Constructions(C_Class)          = Type<Construction>("Class",         "Public Class",       "Private Class",       "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Class",       "As ",   True,  True)
+Constructions(C_Type)           = Type<Construction>("Type",          "Public Type",        "Private Type",        "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Type",        "As ",   True,  True)
+Constructions(C_Union)          = Type<Construction>("Union",         "Public Union",       "Private Union",       "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Union",       "",      True,  True)
+Constructions(C_Sub)            = Type<Construction>("Sub",           "Public Sub",         "Private Sub",         "Virtual Sub",        "Public Virtual Sub",        "Private Virtual Sub",        "Static Sub",      "Public Static Sub",      "Private Static Sub",      "",         "",           "",        "End Sub",         "",      True,  True)
+Constructions(C_Function)       = Type<Construction>("Function",      "Public Function",    "Private Function",    "Virtual Function",   "Public Virtual Function",   "Private Virtual Function",   "Static Function", "Public Static Function", "Private Static Function", "",         "",           "",        "End Function",    "",      True,  True)
+Constructions(C_Property)       = Type<Construction>("Property",      "Public Property",    "Private Property",    "Virtual Property",   "Public Virtual Property",   "Private Virtual Property",   "",                "",                       "",                        "",         "",           "",        "End Property",    "",      True,  True)
+Constructions(C_Operator)       = Type<Construction>("Operator",      "Public Operator",    "Private Operator",    "Virtual Operator",   "Public Virtual Operator",   "Private Virtual Operator",   "",                "",                       "",                        "",         "",           "",        "End Operator",    "",      True,  True)
+Constructions(C_Constructor)    = Type<Construction>("Constructor",   "Public Constructor", "Private Constructor", "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Constructor", "",      True,  True)
+Constructions(C_Destructor)     = Type<Construction>("Destructor",    "Public Destructor",  "Private Destructor",  "Virtual Destructor", "Public Virtual Destructor", "Private Virtual Destructor", "",                "",                       "",                        "",         "",           "",        "End Destructor",  "",      True,  True)
 
 Namespace My.Sys.Forms
 	Function EditControl.deltaToScrollAmount(lDelta As Integer) As Integer
@@ -383,26 +358,119 @@ Namespace My.Sys.Forms
 		PaintControl
 	End Property
 	
+	Sub EditControl._LoadFromHistory(ByRef HistoryItem As EditControlHistory Ptr, bToBack As Boolean, ByRef oldItem As EditControlHistory Ptr, bWithoutPaint As Boolean = False)
+		For i As Integer = Content.Lines.Count - 1 To 0 Step -1
+			Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
+		Next i
+		Content.Lines.Clear
+		For i As Integer = 0 To HistoryItem->Lines.Count - 1
+			FECLine = New_( EditControlLine)
+			OlddwClientX = 0
+			With *Cast(EditControlLine Ptr, HistoryItem->Lines.Item(i))
+				WLet(FECLine->Text, * (.Text))
+				FECLine->Breakpoint = .Breakpoint
+				FECLine->Bookmark = .Bookmark
+				FECLine->CommentIndex = .CommentIndex
+				FECLine->ConstructionIndex = .ConstructionIndex
+				FECLine->ConstructionPart = .ConstructionPart
+				FECLine->ConstructionPartCount = .ConstructionPartCount
+				FECLine->InAsm = .InAsm
+				FECLine->InConstructionIndex = .InConstructionIndex
+				FECLine->InConstructionPart = .InConstructionPart
+				FECLine->InCondition = .InCondition
+				FECLine->Collapsible = .Collapsible
+				FECLine->Collapsed = .Collapsed
+				FECLine->CollapsedFully = .CollapsedFully
+				FECLine->LineContinues = .LineContinues
+				FECLine->Visible = .Visible
+				For ii As Integer = 0 To .Statements.Count - 1
+					With *Cast(EditControlStatement Ptr, .Statements.Item(ii))
+						FECStatement = New_( EditControlStatement)
+						WLet(FECStatement->Text, * (.Text))
+						FECStatement->ConstructionIndex = .ConstructionIndex
+						FECStatement->ConstructionPart = .ConstructionPart
+						FECStatement->ConstructionPartCount = .ConstructionPartCount
+						FECStatement->InAsm = .InAsm
+						FECStatement->InConstructionIndex = .InConstructionIndex
+						FECStatement->InConstructionPart = .InConstructionPart
+						If Cast(EditControlLine Ptr, HistoryItem->Lines.Item(i))->MainStatement = Cast(EditControlLine Ptr, HistoryItem->Lines.Item(i))->Statements.Item(ii) Then
+							FECLine->MainStatement = FECStatement
+						End If
+						FECLine->Statements.Add FECStatement
+					End With
+				Next
+			End With
+			Content.Lines.Add FECLine
+		Next i
+		If Content.Lines.Count = 0 Then
+			FECLine = New_( EditControlLine)
+			OlddwClientX = 0
+			WLet(FECLine->Text, "")
+			Content.Lines.Add FECLine
+		End If
+		If bToBack Then
+			FSelStartLine = oldItem->OldSelStartLine
+			FSelStartChar = oldItem->OldSelStartChar
+			FSelEndLine = oldItem->OldSelEndLine
+			FSelEndChar = oldItem->OldSelEndChar
+		Else
+			FSelStartLine = HistoryItem->SelStartLine
+			FSelStartChar = HistoryItem->SelStartChar
+			FSelEndLine = HistoryItem->SelEndLine
+			FSelEndChar = HistoryItem->SelEndChar
+		End If
+		bOldCommented = True
+		#ifdef __USE_GTK__
+			If cr Then
+		#else
+			If Handle Then
+		#endif
+			If Not bWithoutPaint Then ScrollToCaret
+		End If
+		OldnCaretPosX = nCaretPosX
+		OldCharIndex = GetOldCharIndex
+		If OnChange Then OnChange(This)
+		Modified = True
+	End Sub
+	
 	Sub EditControl._FillHistory(ByRef item As EditControlHistory Ptr, ByRef Comment As WString)
 		WLet(item->Comment, Comment)
 		Dim ecItem As EditControlLine Ptr
 		For i As Integer = 0 To Content.Lines.Count - 1
 			With *Cast(EditControlLine Ptr, Content.Lines.Items[i])
 				FECLine = New_( EditControlLine)
-				WLet(FECLine->Text, *.Text)
+				WLet(FECLine->Text, * (.Text))
 				FECLine->Breakpoint = .Breakpoint
 				FECLine->Bookmark = .Bookmark
 				FECLine->CommentIndex = .CommentIndex
 				FECLine->ConstructionIndex = .ConstructionIndex
 				FECLine->ConstructionPart = .ConstructionPart
+				FECLine->ConstructionPartCount = .ConstructionPartCount
 				FECLine->InAsm = .InAsm
 				FECLine->InConstructionIndex = .InConstructionIndex
 				FECLine->InConstructionPart = .InConstructionPart
-				FECLine->Multiline = .Multiline
+				FECLine->InCondition = .InCondition
 				FECLine->Collapsed = .Collapsed
+				FECLine->CollapsedFully = .CollapsedFully
 				FECLine->Collapsible = .Collapsible
-				FECLine->Collapsed = .Collapsed
+				FECLine->LineContinues = .LineContinues
 				FECLine->Visible = .Visible
+				For ii As Integer = 0 To .Statements.Count - 1
+					With *Cast(EditControlStatement Ptr, .Statements.Item(ii))
+						FECStatement = New_( EditControlStatement)
+						WLet(FECStatement->Text, * (.Text))
+						FECStatement->ConstructionIndex = .ConstructionIndex
+						FECStatement->ConstructionPart = .ConstructionPart
+						FECStatement->ConstructionPartCount = .ConstructionPartCount
+						FECStatement->InAsm = .InAsm
+						FECStatement->InConstructionIndex = .InConstructionIndex
+						FECStatement->InConstructionPart = .InConstructionPart
+						If Cast(EditControlLine Ptr, Content.Lines.Items[i])->MainStatement = Cast(EditControlLine Ptr, Content.Lines.Items[i])->Statements.Item(ii) Then
+							FECLine->MainStatement = FECStatement
+						End If
+						FECLine->Statements.Add FECStatement
+					End With
+				Next
 			End With
 			item->Lines.Add FECLine
 		Next i
@@ -416,14 +484,14 @@ Namespace My.Sys.Forms
 		If Index = 0 Then FHistory.Clear
 	End Sub
 	
-	Function TextWithoutQuotesAndComments(subject As String, OldCommentIndex As Integer = 0, WithoutComments As Boolean = True, WithoutBracket As Boolean = False) As String
+	Function TextWithoutQuotesAndComments(subject As String, OldCommentIndex As Integer = 0, WithoutComments As Boolean = True, WithoutBracket As Boolean = False, WithoutDoubleSpaces As Boolean = False) As String
 		Dim As String Result, ch, sLine = subject
 		Dim As Integer cc, iPos = -1
 		Dim As Boolean q, c
 		For i As Integer = 1 To OldCommentIndex
 			iPos = InStr(iPos + 1, sLine, "'/")
 		Next
-		If iPos = 0 Then Return "" Else sLine = Mid(sLine, iPos + 2)
+		If iPos = 0 Then Return Space(Len(subject)) Else sLine = Space(iPos + 1) & Mid(sLine, iPos + 2)
 		For i As Integer = 0 To Len(sLine)
 			ch = Mid(sLine, i, 1)
 			If Not c AndAlso ch = """" Then
@@ -433,20 +501,26 @@ Namespace My.Sys.Forms
 				c = True
 				cc += 1
 				Result += " "
-			ElseIf Not q AndAlso ch = "'" AndAlso Mid(sLine, i + 1, 1) = "/" Then
+			ElseIf Not q AndAlso ch = "/" AndAlso Mid(sLine, i - 1, 1) = "'" Then
 				cc -= 1
 				If cc = 0 Then
 					c = False
 				ElseIf cc < 0 Then
+					Result += Space(Len(subject) - i + 1)
 					Exit For
 				End If
 				Result += " "
-			ElseIf CInt(WithoutComments) AndAlso CInt(Not q) AndAlso CInt(ch = "'" OrElse LCase(Mid(sLine, i, 4)) = "rem ") Then
-				Exit For
 			ElseIf c OrElse q Then
 				Result += " "
+			ElseIf CInt(WithoutComments) AndAlso CInt(ch = "'" OrElse LCase(Mid(sLine, i, 4)) = "rem ") Then
+				Result += Space(Len(subject) - i + 1)
+				Exit For
 			ElseIf WithoutBracket AndAlso ch = "(" Then
 				Result += " "
+			ElseIf ch = !"\t" Then
+				Result += " "
+			ElseIf WithoutDoubleSpaces AndAlso CBool(ch = " ") AndAlso EndsWith(Result, " ") Then
+				Result += ""
 			Else
 				Result += ch
 			End If
@@ -456,6 +530,7 @@ Namespace My.Sys.Forms
 	
 	Function EditControlContent.GetConstruction(ByRef wLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
 		On Error Goto ErrorHandler
+		If Trim(wLine, Any !"\t ") = "" Then Return -1
 		Dim As String sLine = wLine
 		If InAsm AndAlso CBool(InStr(LCase(wLine), "asm") = 0) Then Return -1
 		If CStyle Then Return -1
@@ -466,7 +541,7 @@ Namespace My.Sys.Forms
 		'		Next
 		'		If iPos = 0 Then Return -1 Else sLine = Mid(sLine, iPos + 2)
 		'		iPos = InStr(sLine, "/'")
-		sLine = TextWithoutQuotesAndComments(sLine, OldCommentIndex, False, True)
+		sLine = TextWithoutQuotesAndComments(sLine, OldCommentIndex, False, True, True)
 		iPos = InStr(sLine, "'")
 		If iPos = 0 Then iPos = Len(sLine) Else iPos -= 1
 		For i As Integer = 0 To UBound(Constructions)
@@ -543,42 +618,48 @@ Namespace My.Sys.Forms
 		Dim As Integer j, Idx
 		Dim FECLine As EditControlLine Ptr = Content.Lines.Items[LineIndex]
 		Dim As EditControlLine Ptr FECLine2
+		Dim As EditControlStatement Ptr FECStatement
 		OlddwClientX = 0
 		FECLine->Collapsed = Value
 		If FECLine->Collapsed Then
+			FECLine->CollapsedFully = True
 			If Not EndsWith(*FECLine->Text, "'...'") Then
 				WLetEx(FECLine->Text, *FECLine->Text & " '...'", True)
 				FECLine->Ends.Clear
 				FECLine->EndsCompleted = False
 			End If
-			For i As Integer = LineIndex + 1 To Content.Lines.Count - 1
+			For i As Integer = LineIndex To Content.Lines.Count - 1
 				FECLine2 = Content.Lines.Items[i]
-				FECLine2->Visible = False
-				'				Idx = VisibleLines.IndexOf(FECLine2)
-				'				If Idx > -1 Then VisibleLines.Remove Idx
-				If FECLine2->ConstructionIndex = FECLine->ConstructionIndex OrElse (FECLine->ConstructionPart = 1 AndAlso FECLine->ConstructionIndex = C_Class AndAlso FECLine2->ConstructionIndex = C_Type) Then
-					If FECLine2->ConstructionPart = 2 Then
-						j -= 1
-						If j = -1 Then
-							If FECLine->ConstructionPart = 1 Then
-								FECLine2->Visible = True
+				If i > LineIndex Then FECLine2->Visible = False
+				For iii As Integer = IIf(i = LineIndex, FECLine->Statements.IndexOf(FECLine->MainStatement) + 1, 0) To FECLine2->Statements.Count - 1
+					FECStatement = FECLine2->Statements.Item(iii)
+					If FECStatement->ConstructionIndex = FECLine->ConstructionIndex OrElse (FECLine->ConstructionPart = 1 AndAlso FECLine->ConstructionIndex = C_Class AndAlso FECStatement->ConstructionIndex = C_Type) Then
+						If FECStatement->ConstructionPart = 2 Then
+							j -= 1 - FECStatement->ConstructionPartCount
+							If j = -1 Then
+								If (FECLine->ConstructionPart = 1) OrElse FECLine2->Collapsible Then
+									If FECLine2->Statements.IndexOf(FECLine2->MainStatement) > iii Then FECLine->CollapsedFully = False
+									FECLine2->Visible = True
+								End If
+								Exit For, For
 							End If
-							Exit For
-						End If
-					ElseIf FECLine2->ConstructionPart = 0 Then
-						j += 1
-					ElseIf FECLine2->ConstructionPart = 1 Then
-						If FECLine->ConstructionPart = 1 Then
-							If j = 0 Then
-								FECLine2->Visible = True
-								Exit For
+						ElseIf FECStatement->ConstructionPart = 0 Then
+							j += 1
+						ElseIf FECStatement->ConstructionPart = 1 Then
+							j -= FECStatement->ConstructionPartCount
+							If FECLine->ConstructionPart = 1 Then
+								If j = 0 Then
+									FECLine2->Visible = True
+									Exit For, For
+								End If
 							End If
 						End If
 					End If
-				End If
+				Next iii
 			Next i
 		Else
 			If EndsWith(*FECLine->Text, "'...'") Then
+				FECLine->CollapsedFully = False
 				WLetEx(FECLine->Text, RTrim(.Left(*FECLine->Text, Len(*FECLine->Text) - 5)), True)
 				FECLine->Ends.Clear
 				FECLine->EndsCompleted = False
@@ -734,32 +815,259 @@ Namespace My.Sys.Forms
 		PaintControl
 	End Sub
 	
-	Sub EditControl.ChangeCollapsibility(LineIndex As Integer)
+	Sub EditControlContent.ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "", EC As Any Ptr = 0)
+		Dim As EditControlLine Ptr ecl = Lines.Items[LineIndex], eclOld, eclOld_
+		Dim As Integer i, j, OldLineIndex = LineIndex - 1
+		If OldLineIndex > -1 Then
+			eclOld = Lines.Items[OldLineIndex]
+		End If
+		If ecl = 0 OrElse ecl->Text = 0 Then Exit Sub
+		For ii As Integer = ecl->Statements.Count - 1 To 0 Step -1
+			Delete_(Cast(EditControlStatement Ptr, ecl->Statements.Item(ii)))
+		Next
+		ecl->Statements.Clear
+		Dim As UString LineText_
+		'If LineText <> "" Then
+		'	LineText_ = LineText
+		'Else
+			LineText_ = TextWithoutQuotesAndComments(*ecl->Text, IIf(eclOld = 0, 0, eclOld->CommentIndex))
+		'End If
+		Dim As Boolean Collapsible
+		Dim As List Statements
+		Dim As UString res()
+		Split(LineText_, ":", res())
+		Dim As EditControlStatement Ptr ecs, ecs_, ecsOld_
+		For ii As Integer = 0 To UBound(res)
+			ecs = New_(EditControlStatement)
+			WLet(ecs->Text, res(ii))
+			ecl->Statements.Add ecs
+			LineText_ = *ecs->Text
+			If ii = 0 Then
+				ecsOld_ = 0
+				If eclOld > 0 AndAlso eclOld->Statements.Count > 0 Then
+					ecsOld_ = eclOld->Statements.Item(eclOld->Statements.Count - 1)
+				End If
+				If (ecsOld_ > 0) AndAlso EndsWith(Trim(*ecsOld_->Text), " _") Then
+					Dim iii As Integer
+					For iii = LineIndex - 1 To 0 Step -1
+						eclOld_ = Lines.Items[iii]
+						For iiii As Integer = eclOld_->Statements.Count - 1 To 0 Step -1
+							ecs_ = eclOld_->Statements.Items[iiii]
+							If Not EndsWith(Trim(*ecs_->Text), " _") Then
+								Exit For, For
+							End If
+							LineText_ = ..Left(Trim(*ecs_->Text), Len(Trim(*ecs_->Text)) - 1) & LineText_
+							ecsOld_ = ecs_
+						Next iiii
+					Next
+					i = GetConstruction(LineText_, j, 0, ecsOld_->InAsm)
+					If ecsOld_->ConstructionIndex <> i OrElse ecsOld_->ConstructionPart <> j Then
+						ecsOld_->ConstructionIndex = i
+						ecsOld_->ConstructionPart = j
+						If EC Then
+							 Cast(EditControl Ptr, EC)->ChangeCollapsibility iii + 1, LineText_
+						Else
+							ChangeCollapsibility iii + 1, LineText_
+						End If
+					End If
+					LineText_ = ""
+					ecs->ConstructionIndex = -1
+					ecs->ConstructionPart = -1
+					Continue For
+				End If
+			End If
+			If (LineText_ <> "") AndAlso EndsWith(Trim(LineText_), " _") AndAlso (ii = UBound(res)) Then
+				For iii As Integer = LineIndex + 1 To Lines.Count - 1
+					eclOld_ = Lines.Items[iii]
+					For iiii As Integer = 0 To eclOld_->Statements.Count - 1
+						ecs_ = eclOld_->Statements.Items[iiii]
+						LineText_ = ..Left(LineText_, Len(LineText_) - IIf(EndsWith(Trim(LineText_), " _"), 1, 0)) & Trim(*ecs_->Text)
+						If Not EndsWith(Trim(*ecs_->Text), " _") Then
+							Exit For, For
+						End If
+					Next iiii
+				Next
+			End If
+			If StartsWith(Trim(LCase(*ecl->Text), Any !"\t "), "'#region") Then
+				i = C_P_Region
+				j = 0
+			ElseIf StartsWith(Trim(LCase(*ecl->Text), Any !"\t "), "'#end region") Then
+				i = C_P_Region
+				j = 2
+			Else
+				i = GetConstruction(LineText_, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
+			End If
+			ecs->ConstructionIndex = i
+			ecs->ConstructionPart = j
+			If i > -1 Then
+				If j = 0 OrElse j = 1 Then
+					Statements.Add ecs
+				Else
+					Dim bFind As Boolean
+					For iii As Integer = Statements.Count - 1 To 0 Step -1
+						ecsOld_ = Statements.Items[iii]
+						If ecsOld_->ConstructionPart = 1 Then
+							Statements.Remove iii
+						ElseIf ecsOld_->ConstructionPart = 0 Then
+							bFind = True
+							Statements.Remove iii
+							Exit For
+						End If
+					Next
+					If Not bFind Then
+						Statements.Add ecs
+					End If
+				End If
+			End If
+		Next
+		'i = Content.GetConstruction(*ecl->Text, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
+		ecl->MainStatement = 0
+		For iii As Integer = 0 To Statements.Count - 1
+			ecsOld_ = Statements.Items[iii]
+			If ecsOld_->ConstructionPart = 0 OrElse ecsOld_->ConstructionPart = 1 Then
+				ecl->MainStatement = ecsOld_
+				Exit For
+			Else
+				ecl->MainStatement = ecsOld_
+			End If
+		Next
+		If ecl->MainStatement = 0 Then ecl->MainStatement = ecl->Statements.Items[0]
+		i = ecl->MainStatement->ConstructionIndex
+		j = ecl->MainStatement->ConstructionPart
+		ecl->ConstructionIndex = i
+		ecl->ConstructionPart = j
+	End Sub
+	
+	Sub EditControl.ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "")
 		Dim As Integer i, j, k, Idx
 		Dim OldCollapsed As Boolean, OldConstructionIndex As Integer = -1, OldConstructionPart As Integer = 0, OldLineIndex As Integer = LineIndex - 1
 		If LineIndex < 0 OrElse LineIndex > Content.Lines.Count - 1 Then Exit Sub
-		Dim As EditControlLine Ptr ecl = Content.Lines.Items[LineIndex], eclOld
+		Dim As EditControlLine Ptr ecl = Content.Lines.Items[LineIndex], eclOld, eclOld_
 		If OldLineIndex > -1 Then
 			eclOld = Content.Lines.Items[OldLineIndex]
 		End If
 		If ecl = 0 OrElse ecl->Text = 0 Then Exit Sub
 		OldConstructionIndex = ecl->ConstructionIndex
 		OldConstructionPart = ecl->ConstructionPart
-		If eclOld Then
-			i = Content.GetConstruction(*ecl->Text, j, eclOld->CommentIndex, ecl->InAsm)
-		Else
-			i = Content.GetConstruction(*ecl->Text, j, , ecl->InAsm)
-		End If
+		'For ii As Integer = ecl->Statements.Count - 1 To 0 Step -1
+		'	Delete_(Cast(EditControlStatement Ptr, ecl->Statements.Item(ii)))
+		'Next
+		'ecl->Statements.Clear
+		'Dim As UString LineText_
+		''If LineText <> "" Then
+		''	LineText_ = LineText
+		''Else
+		'	LineText_ = TextWithoutQuotesAndComments(*ecl->Text, IIf(eclOld = 0, 0, eclOld->CommentIndex))
+		''End If
+		'Dim As Boolean Collapsible
+		'Dim As List Statements
+		'Dim As UString res()
+		'Split(LineText_, ":", res())
+		'Dim As EditControlStatement Ptr ecs, ecs_, ecsOld_
+		'For ii As Integer = 0 To UBound(res)
+		'	ecs = New_(EditControlStatement)
+		'	WLet(ecs->Text, res(ii))
+		'	ecl->Statements.Add ecs
+		'	LineText_ = *ecs->Text
+		'	If ii = 0 Then
+		'		ecsOld_ = 0
+		'		If eclOld > 0 AndAlso eclOld->Statements.Count > 0 Then
+		'			ecsOld_ = eclOld->Statements.Item(eclOld->Statements.Count - 1)
+		'		End If
+		'		If (ecsOld_ > 0) AndAlso EndsWith(Trim(*ecsOld_->Text), " _") Then
+		'			Dim iii As Integer
+		'			For iii = LineIndex - 1 To 0 Step -1
+		'				eclOld_ = Content.Lines.Items[iii]
+		'				For iiii As Integer = eclOld_->Statements.Count - 1 To 0 Step -1
+		'					ecs_ = eclOld_->Statements.Items[iiii]
+		'					If Not EndsWith(Trim(*ecs_->Text), " _") Then
+		'						Exit For, For
+		'					End If
+		'					LineText_ = ..Left(Trim(*ecs_->Text), Len(Trim(*ecs_->Text)) - 1) & LineText_
+		'					ecsOld_ = ecs_
+		'				Next iiii
+		'			Next
+		'			i = Content.GetConstruction(LineText_, j, 0, ecsOld_->InAsm)
+		'			If ecsOld_->ConstructionIndex <> i OrElse ecsOld_->ConstructionPart <> j Then
+		'				ecsOld_->ConstructionIndex = i
+		'				ecsOld_->ConstructionPart = j
+		'				ChangeCollapsibility iii + 1, LineText_
+		'			End If
+		'			LineText_ = ""
+		'			ecs->ConstructionIndex = -1
+		'			ecs->ConstructionPart = -1
+		'			Continue For
+		'		End If
+		'	End If
+		'	If (LineText_ <> "") AndAlso EndsWith(Trim(LineText_), " _") AndAlso (ii = UBound(res)) Then
+		'		For iii As Integer = LineIndex + 1 To Content.Lines.Count - 1
+		'			eclOld_ = Content.Lines.Items[iii]
+		'			For iiii As Integer = 0 To eclOld_->Statements.Count - 1
+		'				ecs_ = eclOld_->Statements.Items[iiii]
+		'				LineText_ = ..Left(LineText_, Len(LineText_) - IIf(EndsWith(Trim(LineText_), " _"), 1, 0)) & Trim(*ecs_->Text)
+		'				If Not EndsWith(Trim(*ecs_->Text), " _") Then
+		'					Exit For, For
+		'				End If
+		'			Next iiii
+		'		Next
+		'	End If
+		'	If StartsWith(Trim(LCase(*ecl->Text), Any !"\t "), "'#region") Then
+		'		i = C_P_Region
+		'		j = 0
+		'	ElseIf StartsWith(Trim(LCase(*ecl->Text), Any !"\t "), "'#end region") Then
+		'		i = C_P_Region
+		'		j = 2
+		'	Else
+		'		i = Content.GetConstruction(LineText_, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
+		'	End If
+		'	ecs->ConstructionIndex = i
+		'	ecs->ConstructionPart = j
+		'	If i > -1 Then
+		'		If j = 0 OrElse j = 1 Then
+		'			Statements.Add ecs
+		'		Else
+		'			Dim bFind As Boolean
+		'			For iii As Integer = Statements.Count - 1 To 0 Step -1
+		'				ecsOld_ = Statements.Items[iii]
+		'				If ecsOld_->ConstructionPart = 1 Then
+		'					Statements.Remove iii
+		'				ElseIf ecsOld_->ConstructionPart = 0 Then
+		'					bFind = True
+		'					Statements.Remove iii
+		'					Exit For
+		'				End If
+		'			Next
+		'			If Not bFind Then
+		'				Statements.Add ecs
+		'			End If
+		'		End If
+		'	End If
+		'Next
+		''i = Content.GetConstruction(*ecl->Text, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
+		'ecl->MainStatement = 0
+		'For iii As Integer = 0 To Statements.Count - 1
+		'	ecsOld_ = Statements.Items[iii]
+		'	If ecsOld_->ConstructionPart = 0 OrElse ecsOld_->ConstructionPart = 1 Then
+		'		ecl->MainStatement = ecsOld_
+		'		Exit For
+		'	Else
+		'		ecl->MainStatement = ecsOld_
+		'	End If
+		'Next
+		'If ecl->MainStatement = 0 Then ecl->MainStatement = ecl->Statements.Items[0]
+		Content.ChangeCollapsibility LineIndex, LineText, @This
+		i = ecl->MainStatement->ConstructionIndex
+		j = ecl->MainStatement->ConstructionPart
 		ecl->ConstructionIndex = i
 		ecl->ConstructionPart = j
 		ecl->Ends.Clear
 		ecl->EndsCompleted = False
-		ecl->Multiline = InStr(*ecl->Text, ":") > 0
 		OldCollapsed = ecl->Collapsed
 		If i > -1 And (j = 0 OrElse j = 1) Then
 			ecl->Collapsible = Constructions(i).Collapsible
 			If EndsWith(*ecl->Text, "'...'") Then
-				ecl->Collapsed = Constructions(i).Collapsible
+				ecl->Collapsed = ecl->Collapsible
+				ecl->CollapsedFully = ecl->Collapsible
 			Else
 				ecl->Collapsed = False
 			End If
@@ -779,20 +1087,40 @@ Namespace My.Sys.Forms
 				k = GetLineIndex(OldLineIndex, 0)
 				Dim FECLine As EditControlLine Ptr = Content.Lines.Items[k]
 				j = 0
-				For k = k + 1 To OldLineIndex
+				Var OldVisibleLineIndex = k
+				For k = OldVisibleLineIndex To OldLineIndex + 1
+				'For k = k + 1 To OldLineIndex
 					FECLine2 = Content.Lines.Items[k]
-					If FECLine2->ConstructionIndex = FECLine->ConstructionIndex Then
-						If FECLine2->ConstructionPart = 2 Then
-							j -= 1
-							If j = -1 Then
-								Exit For
+					For iii As Integer = IIf(k = OldVisibleLineIndex, FECLine->Statements.IndexOf(FECLine->MainStatement) + 1, 0) To IIf(k = OldLineIndex + 1, ecl->Statements.IndexOf(ecl->MainStatement), FECLine2->Statements.Count - 1)
+						FECStatement = FECLine2->Statements.Item(iii)
+						If FECStatement->ConstructionIndex = FECLine->ConstructionIndex OrElse (FECLine->ConstructionPart = 1 AndAlso FECLine->ConstructionIndex = C_Class AndAlso FECStatement->ConstructionIndex = C_Type) Then
+							If FECStatement->ConstructionPart = 2 Then
+								j -= 1 - FECStatement->ConstructionPartCount
+								If j = -1 Then
+									If (FECLine->ConstructionPart = 1) OrElse FECLine2->Collapsible Then
+										If FECLine2->Statements.IndexOf(FECLine2->MainStatement) > iii Then FECLine->CollapsedFully = False
+										j = -1
+									ElseIf (k = OldLineIndex + 1) AndAlso (iii = ecl->Statements.IndexOf(ecl->MainStatement)) Then
+										j = 0
+									End If
+									Exit For, For
+								End If
+							ElseIf FECStatement->ConstructionPart = 0 Then
+								j += 1
+							ElseIf FECStatement->ConstructionPart = 1 Then
+								j -= FECStatement->ConstructionPartCount
+								If FECLine->ConstructionPart = 1 Then
+									If j = 0 Then
+										j = -1
+										Exit For, For
+									End If
+								End If
 							End If
-						ElseIf FECLine2->ConstructionPart = 0 Then
-							j += 1
 						End If
-					End If
+					Next
 				Next
 				ecl->Visible = j = -1
+				'If ecl->Visible AndAlso ecl->Collapsible AndAlso CBool(ecl = FECLine2) Then FECLine->CollapsedFully = False
 			ElseIf eclOld->Collapsed Then
 				ecl->Visible = False
 			End If
@@ -1649,7 +1977,7 @@ Namespace My.Sys.Forms
 			If .Left(Trim(LCase(*FECLine->Text), Any !"\t "), 3) = "if(" Then WLet(FECLine->Text, "If (" & Mid(*FECLine->Text, 4))
 			If LCase(Trim(*FECLine->Text, Any !"\t ")) = "endif" Then WLet(FECLine->Text, "End If")
 			If iComment = 0 Then
-				If FECLine->Multiline Then
+				If FECLine->Statements.Count > 1 Then
 					Split(*FECLine->Text, """", LineQuotes())
 					WLet(FLine, "")
 					For k As Integer = 0 To UBound(LineQuotes) Step 2
@@ -1696,7 +2024,7 @@ Namespace My.Sys.Forms
 			End If
 			WLet(FECLine->Text, IIf(TabAsSpaces AndAlso ChoosedTabStyle = 0, WSpace(CurIndents * TabWidth), WString(CurIndents, !"\t")) & LTrim(*FECLine->Text, Any !"\t "))
 			If iComment = 0 Then
-				If FECLine->Multiline Then
+				If FECLine->Statements.Count > 1 Then
 					For k As Integer = 0 To UBound(LineParts)
 						ConstructionIndex = Content.GetConstruction(LineParts(k), ConstructionPart, 0, FECLine->InAsm)
 						If k > 0 AndAlso ConstructionIndex > -1 AndAlso ConstructionPart > 0 Then
@@ -1816,15 +2144,18 @@ Namespace My.Sys.Forms
 	End Function
 	
 	Function EditControl.GetWordAt(LineIndex As Integer, CharIndex As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0) As String
+		If LineIndex < 0 OrElse Content.Lines.Item(LineIndex) = 0 Then Return ""
 		Dim As Integer i
-		Dim As String s, sWord, sLine = Lines(LineIndex)
+		Dim As String s, sWord
+		Dim As WString Ptr sLine = Cast(EditControlLine Ptr, Content.Lines.Item(LineIndex))->Text
+		If sLine = 0 OrElse Trim(*sLine, Any !"\t ") = "" Then Return ""
 		StartChar = CharIndex
 		For i = CharIndex To 1 Step -1
-			s = Mid(sLine, i, 1)
+			s = Mid(*sLine, i, 1)
 			If CInt(CInt(IsArg(Asc(s))) OrElse CInt(CInt(s = "#" OrElse s = "$"))) OrElse IIf(WithDot, s = ".", 0) OrElse IIf(WithQuestion, s = "?", 0) Then sWord = s & sWord: StartChar = i - 1 Else Exit For
 		Next
-		For i = CharIndex + 1 To Len(sLine)
-			s = Mid(sLine, i, 1)
+		For i = CharIndex + 1 To Len(*sLine)
+			s = Mid(*sLine, i, 1)
 			If CInt(CInt(IsArg(Asc(s))) OrElse CInt(CInt(s = "#" OrElse s = "$"))) OrElse IIf(WithDot, s = ".", 0) OrElse IIf(WithQuestion, s = "?", 0) Then sWord = sWord & s Else Exit For
 		Next
 		Return sWord
@@ -1835,7 +2166,7 @@ Namespace My.Sys.Forms
 	End Function
 	
 	Function EditControl.GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False) As String
-		If X <= LeftMargin Then Return ""
+		If X <= LeftMargin OrElse Content.Lines.Count < 1 Then Return ""
 		Dim As Integer LineIndex
 		If Y <= iDividedY AndAlso bDividedY Then
 			LineIndex = Fix(Y / dwCharY) + VScrollPosTop
@@ -1849,7 +2180,7 @@ Namespace My.Sys.Forms
 				If j = LineIndex Then k = j: Exit For
 			End If
 		Next
-		If k = -1 Then Return ""
+		If k = -1 OrElse Content.Lines.Item(k) = 0 Then Return ""
 		WLet(FLine, *Cast(EditControlLine Ptr, Content.Lines.Item(k))->Text)
 		Dim As Integer nCaretPosX = X - LeftMargin + IIf(X <= iDividedX AndAlso bDividedX, HScrollPosLeft, HScrollPosRight - IIf(bDividedX, iDividedX + 7, 0)) * dwCharX
 		Dim As Integer w = TextWidth(GetTabbedText(*FLine))
@@ -2530,20 +2861,20 @@ Namespace My.Sys.Forms
 		End If
 		If te > 0 Then Return True Else Return False
 	End Function
-	
+
 	Function GetFromConstructionBlock(cb As ConstructionBlock Ptr, ByRef Text As String, z As Integer) As TypeElement Ptr
 		If cb = 0 Then Return 0
 		Var tIndex = cb->Elements.IndexOf(Text)
 		If tIndex <> -1 Then
 			Dim te As TypeElement Ptr = cb->Elements.Object(tIndex)
-			If (te->StartLine <= z) OrElse te->ElementType = "LineLabel" Then
+			If (te->StartLine <= z) OrElse te->ElementType = E_LineLabel Then
 				Return te
 			End If
 		ElseIf cb->Construction Then
 			tIndex = cb->Construction->Elements.IndexOf(Text)
 			If tIndex <> -1 Then
 				Dim te As TypeElement Ptr = cb->Construction->Elements.Object(tIndex)
-				If (te->StartLine <= z) OrElse te->ElementType = "LineLabel" Then
+				If (te->StartLine <= z) OrElse te->ElementType = E_LineLabel Then
 					Return te
 				End If
 			End If
@@ -2602,12 +2933,13 @@ Namespace My.Sys.Forms
 			Dim As String TypeNameFromLine
 			Var teC = Cast(EditControlLine Ptr, Lines.Item(iSelEndLine))->InConstruction
 			If teC > 0 Then
-				Var Pos1 = InStr(teC->DisplayName, ".")
-				If Pos1 > 0 Then
-					TypeNameFromLine = ..Left(teC->DisplayName, Pos1 - 1)
-				Else
-					TypeNameFromLine = teC->Name
-				End If
+				TypeNameFromLine = teC->OwnerTypeName
+				'Var Pos1 = InStr(teC->FullName, ".")
+				'If Pos1 > 0 Then
+				'	TypeNameFromLine = ..Left(teC->FullName, Pos1 - 1)
+				'Else
+				'	TypeNameFromLine = teC->Name
+				'End If
 				If CInt(LCase(sTemp) = "this") Then
 					sTemp = TypeNameFromLine
 				End If
@@ -2771,13 +3103,16 @@ Namespace My.Sys.Forms
 		Dim As String TypeNameFromLine
 		Dim teC As TypeElement Ptr = Cast(EditControlLine Ptr, Lines.Item(iSelEndLine))->InConstruction
 		If teC > 0 Then
-			Var Pos1 = InStr(teC->DisplayName, ".")
-			If Pos1 = 0 Then Pos1 = InStr(teC->DisplayName, "[")
-			If Pos1 > 0 Then
-				TypeNameFromLine = Trim(..Left(teC->DisplayName, Pos1 - 1), Any !"\t ")
-			Else
-				TypeNameFromLine = teC->Name
-			End If
+			TypeNameFromLine = teC->OwnerTypeName
+			'Var Pos1 = InStr(teC->FullName, ".")
+			'Var Pos2 = InStr(teC->DisplayName, "[")
+			'If Pos1 > 0 Then
+			'	TypeNameFromLine = Trim(..Left(teC->FullName, Pos1 - 1), Any !"\t ")
+			'ElseIf Pos2 > 0 Then
+			'	TypeNameFromLine = Trim(..Left(teC->DisplayName, Pos2 - 1), Any !"\t ")
+			'Else
+			'	TypeNameFromLine = teC->Name
+			'End If
 			If CInt(LCase(sTemp) = "this") Then
 				teEnum = teC
 				Return TypeNameFromLine
@@ -2785,12 +3120,14 @@ Namespace My.Sys.Forms
 		End If
 		Var Idx = -1
 		Dim As TypeElement Ptr te, te1, te2
+		Dim As String InCondition
 		Dim As EditControlLine Ptr ECLine = Lines.Item(iSelEndLine)
 		Dim As WStringList Ptr pFiles
 		Dim As IntegerList Ptr pFileLines
 		If ECLine Then
 			pFiles = ECLine->FileList
 			pFileLines = ECLine->FileListLines
+			InCondition = ECLine->InCondition
 		End If
 		If TypeName <> "" Then
 			If LCase(sTemp) = "base" Then
@@ -2884,14 +3221,15 @@ Namespace My.Sys.Forms
 					End If
 					Return sTemp
 				Else
-					TypeName = teC->DisplayName
-					Pos1 = InStr(TypeName, ".")
-					If CBool(Pos1 > 0) OrElse EndsWith(TypeName, "[Constructor]") OrElse EndsWith(TypeName, "[Destructor]") Then
-						If Pos1 > 0 Then
-							TypeName = ..Left(TypeName, Pos1 - 1)
-						Else
-							TypeName = teC->Name
-						End If
+					TypeName = teC->OwnerTypeName
+					'Pos1 = InStr(TypeName, ".")
+					'If CBool(Pos1 > 0) OrElse EndsWith(teC->DisplayName, "[Constructor]") OrElse EndsWith(teC->DisplayName, "[Destructor]") Then
+					If Len(TypeName) > 0 Then
+						'If Pos1 > 0 Then
+						'	TypeName = ..Left(TypeName, Pos1 - 1)
+						'Else
+						'	TypeName = teC->Name
+						'End If
 						If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 						ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
 						ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
@@ -2928,7 +3266,7 @@ Namespace My.Sys.Forms
 					te = te1->Elements.Object(Idx)
 				ElseIf Procedures.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Procedures.Object(Idx))->StartLine <= iSelEndLine Then
 					te = Procedures.Object(Idx)
-				ElseIf Args.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Args.Object(Idx))->StartLine <= iSelEndLine Then
+				ElseIf ContainsInList(Args, sTemp, iSelEndLine, InCondition, Idx) Then
 					te = Args.Object(Idx)
 				ElseIf Namespaces.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Namespaces.Object(Idx))->StartLine <= iSelEndLine Then
 					te = Namespaces.Object(Idx)
@@ -2968,7 +3306,7 @@ Namespace My.Sys.Forms
 		End If
 		If te <> 0 Then
 			sTemp = te->TypeName
-			If te->ElementType = "Namespace" OrElse te->ElementType = "Type" OrElse te->ElementType = "TypeCopy" OrElse te->ElementType = "Union" OrElse te->ElementType = "Enum" Then
+			If te->ElementType = E_Namespace OrElse te->ElementType = E_Type OrElse te->ElementType = E_TypeCopy OrElse te->ElementType = E_Union OrElse te->ElementType = E_Enum Then
 				sTemp = te->Name
 			Else
 				Pos1 = InStrRev(sTemp, ".")
@@ -2982,13 +3320,35 @@ Namespace My.Sys.Forms
 		Return sTemp
 	End Function
 	
+	Function EditControlContent.IndexOfInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, ByRef InCondition As String) As Integer
+		Dim As Integer tIndex = List.IndexOf(Matn)
+		If tIndex > -1 Then
+			Dim As TypeElement Ptr te = List.Object(tIndex)
+			For i As Integer = tIndex To List.Count - 1
+				te = List.Object(i)
+				If te->StartLine > SelEndLine Then Return -1
+				If LCase(te->Name) <> LCase(Matn) Then Return -1
+				If InCondition <> "" Then
+					If (LCase(te->InCondition) = LCase("Not " & InCondition)) OrElse (LCase(InCondition) = LCase("Not " & te->InCondition)) Then Continue For
+				End If
+				Return i
+			Next
+		End If
+		Return -1
+	End Function
+	
+	Function EditControlContent.ContainsInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, ByRef InCondition As String, ByRef Index As Integer) As Boolean
+		Index = IndexOfInList(List, Matn, SelEndLine, InCondition)
+		Return Index <> -1
+	End Function
+	
 	Function EditControlContent.IndexOfInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
 		If pList = 0 OrElse Files = 0 OrElse FileLines = 0 Then Return -1
 		Dim As Integer tIndex = pList->IndexOf(Matn)
 		Var Idx = -1, iLine = -1
 		If tIndex > -1 Then
 			Dim As TypeElement Ptr te = pList->Object(tIndex)
-			If te->ElementType = "Namespace" Then Return tIndex
+			If te->ElementType = E_Namespace Then Return tIndex
 			For i As Integer = tIndex To pList->Count - 1
 				te = pList->Object(i)
 				If LCase(te->Name) <> LCase(Matn) Then Return -1
@@ -3248,13 +3608,18 @@ Namespace My.Sys.Forms
 				Else
 					FECLineNext = 0
 				End If
-				If FECLine->ConstructionIndex >= 0 AndAlso Constructions(FECLine->ConstructionIndex).Collapsible Then
-					If FECLine->ConstructionPart = 0 Then
-						CollapseIndex += 1
-					ElseIf FECLine->ConstructionPart = 2 Then
-						CollapseIndex = Max(0, CollapseIndex - 1)
+				For ii As Integer = 0 To FECLine->Statements.Count - 1
+					FECStatement = FECLine->Statements.Items[ii]
+					If FECStatement->ConstructionIndex >= 0 AndAlso Constructions(FECStatement->ConstructionIndex).Collapsible Then
+						If FECStatement->ConstructionPart = 0 Then
+							CollapseIndex += 1
+						ElseIf FECStatement->ConstructionPart = 1 Then
+							CollapseIndex -= FECStatement->ConstructionPartCount
+						ElseIf FECStatement->ConstructionPart = 2 Then
+							CollapseIndex = Max(0, CollapseIndex - 1 - FECStatement->ConstructionPartCount)
+						End If
 					End If
-				End If
+				Next ii
 				If Not FECLine->Visible Then OldCollapseIndex = CollapseIndex: iC = FECLine->CommentIndex: Continue For
 				i = i + 1
 				If i < VScrollPos Then OldCollapseIndex = CollapseIndex: iC = FECLine->CommentIndex: Continue For
@@ -3453,26 +3818,26 @@ Namespace My.Sys.Forms
 																	tIndex = 0
 																	OriginalCaseWord = te->Name
 																	If SyntaxHighlightingIdentifiers Then
-																		Select Case LCase(te->ElementType)
-																		Case "enumitem"
+																		Select Case te->ElementType
+																		Case E_EnumItem
 																			sc = @ColorEnumMembers
-																		Case "sub"
+																		Case E_Sub
 																			sc = @ColorSubs
-																		Case "function"
+																		Case E_Function
 																			sc = @ColorGlobalFunctions
-																		Case "property"
+																		Case E_Property
 																			sc = @ColorProperties
-																		Case "field", "event"
+																		Case E_Field, E_Event
 																			sc = @ColorFields
-																		Case "namespace"
+																		Case E_Namespace
 																			sc = @ColorGlobalNamespaces
-																		Case "type", "typecopy"
+																		Case E_Type, E_TypeCopy
 																			sc = @ColorGlobalTypes
-																		Case "enum"
+																		Case E_Enum
 																			sc = @ColorGlobalEnums
-																		Case "define"
+																		Case E_Define
 																			sc = @ColorDefines
-																		Case "macro"
+																		Case E_Macro
 																			sc = @ColorMacros
 																		Case Else
 																			sc = @ColorLocalVariables
@@ -3521,11 +3886,11 @@ Namespace My.Sys.Forms
 																			te = pkeywords->Object(tIndex)
 																			If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
 																				Select Case te->ElementType
-																				Case "ByRefParameter"
+																				Case E_ByRefParameter
 																					sc = @ColorByRefParameters
-																				Case "ByValParameter"
+																				Case E_ByValParameter
 																					sc = @ColorByValParameters
-																				Case "Field", "Event"
+																				Case E_Field, E_Event
 																					sc = @ColorFields
 																				Case Else
 																					sc = @ColorLocalVariables
@@ -3546,23 +3911,27 @@ Namespace My.Sys.Forms
 																	OriginalCaseWord = te->Name
 																	If SyntaxHighlightingIdentifiers Then
 																		te->Used = (te->StartLine < z) OrElse MatnBoshi > te->StartChar
-																		Select Case LCase(te->ElementType)
-																		Case "sub"
+																		Select Case te->ElementType
+																		Case E_Sub
 																			sc = @ColorSubs
-																		Case "function"
+																		Case E_Function
 																			sc = @ColorGlobalFunctions
-																		Case "property"
+																		Case E_Property
 																			sc = @ColorProperties
-																		Case "byrefparameter"
+																		Case E_ByRefParameter
 																			sc = @ColorByRefParameters
-																		Case "byvalparameter"
+																		Case E_ByValParameter
 																			sc = @ColorByValParameters
-																		Case "field", "event"
+																		Case E_Field, E_Event
 																			sc = @ColorFields
-																		Case "enumitem"
+																		Case E_EnumItem
 																			sc = @ColorEnumMembers
-																		Case "linelabel"
+																		Case E_LineLabel
 																			sc = @ColorLineLabels
+																		Case E_Define, E_Macro
+																			sc = @ColorDefines
+																		Case E_Macro
+																			sc = @ColorMacros
 																		Case Else
 																			sc = @ColorLocalVariables
 																		End Select
@@ -3573,29 +3942,29 @@ Namespace My.Sys.Forms
 															If (Not TwoDots) AndAlso tIndex = -1 AndAlso FECLine->InConstruction > 0 AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
 																tIndex = Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.IndexOf(MatnLCaseWithoutOldSymbol)
 																If tIndex <> -1 Then
-																	If Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->StartLine > z AndAlso Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->ElementType <> "LineLabel" Then
+																	If Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->StartLine > z AndAlso Cast(TypeElement Ptr, Cast(TypeElement Ptr, FECLine->InConstruction)->Elements.Object(tIndex))->ElementType <> E_LineLabel Then
 																		tIndex = -1
 																	Else
 																		pkeywords = @Cast(TypeElement Ptr, FECLine->InConstruction)->Elements
 																		OriginalCaseWord = pkeywords->Item(tIndex)
 																		te = pkeywords->Object(tIndex)
 																		If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																			Select Case LCase(te->ElementType)
-																			Case "sub"
+																			Select Case te->ElementType
+																			Case E_Sub
 																				sc = @ColorSubs
-																			Case "function"
+																			Case E_Function
 																				sc = @ColorGlobalFunctions
-																			Case "property"
+																			Case E_Property
 																				sc = @ColorProperties
-																			Case "byrefparameter"
+																			Case E_ByRefParameter
 																				sc = @ColorByRefParameters
-																			Case "byvalparameter"
+																			Case E_ByValParameter
 																				sc = @ColorByValParameters
-																			Case "field", "event"
+																			Case E_Field, E_Event
 																				sc = @ColorFields
-																			Case "enumitem"
+																			Case E_EnumItem
 																				sc = @ColorEnumMembers
-																			Case "linelabel"
+																			Case E_LineLabel
 																				sc = @ColorLineLabels
 																			Case Else
 																				sc = @ColorLocalVariables
@@ -3605,14 +3974,17 @@ Namespace My.Sys.Forms
 																End If
 																
 																If tIndex = -1 Then
-																	TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->DisplayName
-																	Pos1 = InStr(TypeName, ".")
-																	If (CBool(Pos1 > 0) OrElse EndsWith(TypeName, "[Constructor]") OrElse EndsWith(TypeName, "[Destructor]")) AndAlso (CBool(FECLine->InConstruction->StartLine <> z) OrElse FECLine->InConstruction->Declaration) Then
-																		If Pos1 > 0 Then
-																			TypeName = ..Left(TypeName, Pos1 - 1)
-																		Else
-																			TypeName = Cast(TypeElement Ptr, FECLine->InConstruction)->Name
-																		End If
+																	te = FECLine->InConstruction
+																	TypeName = te->OwnerTypeName
+																	'Pos1 = InStr(TypeName, ".")
+																	'If (CBool(Pos1 > 0) OrElse EndsWith(te->DisplayName, "[Constructor]") OrElse EndsWith(te->DisplayName, "[Destructor]")) AndAlso (CBool(FECLine->InConstruction->StartLine <> z) OrElse FECLine->InConstruction->Declaration) Then
+																	If Len(TypeName) > 0 Then
+																		'If Pos1 > 0 Then
+																		'	TypeName = ..Left(TypeName, Pos1 - 1)
+																		'Else
+																		'	TypeName = te->Name
+																		'End If
+																		te = 0
 																		If Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, @Content.Types, pFiles, pFileLines, True, , , te, z) Then
 																		ElseIf Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, @Content.Enums, pFiles, pFileLines, True, , , te, z) Then
 																		ElseIf Content.ContainsIn(TypeName, MatnLCaseWithoutOldSymbol, pComps, pFiles, pFileLines, True, , , te) Then
@@ -3623,14 +3995,14 @@ Namespace My.Sys.Forms
 																			OriginalCaseWord = te->Name
 																			tIndex = 0
 																			If SyntaxHighlightingIdentifiers Then
-																				Select Case LCase(te->ElementType)
-																				Case "sub"
+																				Select Case te->ElementType
+																				Case E_Sub
 																					sc = @ColorSubs
-																				Case "function"
+																				Case E_Function
 																					sc = @ColorGlobalFunctions
-																				Case "property"
+																				Case E_Property
 																					sc = @ColorProperties
-																				Case "field", "event"
+																				Case E_Field, E_Event
 																					sc = @ColorFields
 																				Case Else
 																					sc = @ColorLocalVariables
@@ -3663,7 +4035,7 @@ Namespace My.Sys.Forms
 														End If
 													End If
 														
-													If WithOldSymbol Then MatnLCase = MatnLCaseWithoutOldSymbol
+													If WithOldSymbol AndAlso Not bKeyWord Then MatnLCase = MatnLCaseWithoutOldSymbol
 													
 													If ChangeIdentifiersCase OrElse SyntaxHighlightingIdentifiers Then
 														If Not OneDot Then
@@ -3679,13 +4051,13 @@ Namespace My.Sys.Forms
 																		te = Content.Args.Object(tIndex)
 																		If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
 																			Select Case te->ElementType
-																			Case "EnumItem"
+																			Case E_EnumItem
 																				sc = @ColorEnumMembers
-																			Case "CommonVariable"
+																			Case E_CommonVariable
 																				sc = @ColorCommonVariables
-																			Case "Constant"
+																			Case E_Constant
 																				sc = @ColorConstants
-																			Case "SharedVariable"
+																			Case E_SharedVariable
 																				sc = @ColorSharedVariables
 																			Case Else
 																				sc = @ColorLocalVariables
@@ -3706,18 +4078,18 @@ Namespace My.Sys.Forms
 																			pkeywords = @Content.Procedures
 																			te = Content.Procedures.Object(tIndex)
 																			If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																				Select Case LCase(te->ElementType)
-																				Case "constructor", "destructor"
+																				Select Case te->ElementType
+																				Case E_Constructor, E_Destructor
 																					sc = @ColorGlobalTypes
-																				Case "function"
+																				Case E_Function
 																					sc = @ColorGlobalFunctions
-																				Case "sub"
+																				Case E_Sub
 																					sc = @ColorSubs
-																				Case "define"
+																				Case E_Define
 																					sc = @ColorDefines
-																				Case "macro"
+																				Case E_Macro
 																					sc = @ColorMacros
-																				Case "property"
+																				Case E_Property
 																					sc = @ColorProperties
 																				End Select
 																			End If
@@ -3813,13 +4185,13 @@ Namespace My.Sys.Forms
 																	pkeywords = pGlobalArgs
 																	If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
 																		Select Case te->ElementType
-																		Case "EnumItem"
+																		Case E_EnumItem
 																			sc = @ColorEnumMembers
-																		Case "CommonVariable"
+																		Case E_CommonVariable
 																			sc = @ColorCommonVariables
-																		Case "Constant"
+																		Case E_Constant
 																			sc = @ColorConstants
-																		Case "SharedVariable"
+																		Case E_SharedVariable
 																			sc = @ColorSharedVariables
 																		Case Else
 																			sc = @ColorLocalVariables
@@ -3836,20 +4208,20 @@ Namespace My.Sys.Forms
 																		OriginalCaseWord = pGlobalFunctions->Item(tIndex)
 																		pkeywords = pGlobalFunctions
 																		If te > 0 AndAlso SyntaxHighlightingIdentifiers Then
-																			Select Case LCase(te->ElementType)
-																			Case "constructor", "destructor"
+																			Select Case te->ElementType
+																			Case E_Constructor, E_Destructor
 																				sc = @ColorGlobalTypes
-																			Case "keyword"
+																			Case E_Keyword
 																				sc = @ColorGlobalFunctions
-																			Case "function"
+																			Case E_Function
 																				sc = @ColorGlobalFunctions
-																			Case "sub"
+																			Case E_Sub
 																				sc = @ColorSubs
-																			Case "define"
+																			Case E_Define
 																				sc = @ColorDefines
-																			Case "macro"
+																			Case E_Macro
 																				sc = @ColorMacros
-																			Case "property"
+																			Case E_Property
 																				sc = @ColorProperties
 																			End Select
 																		End If
@@ -4158,16 +4530,22 @@ Namespace My.Sys.Forms
 					cairo_set_source_rgb(cr, FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue)
 				#endif
 				If SyntaxEdit AndAlso Not Content.CStyle Then
-					If ShowHorizontalSeparatorLines AndAlso CBool(FECLineNext <> 0) AndAlso FECLineNext->Visible AndAlso FECLineNext->Collapsible AndAlso CBool(FECLineNext->ConstructionIndex >= C_P_Region) AndAlso CBool(FECLineNext->ConstructionPart = 0) Then
-						#ifdef __USE_GTK__
-							cairo_move_to(cr, LeftMargin - 0.5 + CodePaneX, (i + 1 - VScrollPos) * dwCharY - 0.5 + CodePaneY)
-							cairo_line_to(cr, IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX) - 0.5, (i + 1 - VScrollPos) * dwCharY - 0.5 + CodePaneY)
-							cairo_stroke (cr)
-						#else
-							This.Canvas.Pen.Color = FoldLines.Foreground
-							MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY), 0
-							LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY)
-						#endif
+					If ShowHorizontalSeparatorLines AndAlso CBool(FECLineNext <> 0) AndAlso FECLineNext->Visible Then
+						For ii As Integer = 0 To FECLineNext->Statements.Count - 1
+							FECStatement = FECLineNext->Statements.Items[ii]
+							If (FECStatement->ConstructionIndex >= C_P_Region) AndAlso (FECStatement->ConstructionPart = 0) Then
+								#ifdef __USE_GTK__
+									cairo_move_to(cr, LeftMargin - 0.5 + CodePaneX, (i + 1 - VScrollPos) * dwCharY - 0.5 + CodePaneY)
+									cairo_line_to(cr, IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX) - 0.5, (i + 1 - VScrollPos) * dwCharY - 0.5 + CodePaneY)
+									cairo_stroke (cr)
+								#else
+									This.Canvas.Pen.Color = FoldLines.Foreground
+									MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY), 0
+									LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY)
+								#endif
+								Exit For
+							End If
+						Next ii
 					End If
 					If FECLine->Collapsible Then
 						#ifdef __USE_GTK__
@@ -4175,9 +4553,15 @@ Namespace My.Sys.Forms
 							cairo_rectangle(cr, LeftMargin - 15 - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY + 4 - 0.5 + CodePaneY, LeftMargin - 7 - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY + 12 - 0.5 + CodePaneY, True)
 							cairo_move_to(cr, LeftMargin - 13 - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY + 8 - 0.5 + CodePaneY)
 							cairo_line_to(cr, LeftMargin - 9 - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY + 8 - 0.5 + CodePaneY)
-							If ShowHorizontalSeparatorLines AndAlso CBool(FECLine->ConstructionIndex >= C_P_Region) AndAlso CBool(FECLine->ConstructionPart = 0) Then
-								cairo_move_to(cr, LeftMargin - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY - 0.5 + CodePaneY)
-								cairo_line_to(cr, dwClientX - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY - 0.5 + CodePaneY)
+							If ShowHorizontalSeparatorLines Then
+								For ii As Integer = 0 To FECLine->Statements.Count - 1
+									FECStatement = FECLine->Statements.Items[ii]
+									If (FECStatement->ConstructionIndex >= C_P_Region) AndAlso (FECStatement->ConstructionPart = 0) Then
+										cairo_move_to(cr, LeftMargin - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY - 0.5 + CodePaneY)
+										cairo_line_to(cr, dwClientX - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY - 0.5 + CodePaneY)
+										Exit For
+									End If
+								Next ii
 							End If
 							cairo_stroke (cr)
 						#else
@@ -4188,9 +4572,15 @@ Namespace My.Sys.Forms
 							Rectangle bufDC, ScaleX(LeftMargin - 15 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY), ScaleX(LeftMargin - 6 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY)
 							MoveToEx bufDC, ScaleX(LeftMargin - 13 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY), 0
 							LineTo bufDC, ScaleX(LeftMargin - 8 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)
-							If ShowHorizontalSeparatorLines AndAlso CBool(FECLine->ConstructionIndex >= C_P_Region) AndAlso CBool(FECLine->ConstructionPart = 0) Then
-								MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), 0
-								LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i - VScrollPos) * dwCharY + CodePaneY)
+							If ShowHorizontalSeparatorLines Then
+								For ii As Integer = 0 To FECLine->Statements.Count - 1
+									FECStatement = FECLine->Statements.Items[ii]
+									If (FECStatement->ConstructionIndex >= C_P_Region) AndAlso (FECStatement->ConstructionPart = 0) Then
+										MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), 0
+										LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i - VScrollPos) * dwCharY + CodePaneY)
+										Exit For
+									End If
+								Next ii
 							End If
 						#endif
 						If OldCollapseIndex > 0 Then
@@ -4213,7 +4603,19 @@ Namespace My.Sys.Forms
 								LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 10 + CodePaneY)
 							#endif
 						End If
-						If CInt(CInt(OldCollapseIndex = 0) And CInt(Not FECLine->Collapsed)) OrElse CInt(OldCollapseIndex > 0) Then
+						For ii As Integer = 0 To FECLine->Statements.IndexOf(FECLine->MainStatement) - 1
+							FECStatement = FECLine->Statements.Items[ii]
+							If FECStatement->ConstructionIndex >= 0 AndAlso Constructions(FECStatement->ConstructionIndex).Collapsible Then
+								If FECStatement->ConstructionPart = 0 Then
+									OldCollapseIndex += 1
+								ElseIf FECStatement->ConstructionPart = 1 Then
+									OldCollapseIndex -= FECStatement->ConstructionPart
+								ElseIf FECStatement->ConstructionPart = 2 Then
+									OldCollapseIndex = Max(0, OldCollapseIndex - 1 - FECStatement->ConstructionPart)
+								End If
+							End If
+						Next ii
+						If ((Not FECLine->Collapsed) AndAlso CBool(CollapseIndex > 0)) OrElse (FECLine->Collapsed AndAlso (CBool(OldCollapseIndex > 0) OrElse Not FECLine->CollapsedFully)) Then 'CBool(OldCollapseIndex = 0) AndAlso 
 							#ifdef __USE_GTK__
 								cairo_move_to(cr, LeftMargin - 11 - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY + 12 - 0.5 + CodePaneY)
 								cairo_line_to(cr, LeftMargin - 11 - 0.5 + CodePaneX, (i - VScrollPos) * dwCharY + dwCharY - 0.5 + CodePaneY)
@@ -4515,62 +4917,6 @@ Namespace My.Sys.Forms
 		#else
 			PaintControlPriv(bFull)
 		#endif
-	End Sub
-	
-	Sub EditControl._LoadFromHistory(ByRef HistoryItem As EditControlHistory Ptr, bToBack As Boolean, ByRef oldItem As EditControlHistory Ptr, bWithoutPaint As Boolean = False)
-		For i As Integer = Content.Lines.Count - 1 To 0 Step -1
-			Delete_( Cast(EditControlLine Ptr, Content.Lines.Items[i]))
-		Next i
-		Content.Lines.Clear
-		For i As Integer = 0 To HistoryItem->Lines.Count - 1
-			FECLine = New_( EditControlLine)
-			OlddwClientX = 0
-			With *Cast(EditControlLine Ptr, HistoryItem->Lines.Item(i))
-				WLet(FECLine->Text, *.Text)
-				FECLine->Breakpoint = .Breakpoint
-				FECLine->Bookmark = .Bookmark
-				FECLine->CommentIndex = .CommentIndex
-				FECLine->ConstructionIndex = .ConstructionIndex
-				FECLine->ConstructionPart = .ConstructionPart
-				FECLine->InAsm = .InAsm
-				FECLine->InConstructionIndex = .InConstructionIndex
-				FECLine->InConstructionPart = .InConstructionPart
-				FECLine->Multiline = .Multiline
-				FECLine->Collapsible = .Collapsible
-				FECLine->Collapsed = .Collapsed
-				FECLine->Visible = .Visible
-			End With
-			Content.Lines.Add FECLine
-		Next i
-		If Content.Lines.Count = 0 Then
-			FECLine = New_( EditControlLine)
-			OlddwClientX = 0
-			WLet(FECLine->Text, "")
-			Content.Lines.Add FECLine
-		End If
-		If bToBack Then
-			FSelStartLine = oldItem->OldSelStartLine
-			FSelStartChar = oldItem->OldSelStartChar
-			FSelEndLine = oldItem->OldSelEndLine
-			FSelEndChar = oldItem->OldSelEndChar
-		Else
-			FSelStartLine = HistoryItem->SelStartLine
-			FSelStartChar = HistoryItem->SelStartChar
-			FSelEndLine = HistoryItem->SelEndLine
-			FSelEndChar = HistoryItem->SelEndChar
-		End If
-		bOldCommented = True
-		#ifdef __USE_GTK__
-			If cr Then
-		#else
-			If Handle Then
-		#endif
-			If Not bWithoutPaint Then ScrollToCaret
-		End If
-		OldnCaretPosX = nCaretPosX
-		OldCharIndex = GetOldCharIndex
-		If OnChange Then OnChange(This)
-		Modified = True
 	End Sub
 	
 	Sub EditControl.Undo
@@ -5577,7 +5923,7 @@ Namespace My.Sys.Forms
 						With *Cast(EditControlLine Ptr, Content.Lines.Item(i - 1))
 							If .ConstructionIndex > C_Enum AndAlso .ConstructionPart = 0 Then
 								FSelEndLine = i
-								'FSelEndChar = Len(*.Text)
+								'FSelEndChar = Len(*(.Text))
 								bFind = True
 								Exit For
 							End If
@@ -5648,7 +5994,7 @@ Namespace My.Sys.Forms
 						With *Cast(EditControlLine Ptr, Content.Lines.Item(i))
 							If .ConstructionIndex > C_Enum AndAlso .ConstructionPart = 0 Then
 								FSelEndLine = i + 1
-								'FSelEndChar = Len(*.Text)
+								'FSelEndChar = Len(*(.Text))
 								bFind = True
 								Exit For
 							End If
@@ -5918,6 +6264,9 @@ Namespace My.Sys.Forms
 					FSelStartChar = FSelEndChar
 				End If
 				WLet(FLine, ..Left(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, FSelEndChar))
+				If FSelEndLine > 0 AndAlso EndsWith(RTrim(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->Text), " _") Then
+					WLetEx(FLine, *Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->Text & *FLine)
+				End If
 				WLet(FLineLeft, "")
 				WLet(FLineRight, "")
 				WLet(FLineTemp, "")
@@ -5928,23 +6277,23 @@ Namespace My.Sys.Forms
 				Var k = 0
 				Var p = 0
 				Var z = 0
-				If CInt(AutoIndentation) And CInt(i > -1) Then
+				If CInt(AutoIndentation) AndAlso ((InStr(*FLine, ":") = 0) OrElse (i = C_Class)) AndAlso CInt(i > -1) Then
 					If j > 0 Then
 						Dim y As Integer
 						For o As Integer = FSelEndLine - 1 To 0 Step -1
 							With *Cast(EditControlLine Ptr, Content.Lines.Items[o])
-								If .ConstructionIndex = i Then
+								If .ConstructionIndex = i OrElse (j = 1 AndAlso i = C_Class AndAlso .ConstructionIndex = C_Type) Then
 									If .ConstructionPart = 2 Then
 										y = y + 1
 									ElseIf .ConstructionPart = 0 Then
 										If y = 0 Then
-											Var ltt0 = Len(GetTabbedText(*.Text))
+											Var ltt0 = Len(GetTabbedText(* (.Text)))
 											Var ltt1 = Len(GetTabbedText(*FLine))
 											If ltt0 <> ltt1 Then
-												d = Len(*.Text) - Len(LTrim(*.Text, Any !"\t "))
+												d = Len(* (.Text)) - Len(LTrim(* (.Text), Any !"\t "))
 												FSelEndChar = FSelEndChar - (Len(*FLineSpace) - d)
 												FSelStartChar = FSelEndChar
-												WLet(FLineSpace, ..Left(*.Text, d))
+												WLet(FLineSpace, ..Left(*(.Text), d))
 												WLet(Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, *FLineSpace & LTrim(*Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->Text, Any !"\t "))
 											End If
 											Exit For

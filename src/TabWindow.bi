@@ -150,6 +150,7 @@ Private:
 	te As TypeElement Ptr
 	te2 As TypeElement Ptr
 	Dim As EditControlLine Ptr ECLine, ECLine2
+	Dim As EditControlStatement Ptr ECStatement, OldECStatement, ecs
 	Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 	Dim frmName As String
 	Dim frmTypeName As String
@@ -178,7 +179,7 @@ Public:
 	Dim IsNew As Boolean
 	Dim bNotDesign As Boolean
 	'Dim bExternalIncludesLoaded As Boolean
-	Dim As Integer ConstructorStart, ConstructorEnd, lvPropertyWidth, FindFormPosiLeft, FindFormPosiTop, RightSelectedIndex
+	Dim As Integer ConstructorStart, ConstructorEnd, lvPropertyWidth, FindFormPosiLeft, FindFormPosiTop, RightSelectedIndex, AutoSaveCharCount
 	ptn As TreeNode Ptr
 	tn As TreeNode Ptr
 	mi As MenuItem Ptr
@@ -246,6 +247,9 @@ Public:
 	Declare Sub PreprocessorNumberOn
 	Declare Sub PreprocessorNumberOff
 	Declare Sub SortLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub DeleteBlankLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub ConvertToLowercase(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub ConvertToUppercase(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub Comment
 	Declare Sub UnComment
 	Declare Sub Indent

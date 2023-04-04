@@ -1,10 +1,10 @@
 ﻿'#Region "Form"
 	#if defined(__FB_MAIN__) AndAlso Not defined(__MAIN_FILE__)
 		#define __MAIN_FILE__
-		Const _MAIN_FILE_ = __FILE__
 		#ifdef __FB_WIN32__
 			#cmdline "Form1.rc"
 		#endif
+		Const _MAIN_FILE_ = __FILE__
 	#endif
 	#include once "mff/Form.bi"
 	
@@ -28,6 +28,7 @@
 	Dim Shared Form1 As Form1Type
 	
 	#if _MAIN_FILE_ = __FILE__
+		App.DarkMode = True
 		Form1.MainForm = True
 		Form1.Show
 		App.Run
