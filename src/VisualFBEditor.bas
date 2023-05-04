@@ -405,7 +405,7 @@ Sub mClick(Sender As My.Sys.Object)
 						msgdata=1 ''CC everywhere
 						exec_order(KPT_CCALL)
 					End If
-				#EndIf
+				#endif
 				dbg_prt2 "=============== STEP =================================="
 				stopcode=0
 				runtype=RTSTEP
@@ -449,7 +449,7 @@ Sub mClick(Sender As My.Sys.Object)
 			End If
 		End If
 	Case "SaveAs", "Close", "SyntaxCheck", "Compile", "CompileAndRun", "Run", "RunToCursor", "SplitHorizontally", "SplitVertically", _
-		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SortLines", "DeleteBlankLines", "ConvertToLowercase", "ConvertToUppercase", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
+		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SortLines", "DeleteBlankLines", "FormatWithBasisWord", "ConvertToLowercase", "ConvertToUppercase", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
 		"AddWatch", "ShowVar", "NextBookmark", "PreviousBookmark", "ClearAllBookmarks", "Code", "Form", "CodeAndForm", "AddProcedure" '
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If tb = 0 Then Exit Sub
@@ -459,6 +459,7 @@ Sub mClick(Sender As My.Sys.Object)
 		Case "Close":                       CloseTab(tb)
 		Case "SortLines":                   tb->SortLines
 		Case "DeleteBlankLines":            tb->DeleteBlankLines
+		Case "FormatWithBasisWord" :        tb->FormatWithBasisWord
 		Case "ConvertToLowercase":           tb->ConvertToLowercase
 		Case "ConvertToUppercase":           tb->ConvertToUppercase
 		Case "SplitHorizontally":           tb->txtCode.SplittedHorizontally = Not mnuSplitHorizontally->Checked
@@ -672,7 +673,23 @@ Sub mClick(Sender As My.Sys.Object)
 		"PreprocessorNumberOn", "PreprocessorNumberOff", "Breakpoint", "ToggleBookmark", "CollapseAll", "UnCollapseAll", "CollapseAllProcedures", "UnCollapseAllProcedures", _
 		"CollapseCurrent", "UnCollapseCurrent", "CompleteWord", "ParameterInfo", "OnErrorGoto", "OnErrorGotoResumeNext", "OnLocalErrorGoto", "OnLocalErrorGotoResumeNext", "RemoveErrorHandling", "Define"
 		Dim As Form Ptr ActiveForm = Cast(Form Ptr, pApp->ActiveForm)
-		If ActiveForm = 0 OrElse ActiveForm->ActiveControl = 0 Then Exit Sub
+		If ActiveForm = 0 Then Exit Sub
+		If ActiveForm->ActiveControl = 0 Then 
+			Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+			If tb <> 0 AndAlso tb->cboClass.ItemIndex > 0 Then
+				Dim des As Designer Ptr = tb->Des
+				If des = 0 Then Exit Sub
+				Select Case Sender.ToString
+				Case "Cut":                     des->CutControl
+				Case "Copy":                    des->CopyControl
+				Case "Paste":                   des->PasteControl
+				Case "Delete":                  des->DeleteControl
+				Case "Duplicate":               des->DuplicateControl
+				Case "SelectAll":               des->SelectAllControls
+				End Select
+			End If
+			Exit Sub
+		End If
 		If ActiveForm->ActiveControl->ClassName <> "EditControl" AndAlso ActiveForm->ActiveControl->ClassName <> "TextBox" AndAlso ActiveForm->ActiveControl->ClassName <> "Panel" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEdit" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEx" Then Exit Sub
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If ActiveForm->ActiveControl->ClassName = "TextBox" Then
