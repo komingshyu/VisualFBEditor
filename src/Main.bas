@@ -67,8 +67,8 @@ Dim Shared As MainMenu mnuMain
 Dim Shared As MenuItem Ptr mnuStartWithCompile, mnuStart, mnuBreak, mnuEnd, mnuRestart, mnuStandardToolBar, mnuEditToolBar, mnuProjectToolBar, mnuBuildToolBar, mnuRunToolBar, mnuSplit, mnuSplitHorizontally, mnuSplitVertically, mnuWindowSeparator, miRecentProjects, miRecentFiles, miRecentFolders, miRecentSessions, miSetAsMain, miTabSetAsMain, miTabReloadHistoryCode, miRemoveFiles, miToolBars
 Dim Shared As MenuItem Ptr miSaveProject, miSaveProjectAs, miCloseProject, miCloseFolder, miSave, miSaveAs, miSaveAll, miClose, miCloseAll, miCloseSession, miPrint, miPrintPreview, miPageSetup, miOpenProjectFolder, miProjectProperties, miExplorerOpenProjectFolder, miExplorerProjectProperties, miExplorerCloseProject, miRemoveFileFromProject
 Dim Shared As MenuItem Ptr miUndo, miRedo, miCutCurrentLine, miCut, miCopy, miPaste, miSingleComment, miBlockComment, miUncommentBlock, miDuplicate, miSelectAll, miIndent, miOutdent, miFormat, miUnformat, miFormatProject, miUnformatProject, miAddSpaces, miDeleteBlankLines, miSuggestions, miCompleteWord, miParameterInfo, miStepInto, miStepOver, miStepOut, miRunToCursor, miGDBCommand, miAddWatch, miToggleBreakpoint, miClearAllBreakpoints, miSetNextStatement, miShowNextStatement
-Dim Shared As MenuItem Ptr miNumbering, miMacroNumbering, miRemoveNumbering, miProcedureNumbering, miProcedureMacroNumbering, miRemoveProcedureNumbering, miProjectMacroNumbering, miProjectMacroNumberingStartsOfProcedures, miRemoveProjectNumbering, miPreprocessorNumbering, miRemovePreprocessorNumbering, miProjectPreprocessorNumbering, miRemoveProjectPreprocessorNumbering, miOnErrorResumeNext, miOnErrorGoto, miOnErrorGotoResumeNext, miOnLocalErrorGoto, miOnLocalErrorGotoResumeNext, miRemoveErrorHandling
-Dim Shared As MenuItem Ptr dmiNumbering, dmiMacroNumbering, dmiRemoveNumbering, dmiProcedureNumbering, dmiProcedureMacroNumbering, dmiRemoveProcedureNumbering, dmiProjectMacroNumbering, dmiProjectMacroNumberingStartsOfProcedures, dmiRemoveProjectNumbering, dmiPreprocessorNumbering, dmiRemovePreprocessorNumbering, dmiProjectPreprocessorNumbering, dmiRemoveProjectPreprocessorNumbering, dmiOnErrorResumeNext, dmiOnErrorGoto, dmiOnErrorGotoResumeNext, dmiOnLocalErrorGoto, dmiOnLocalErrorGotoResumeNext, dmiRemoveErrorHandling, dmiMake, dmiMakeClean
+Dim Shared As MenuItem Ptr miNumbering, miMacroNumbering, miRemoveNumbering, miProcedureNumbering, miProcedureMacroNumbering, miRemoveProcedureNumbering, miProjectMacroNumbering, miProjectMacroNumberingStartsOfProcedures, miRemoveProjectNumbering, miModuleMacroNumbering, miModuleMacroNumberingStartsOfProcedures, miRemoveModuleNumbering, miPreprocessorNumbering, miRemovePreprocessorNumbering, miProjectPreprocessorNumbering, miRemoveProjectPreprocessorNumbering, miModulePreprocessorNumbering, miRemoveModulePreprocessorNumbering, miOnErrorResumeNext, miOnErrorGoto, miOnErrorGotoResumeNext, miOnLocalErrorGoto, miOnLocalErrorGotoResumeNext, miRemoveErrorHandling
+Dim Shared As MenuItem Ptr dmiNumbering, dmiMacroNumbering, dmiRemoveNumbering, dmiProcedureNumbering, dmiProcedureMacroNumbering, dmiRemoveProcedureNumbering, dmiModuleMacroNumbering, dmiModuleMacroNumberingStartsOfProcedures, dmiRemoveModuleNumbering, dmiPreprocessorNumbering, dmiRemovePreprocessorNumbering, dmiModulePreprocessorNumbering, dmiRemoveModulePreprocessorNumbering, dmiOnErrorResumeNext, dmiOnErrorGoto, dmiOnErrorGotoResumeNext, dmiOnLocalErrorGoto, dmiOnLocalErrorGotoResumeNext, dmiRemoveErrorHandling, dmiMake, dmiMakeClean
 Dim Shared As MenuItem Ptr miCode, miForm, miCodeAndForm, miCollapseCurrent, miCollapseAllProcedures, miCollapseAll, miUnCollapseCurrent, miUnCollapseAllProcedures, miUnCollapseAll, miImageManager, miAddProcedure, miFind, miReplace, miFindNext, miFindPrevious, miGoto, miDefine, miToggleBookmark, miNextBookmark, miPreviousBookmark, miClearAllBookmarks, miSyntaxCheck, miCompile, miCompileAll, miBuildBundle, miBuildAPK, miGenerateSignedBundle, miGenerateSignedAPK, miMake, miMakeClean
 Dim Shared As MenuItem Ptr miShowWithFolders, miShowWithoutFolders, miShowAsFolder
 Dim Shared As ToolButton Ptr tbtSave, tbtSaveAll, tbtSyntaxCheck, tbtSuggestions, tbtCompile, tbtUndo, tbtRedo, tbtCut, tbtCopy, tbtPaste, tbtSingleComment, tbtUncommentBlock, tbtFormat, tbtUnformat, tbtCompleteWord, tbtParameterInfo, tbtFind, tbtRemoveFileFromProject, tbtStartWithCompile, tbtStart, tbtBreak, tbtEnd, tbt32Bit, tbt64Bit, tbtUseDebugger, tbtNotSetted, tbtConsole, tbtGUI
@@ -5562,10 +5562,12 @@ prProgress.Marquee = True
 'stBar.Add ""
 'stBar.Panels[1]->Alignment = 1
 
-Function HK(Key As String, Default As String = "") As String
+Function HK(Key As String, Default As String = "", WithSpace As Boolean = False) As String
 	Dim As String HotKey = HotKeys.Get(Key, Default)
 	If HotKey = "" Then
 		Return ""
+	ElseIf WithSpace Then
+		Return " (" & HotKey & ")"
 	Else
 		Return !"\t" & HotKey
 	End If
@@ -5815,16 +5817,23 @@ Sub CreateMenusAndToolBars
 	miMacroNumbering = miTry->Add(ML("Macro numbering") & HK("MacroNumberOn"), "", "MacroNumberOn", @mClick, , , False)
 	miRemoveNumbering = miTry->Add(ML("Remove Numbering") & HK("NumberOff"), "", "NumberOff", @mClick, , , False)
 	miTry->Add("-")
+	miPreprocessorNumbering = miTry->Add(ML("Preprocessor numbering") & HK("PreprocessorNumberOn"), "Numbering", "PreprocessorNumberOn", @mClick, , , False)
+	miRemovePreprocessorNumbering = miTry->Add(ML("Remove Preprocessor numbering") & HK("PreprocessorNumberOff"), "", "PreprocessorNumberOff", @mClick, , , False)
+	miTry->Add("-")
 	miProcedureNumbering = miTry->Add(ML("Procedure numbering") & HK("ProcedureNumberOn"), "Numbering", "ProcedureNumberOn", @mClick, , , False)
 	miProcedureMacroNumbering = miTry->Add(ML("Procedure macro numbering") & HK("ProcedureMacroNumberOn"), "", "ProcedureMacroNumberOn", @mClick, , , False)
 	miRemoveProcedureNumbering = miTry->Add(ML("Remove Procedure numbering") & HK("ProcedureNumberOff"), "", "ProcedureNumberOff", @mClick, , , False)
 	miTry->Add("-")
+	miModuleMacroNumbering = miTry->Add(ML("Module macro numbering") & HK("ModuleMacroNumberOn"), "Numbering", "ModuleMacroNumberOn", @mClick, , , False)
+	miModuleMacroNumberingStartsOfProcedures = miTry->Add(ML("Module macro numbering: Starts of procedures") & HK("ModuleMacroNumberOnStartsOfProcs"), "", "ModuleMacroNumberOnStartsOfProcs", @mClick, , , False)
+	miRemoveModuleNumbering = miTry->Add(ML("Remove Module numbering") & HK("ModuleNumberOff"), "", "ModuleNumberOff", @mClick, , , False)
+	miTry->Add("-")
+	miModulePreprocessorNumbering = miTry->Add(ML("Module preprocessor numbering") & HK("ModulePreprocessorNumberOn"), "Numbering", "ModulePreprocessorNumberOn", @mClick, , , False)
+	miRemoveModulePreprocessorNumbering = miTry->Add(ML("Remove Module preprocessor numbering") & HK("ModulePreprocessorNumberOff"), "", "ModulePreprocessorNumberOff", @mClick, , , False)
+	miTry->Add("-")
 	miProjectMacroNumbering = miTry->Add(ML("Project macro numbering") & HK("ProjectMacroNumberOn"), "Numbering", "ProjectMacroNumberOn", @mClick, , , False)
 	miProjectMacroNumberingStartsOfProcedures = miTry->Add(ML("Project macro numbering: Starts of procedures") & HK("ProjectMacroNumberOnStartsOfProcs"), "", "ProjectMacroNumberOnStartsOfProcs", @mClick, , , False)
 	miRemoveProjectNumbering = miTry->Add(ML("Remove Project numbering") & HK("ProjectNumberOff"), "", "ProjectNumberOff", @mClick, , , False)
-	miTry->Add("-")
-	miPreprocessorNumbering = miTry->Add(ML("Preprocessor numbering") & HK("PreprocessorNumberOn"), "Numbering", "PreprocessorNumberOn", @mClick, , , False)
-	miRemovePreprocessorNumbering = miTry->Add(ML("Remove Preprocessor numbering") & HK("PreprocessorNumberOff"), "", "PreprocessorNumberOff", @mClick, , , False)
 	miTry->Add("-")
 	miProjectPreprocessorNumbering = miTry->Add(ML("Project preprocessor numbering") & HK("ProjectPreprocessorNumberOn"), "Numbering", "ProjectPreprocessorNumberOn", @mClick, , , False)
 	miRemoveProjectPreprocessorNumbering = miTry->Add(ML("Remove Project preprocessor numbering") & HK("ProjectPreprocessorNumberOff"), "", "ProjectPreprocessorNumberOff", @mClick, , , False)
@@ -6123,19 +6132,19 @@ Sub CreateMenusAndToolBars
 	'	#endif
 	tbStandard.Flat = True
 	tbStandard.List = True
-	tbStandard.Buttons.Add tbsAutosize, "New", , @mClick, "New", , ML("New") & " (Ctrl+N)", True
-	tbStandard.Buttons.Add , "Open",, @mClick, "Open", , ML("Open") & " (Ctrl+O)", True
-	tbtSave = tbStandard.Buttons.Add(, "Save", , @mClick, "Save", , ML("Save") & "..." & " (Ctrl+S)", True, 0)
-	tbtSaveAll = tbStandard.Buttons.Add(, "SaveAll", , @mClick, "SaveAll", , ML("Save &All") & " (Shift+Ctrl+S)", True, 0)
+	tbStandard.Buttons.Add tbsAutosize, "New", , @mClick, "New", , ML("New") & HK("New", "Ctrl+N", True), True
+	tbStandard.Buttons.Add , "Open", , @mClick, "Open", , ML("Open") & HK("Open", "Ctrl+O", True), True
+	tbtSave = tbStandard.Buttons.Add(, "Save", , @mClick, "Save", , ML("Save") & "..." & HK("Save", "Ctrl+S", True), True, 0)
+	tbtSaveAll = tbStandard.Buttons.Add(, "SaveAll", , @mClick, "SaveAll", , ML("Save &All") & HK("SaveAll", "Ctrl+Alt+Shift+S", True), True, 0)
 	tbStandard.Buttons.Add tbsSeparator
-	tbtUndo = tbStandard.Buttons.Add(, "Undo", , @mClick, "Undo", , ML("Undo") & " (Ctrl+Z)", True, 0)
-	tbtRedo = tbStandard.Buttons.Add(, "Redo", , @mClick, "Redo", , ML("Redo") & " (Ctrl+Y)", True, 0)
+	tbtUndo = tbStandard.Buttons.Add(, "Undo", , @mClick, "Undo", , ML("Undo") & HK("Undo", "Ctrl+Z", True), True, 0)
+	tbtRedo = tbStandard.Buttons.Add(, "Redo", , @mClick, "Redo", , ML("Redo") & HK("Redo", "Ctrl+Shift+Z", True), True, 0)
 	tbStandard.Buttons.Add tbsSeparator
-	tbtCut = tbStandard.Buttons.Add(, "Cut", , @mClick, "Cut", , ML("Cut") & " (Ctrl+X)", True, 0)
-	tbtCopy = tbStandard.Buttons.Add(, "Copy", , @mClick, "Copy", , ML("Copy") & " (Ctrl+C)", True, 0)
-	tbtPaste = tbStandard.Buttons.Add(, "Paste", , @mClick, "Paste", , ML("Paste") & " (Ctrl+V)", True, 0)
+	tbtCut = tbStandard.Buttons.Add(, "Cut", , @mClick, "Cut", , ML("Cut") & HK("Cut", "Ctrl+X", True), True, 0)
+	tbtCopy = tbStandard.Buttons.Add(, "Copy", , @mClick, "Copy", , ML("Copy") & HK("Copy", "Ctrl+C", True), True, 0)
+	tbtPaste = tbStandard.Buttons.Add(, "Paste", , @mClick, "Paste", , ML("Paste") & HK("Paste", "Ctrl+V", True), True, 0)
 	tbStandard.Buttons.Add tbsSeparator
-	tbtFind = tbStandard.Buttons.Add(, "Find", , @mClick, "Find", , ML("Find") & " (Ctrl+F)", True, 0)
+	tbtFind = tbStandard.Buttons.Add(, "Find", , @mClick, "Find", , ML("Find") & HK("Find", "Ctrl+F", True), True, 0)
 	'tbStandard.Buttons.Add tbsSeparator
 	tbEdit.Name = "Edit"
 	tbEdit.ImagesList = @imgList
@@ -6146,14 +6155,14 @@ Sub CreateMenusAndToolBars
 	'	#endif
 	tbEdit.Flat = True
 	tbEdit.List = True
-	tbtFormat = tbEdit.Buttons.Add(, "Format", , @mClick, "Format", , ML("Format") & " (Ctrl+Tab)", True, 0)
-	tbtUnformat = tbEdit.Buttons.Add(, "Unformat", , @mClick, "Unformat", , ML("Unformat") & " (Shift+Ctrl+Tab)", True, 0)
+	tbtFormat = tbEdit.Buttons.Add(, "Format", , @mClick, "Format", , ML("Format") & HK("Format", "Ctrl+Tab", True), True, 0)
+	tbtUnformat = tbEdit.Buttons.Add(, "Unformat", , @mClick, "Unformat", , ML("Unformat") & HK("Unformat", "Shift+Ctrl+Tab", True), True, 0)
 	tbEdit.Buttons.Add tbsSeparator
-	tbtSingleComment = tbEdit.Buttons.Add(, "Comment", , @mClick, "SingleComment", , ML("Single comment") & " (Ctrl+I)", True, 0)
-	tbtUncommentBlock = tbEdit.Buttons.Add(, "UnComment", , @mClick, "UnComment", , ML("UnComment") & " (Shift+Ctrl+I)", True, 0)
+	tbtSingleComment = tbEdit.Buttons.Add(, "Comment", , @mClick, "SingleComment", , ML("Single comment") & HK("SingleComment", "Ctrl+I", True), True, 0)
+	tbtUncommentBlock = tbEdit.Buttons.Add(, "UnComment", , @mClick, "UnComment", , ML("UnComment") & HK("UnComment", "Shift+Ctrl+I", True), True, 0)
 	tbEdit.Buttons.Add tbsSeparator
-	tbtCompleteWord = tbEdit.Buttons.Add(, "CompleteWord", , @mClick, "CompleteWord", , ML("Complete Word") & " (Ctrl+Space)", True, 0)
-	tbtParameterInfo = tbEdit.Buttons.Add(, "ParameterInfo", , @mClick, "ParameterInfo", , ML("Parameter Info") & " (Ctrl+J)", True)
+	tbtCompleteWord = tbEdit.Buttons.Add(, "CompleteWord", , @mClick, "CompleteWord", , ML("Complete Word") & HK("CompleteWord", "Ctrl+Space", True), True, 0)
+	tbtParameterInfo = tbEdit.Buttons.Add(, "ParameterInfo", , @mClick, "ParameterInfo", , ML("Parameter Info") & HK("ParameterInfo", "Ctrl+J", True), True)
 	tbEdit.Buttons.Add tbsSeparator
 	tbtSyntaxCheck = tbEdit.Buttons.Add(, "SyntaxCheck", , @mClick, "SyntaxCheck", , ML("Syntax Check"), True, 0)
 	tbtSuggestions = tbEdit.Buttons.Add(, "Suggestions", , @mClick, "Suggestions", , ML("Suggestions"), True, 0)
@@ -6163,19 +6172,19 @@ Sub CreateMenusAndToolBars
 	dmiMacroNumbering = tbButton->DropDownMenu.Add(ML("Macro numbering"), "", "MacroNumberOn", @mClick, , , False)
 	dmiRemoveNumbering = tbButton->DropDownMenu.Add(ML("Remove Numbering"), "", "NumberOff", @mClick, , , False)
 	tbButton->DropDownMenu.Add "-"
+	dmiPreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Preprocessor Numbering"), "Numbering", "PreprocessorNumberOn", @mClick, , , False)
+	dmiRemovePreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Remove Preprocessor Numbering"), "", "PreprocessorNumberOff", @mClick, , , False)
+	tbButton->DropDownMenu.Add "-"
 	dmiProcedureNumbering = tbButton->DropDownMenu.Add(ML("Procedure numbering"), "Numbering", "ProcedureNumberOn", @mClick, , , False)
 	dmiProcedureMacroNumbering = tbButton->DropDownMenu.Add(ML("Procedure macro numbering"), "", "ProcedureMacroNumberOn", @mClick, , , False)
 	dmiRemoveProcedureNumbering = tbButton->DropDownMenu.Add(ML("Remove Procedure numbering"), "", "ProcedureNumberOff", @mClick, , , False)
 	tbButton->DropDownMenu.Add "-"
-	dmiProjectMacroNumbering = tbButton->DropDownMenu.Add(ML("Project macro numbering"), "Numbering", "ProjectMacroNumberOn", @mClick, , , False)
-	dmiProjectMacroNumberingStartsOfProcedures = tbButton->DropDownMenu.Add(ML("Project macro numbering: Starts of procedures"), "", "ProjectMacroNumberOnStartsOfProcs", @mClick, , , False)
-	dmiRemoveProjectNumbering = tbButton->DropDownMenu.Add(ML("Remove Project numbering"), "", "ProjectNumberOff", @mClick, , , False)
+	dmiModuleMacroNumbering = tbButton->DropDownMenu.Add(ML("Module macro numbering"), "Numbering", "ModuleMacroNumberOn", @mClick, , , False)
+	dmiModuleMacroNumberingStartsOfProcedures = tbButton->DropDownMenu.Add(ML("Module macro numbering: Starts of procedures"), "", "ModuleMacroNumberOnStartsOfProcs", @mClick, , , False)
+	dmiRemoveModuleNumbering = tbButton->DropDownMenu.Add(ML("Remove Module numbering"), "", "ModuleNumberOff", @mClick, , , False)
 	tbButton->DropDownMenu.Add "-"
-	dmiPreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Preprocessor Numbering"), "Numbering", "PreprocessorNumberOn", @mClick, , , False)
-	dmiRemovePreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Remove Preprocessor Numbering"), "", "PreprocessorNumberOff", @mClick, , , False)
-	tbButton->DropDownMenu.Add "-"
-	dmiProjectPreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Project preprocessor numbering"), "Numbering", "ProjectPreprocessorNumberOn", @mClick, , , False)
-	dmiRemoveProjectPreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Remove Project preprocessor numbering"), "", "ProjectPreprocessorNumberOff", @mClick, , , False)
+	dmiModulePreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Module preprocessor numbering"), "Numbering", "ModulePreprocessorNumberOn", @mClick, , , False)
+	dmiRemoveModulePreprocessorNumbering = tbButton->DropDownMenu.Add(ML("Remove Module preprocessor numbering"), "", "ModulePreprocessorNumberOff", @mClick, , , False)
 	tbButton->DropDownMenu.Add "-"
 	'dmiOnErrorResumeNext = tbButton->DropDownMenu.Add("On Error Resume Next", "", "OnErrorResumeNext", @mClick, , , False)
 	dmiOnErrorGoto = tbButton->DropDownMenu.Add("On Error Goto ...", "", "OnErrorGoto", @mClick, , , False)
@@ -6194,7 +6203,7 @@ Sub CreateMenusAndToolBars
 	tbBuild.Flat = True
 	tbBuild.List = True
 	tbtUseDebugger = tbBuild.Buttons.Add(tbsCheck Or tbsAutosize, "UseDebugger", , @mClick, "TBUseDebugger", , ML("Use Debugger"), True)
-	tbtCompile = tbBuild.Buttons.Add(, "Compile", , @mClick, "Compile", , ML("Compile") & " (Ctrl+F9)", True, 0)
+	tbtCompile = tbBuild.Buttons.Add(, "Compile", , @mClick, "Compile", , ML("Compile") & HK("Compile", "Ctrl+F9", True), True, 0)
 	Var tbMake = tbBuild.Buttons.Add(tbsAutosize Or tbsWholeDropdown, "Make", , @mClick, "Make", , ML("Make"), True)
 	dmiMake = tbMake->DropDownMenu.Add("Make", "", "Make", @mClick, , , False)
 	dmiMakeClean = tbMake->DropDownMenu.Add("Make clean", "", "MakeClean", @mClick, , , False)
@@ -6209,9 +6218,9 @@ Sub CreateMenusAndToolBars
 	'	#endif
 	tbRun.Flat = True
 	tbRun.List = True
-	tbtStartWithCompile = tbRun.Buttons.Add( , "StartWithCompile", , @mClick, "StartWithCompile", , ML("Start With Compile") & " (F5)", True, 0)
-	tbtStart = tbRun.Buttons.Add( , "Start", , @mClick, "Start", , ML("Start") & " (Ctrl+F5)", True, 0)
-	tbtBreak = tbRun.Buttons.Add( , "Break", , @mClick, "Break", , ML("Break") & " (Ctrl+Pause)", True, 0)
+	tbtStartWithCompile = tbRun.Buttons.Add( , "StartWithCompile", , @mClick, "StartWithCompile", , ML("Start With Compile") & HK("StartWithCompile", "F5", True), True, 0)
+	tbtStart = tbRun.Buttons.Add( , "Start", , @mClick, "Start", , ML("Start") & HK("Start", "Ctrl+F5", True), True, 0)
+	tbtBreak = tbRun.Buttons.Add( , "Break", , @mClick, "Break", , ML("Break") & HK("Break", "Ctrl+Pause", True), True, 0)
 	tbtEnd = tbRun.Buttons.Add( , "EndProgram", , @mClick, "End", , ML("End"), True, 0)
 	'tbStandard.Buttons.Add tbsSeparator
 	tbProject.Name = "Run"
@@ -8351,7 +8360,7 @@ End Sub
 
 Sub frmMain_Resize(ByRef sender As My.Sys.Object, NewWidth As Integer = -1, NewHeight As Integer = -1)
 	#ifndef __USE_GTK__
-		stBar.Panels[0]->Width = NewWidth - 600
+		stBar.Panels[0]->Width = NewWidth / 2
 		prProgress.Left = stBar.Panels[0]->Width + stBar.Panels[1]->Width + 3
 	#endif
 End Sub
