@@ -537,8 +537,6 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 		WLet(FirstLine, GetFirstCompileLine(*MainFile, Project, CompileLine))
 		Versioning *MainFile, *FirstLine & CompileLine, Project, ProjectNode
 		Dim FileOut As Integer
-		ThreadsEnter()
-		ThreadsLeave()
 		WLet(ExeName, GetExeFileName(*MainFile, *FirstLine & CompileLine))
 		If Project AndAlso Trim(*Project->CompilerPath) <> "" Then
 			WLet(FbcExe, GetFullPath(*Project->CompilerPath))
@@ -831,7 +829,9 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 							OrElse StartsWith(Buff, "compiling:") OrElse StartsWith(Buff, "compiling C:") OrElse StartsWith(Buff, "assembling:") OrElse StartsWith(Buff, "compiling rc:") _
 							OrElse StartsWith(Buff, "linking:") OrElse StartsWith(Buff, "OBJ file not made") OrElse StartsWith(Buff, "compiling rc failed:") _
 							OrElse StartsWith(Buff, "creating import library:") OrElse StartsWith(Buff, "backend:") OrElse StartsWith(Buff, "Restarting fbc") OrElse StartsWith(Buff, "archiving:") OrElse StartsWith(Buff, "creating:")) Then
+								ThreadsEnter()
 							ShowMessages(Buff, False)
+								ThreadsLeave()
 							bFlagErr = SplitError(Buff, ErrFileName, ErrTitle, iLine)
 							If bFlagErr = 2 Then
 								NumberErr += 1
@@ -981,7 +981,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 		'Delete the default ManifestFile And IcoFile
 		'If ManifestIcoCopy Then Kill GetFolderName(*MainFile) & "Manifest.xml": Kill GetFolderName(*MainFile) & "Form1.rc": Kill GetFolderName(*MainFile) & "Form1.ico"
 		#ifdef __USE_GTK__
-			Fn = FreeFile_
+			Dim Fn As Integer = FreeFile_
 			Result = -1
 			Result = Open(*LogFileName2 For Input Encoding "utf-8" As #Fn)
 			If Result <> 0 Then Result = Open(*LogFileName2 For Input Encoding "utf-16" As #Fn)
@@ -7940,7 +7940,7 @@ Sub txtChangeLog_DblClick(ByRef Sender As Control)
 		If iPos > 0 Then
 			Dim As Integer iLine = Val(Mid(CodeFileName, iPos + 3))
 			Dim As Integer iPos1 = InStr(iPos + 3, CodeFileName, Any !" }")
-			'pClipboard->SetAsText Mid(CodeFileName,iPos+1,iPos1-ipos-1)
+			'Clipboard.SetAsText Mid(CodeFileName,iPos+1,iPos1-ipos-1)
 			'' Will Search With find Function
 			'pfFind->txtFind.Text = Mid(CodeFileName,iPos+1,iPos1-ipos-1)
 			Dim As Integer iPos2 = InStr(CodeFileName, "|")
@@ -9112,21 +9112,25 @@ Sub OnProgramQuit() Destructor
 		_Delete(keywordlist)
 	Next i
 	Dim As TabPanel Ptr tp
-	For i As Integer = 0 To TabPanels.Count - 1
-		tp = TabPanels.Item(i)
-		_Delete(tp)
-	Next i
+	#ifndef __USE_GTK__
+		For i As Integer = 0 To TabPanels.Count - 1
+			tp = TabPanels.Item(i)
+			_Delete(tp)
+		Next i
+	#endif
 	Dim As EditControlContent Ptr File
 	For i As Integer = IncludeFiles.Count - 1 To 0 Step -1
 		File = IncludeFiles.Object(i)
 		If File Then _Delete(File)
 	Next
 	IncludeFiles.Clear
-	Dim As Library Ptr CtlLibrary
-	For i As Integer = 0 To ControlLibraries.Count - 1
-		CtlLibrary = ControlLibraries.Item(i)
-		_Delete(CtlLibrary)
-	Next
+	#ifndef __USE_GTK__
+		Dim As Library Ptr CtlLibrary
+		For i As Integer = 0 To ControlLibraries.Count - 1
+			CtlLibrary = ControlLibraries.Item(i)
+			_Delete(CtlLibrary)
+		Next
+	#endif
 	Dim As TypeElement Ptr te, te1
 	For i As Integer = pGlobalNamespaces->Count - 1 To 0 Step -1
 		te = pGlobalNamespaces->Object(i)

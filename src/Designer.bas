@@ -857,7 +857,7 @@ Namespace My.Sys.Forms
 						Case 6: FLeftNew(j) = FLeft(j) + (FNewX - FBeginX): FWidthNew(j) = FWidth(j) - (FNewX - FBeginX): FHeightNew(j) = FHeight(j) + (FNewY - FBeginY)
 						Case 7: FLeftNew(j) = FLeft(j) - (FBeginX - FNewX): FWidthNew(j) = FWidth(j) + (FBeginX - FNewX)
 						End Select
-						GetControlBounds(SelectedControls.Items[j], FLeftNew(j), FTopNew(j), FWidthNew(j), FHeightNew(j))
+						SetControlBounds(SelectedControls.Items[j], FLeftNew(j), FTopNew(j), FWidthNew(j), FHeightNew(j))
 					#else
 						Select Case FDotIndex
 						Case 0: FLeftNew(j) = FLeft(j) + (FNewX - FBeginX): FTopNew(j) = FTop(j) + (FNewY - FBeginY): FWidthNew(j) = FWidth(j) - (FNewX - FBeginX): FHeightNew(j) = FHeight(j) - (FNewY - FBeginY)
@@ -1389,7 +1389,7 @@ Namespace My.Sys.Forms
 			#ifdef __USE_GTK__
 				Dim As PointerList Ptr Value = @CopyList
 			#else
-				If pClipboard->HasFormat(fformat) Then
+				If Clipboard.HasFormat(fformat) Then
 					If ( OpenClipboard(NULL) ) Then
 						
 						'извлекаем данные из буфера 'Extract data from buffer

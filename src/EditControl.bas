@@ -1455,16 +1455,16 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControl.CopyCurrentLineToClipboard
-		pClipboard->SetAsText Lines(FSelEndLine) & Chr(13, 10)
+		Clipboard.SetAsText Lines(FSelEndLine) & Chr(13, 10)
 	End Sub
 	
 	Sub EditControl.CopyToClipboard
-		pClipboard->SetAsText SelText
+		Clipboard.SetAsText SelText
 	End Sub
 	
 	Sub EditControl.PasteFromClipboard
 		Dim Value As WString Ptr
-		WLet(Value, pClipboard->GetAsText)
+		WLet(Value, Clipboard.GetAsText)
 		If Value Then
 			WLetEx Value, Replace(*Value, Chr(13) & Chr(10), Chr(13)), True
 			WLetEx Value, Replace(*Value, Chr(10), Chr(13)), True
@@ -1676,7 +1676,7 @@ Namespace My.Sys.Forms
 					If Not WithoutScroll Then ScrollToCaret
 				End If
 			End If
-		#EndIf
+		#endif
 		If Not FileLoaded Then
 			If Open(FileName For Binary Access Read As #Fn) = 0 Then
 				FileSize = LOF(Fn) + 1
@@ -1773,6 +1773,12 @@ Namespace My.Sys.Forms
 			End If
 			WDeAllocate(BuffRead)
 			CloseFile_(Fn)
+		End If
+		If Content.Lines.Count = 0 Then
+			FECLine = _New( EditControlLine)
+			OlddwClientX = 0
+			WLet(FECLine->Text, "")
+			Content.Lines.Add(FECLine)
 		End If
 	End Sub
 	
@@ -2769,10 +2775,10 @@ Namespace My.Sys.Forms
 				pango_layout_line_get_pixel_extents(pl, NULL, @extend2)
 				'GetColor BKColor, iRed, iGreen, iBlue
 				cairo_set_source_rgb(cr, Colors.BackgroundRed, Colors.BackgroundGreen, Colors.BackgroundBlue)
-				.cairo_rectangle (cr, LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + extend.Width + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0), (iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0), extend2.width, dwCharY)
+				.cairo_rectangle (cr, LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + extend.width + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0), (iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0), extend2.width, dwCharY)
 				cairo_fill (cr)
 			End If
-			cairo_move_to(cr, LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0) + extend.Width - 0.5, _
+			cairo_move_to(cr, LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0) + extend.width - 0.5, _
 			(iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + dwCharY - 5 - 0.5 + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0))
 			'GetColor TextColor, iRed, iGreen, iBlue
 			cairo_set_source_rgb(cr, Colors.ForegroundRed, Colors.ForegroundGreen, Colors.ForegroundBlue)
@@ -2832,7 +2838,27 @@ Namespace My.Sys.Forms
 		This.Canvas.Font = This.Font
 		WLet(CurrentFontName, *EditorFontName)
 		CurrentFontSize = EditorFontSize
-		#ifndef __USE_GTK__
+		#ifdef __USE_GTK__
+			cairo_select_font_face(cr, *EditorFontName, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD)
+			cairo_set_font_size(cr, EditorFontSize)
+			
+			Dim As PangoFontDescription Ptr desc
+			desc = pango_font_description_from_string (*EditorFontName & " " & Trim(Str(EditorFontSize)))
+			pango_layout_set_font_description(layout, desc)
+			pango_font_description_free(desc)
+			
+			Dim As PangoRectangle extend
+			pango_layout_set_text(layout, ToUtf8("|"), 1)
+			pango_cairo_update_layout(cr, layout)
+			#ifdef pango_version
+				Dim As PangoLayoutLine Ptr pl = pango_layout_get_line_readonly(layout, 0)
+			#else
+				Dim As PangoLayoutLine Ptr pl = pango_layout_get_line(layout, 0)
+			#endif
+			pango_layout_line_get_pixel_extents(pl, NULL, @extend)
+			dwCharX = extend.width
+			dwCharY = extend.height
+		#else
 			'hd = GetDc(FHandle)
 			SelectObject(hd, This.Font.Handle)
 			GetTextMetrics(hd, @tm)
@@ -3407,6 +3433,11 @@ Namespace My.Sys.Forms
 		Dim As Boolean bFull = Full
 		#ifdef __USE_GTK__
 			If cr = 0 Then Exit Sub
+			If CurrentFontSize <> EditorFontSize OrElse *CurrentFontName <> *EditorFontName Then
+				This.Font.Name = *EditorFontName
+				This.Font.Size = EditorFontSize
+				FontSettings
+			End If
 		#else
 			Dim As Boolean bFontChanged
 			hd = GetDC(FHandle)
@@ -4691,14 +4722,14 @@ Namespace My.Sys.Forms
 				cairo_set_source_rgb(cr, NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue)
 				cairo_fill (cr)
 				If CaretOn Then
-					#ifdef __USE_GTK3__
-						cairo_set_source_rgb(cr, NormalText.ForegroundRed, NormalText.ForegroundGreen, NormalText.ForegroundBlue)
-						gtk_render_insertion_cursor(gtk_widget_get_style_context(widget), cr, HCaretPos, VCaretPos, layout, 0, PANGO_DIRECTION_LTR)
-					#else
+					'#ifdef __USE_GTK3__
+					'	cairo_set_source_rgb(cr, NormalText.ForegroundRed, NormalText.ForegroundGreen, NormalText.ForegroundBlue)
+					'	gtk_render_insertion_cursor(gtk_widget_get_style_context(widget), cr, HCaretPos, VCaretPos, layout, 0, PANGO_DIRECTION_LTR)
+					'#else
 						cairo_rectangle (cr, HCaretPos, VCaretPos, HCaretPos + 0.5, VCaretPos + dwCharY, True)
 						cairo_set_source_rgb(cr, NormalText.ForegroundRed, NormalText.ForegroundGreen, NormalText.ForegroundBlue)
 						cairo_fill (cr)
-					#endif
+					'#endif
 				End If
 				'cairo_paint(cr)
 			#else
