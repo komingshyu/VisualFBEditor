@@ -168,11 +168,15 @@ Namespace My.Sys.Forms
 		Find As Boolean
 		Used As Boolean
 		Tag As Any Ptr
+		Types As WStringOrStringList
+		Enums As WStringOrStringList
 		Elements As WStringOrStringList
 		Declare Destructor
 	End Type
 	
 	Type ConstructionBlock
+		Types As WStringOrStringList
+		Enums As WStringOrStringList
 		Construction As TypeElement Ptr
 		ConstructionIndex As Integer
 		ConstructionPart As Integer
@@ -271,7 +275,7 @@ Namespace My.Sys.Forms
 		Globals As GlobalTypeElements Ptr
 		Lines As List
 		Tag As Any Ptr
-		Declare Function ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringOrStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1) As Boolean
+		Declare Function ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringOrStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1, pList2 As WStringOrStringList Ptr = 0, ByRef teOld As TypeElement Ptr = 0) As Boolean
 		Declare Function IndexOfInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, InCondition As String) As Integer
 		Declare Function ContainsInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, InCondition As String, ByRef Index As Integer) As Boolean
 		Declare Function IndexOfInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer

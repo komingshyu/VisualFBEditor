@@ -3838,6 +3838,26 @@ Sub FillTypeIntellisenses(ByRef Starts As WString = "")
 	If ECLine Then
 		pFiles = ECLine->FileList
 		pFileLines = ECLine->FileListLines
+		If ECLine->InConstructionBlock Then
+			For i As Integer = 0 To ECLine->InConstructionBlock->Types.Count - 1
+				If ECLine->InConstructionBlock->Types.Object(i) <> 0 AndAlso Cast(TypeElement Ptr, ECLine->InConstructionBlock->Types.Object(i))->StartLine > iSelStartLine Then Continue For
+				If Not AddSorted(tb, ECLine->InConstructionBlock->Types.Item(i), ECLine->InConstructionBlock->Types.Object(i), Starts) Then Exit Sub
+			Next
+			For i As Integer = 0 To ECLine->InConstructionBlock->Enums.Count - 1
+				If ECLine->InConstructionBlock->Enums.Object(i) <> 0 AndAlso Cast(TypeElement Ptr, ECLine->InConstructionBlock->Enums.Object(i))->StartLine > iSelStartLine Then Continue For
+				If Not AddSorted(tb, ECLine->InConstructionBlock->Enums.Item(i), ECLine->InConstructionBlock->Enums.Object(i), Starts, , "Type") Then Exit Sub
+			Next
+			If ECLine->InConstructionBlock->Construction Then
+				For i As Integer = 0 To ECLine->InConstructionBlock->Construction->Types.Count - 1
+					If ECLine->InConstructionBlock->Construction->Types.Object(i) <> 0 AndAlso Cast(TypeElement Ptr, ECLine->InConstructionBlock->Construction->Types.Object(i))->StartLine > iSelStartLine Then Continue For
+					If Not AddSorted(tb, ECLine->InConstructionBlock->Construction->Types.Item(i), ECLine->InConstructionBlock->Construction->Types.Object(i), Starts) Then Exit Sub
+				Next
+				For i As Integer = 0 To ECLine->InConstructionBlock->Construction->Enums.Count - 1
+					If ECLine->InConstructionBlock->Construction->Enums.Object(i) <> 0 AndAlso Cast(TypeElement Ptr, ECLine->InConstructionBlock->Construction->Enums.Object(i))->StartLine > iSelStartLine Then Continue For
+					If Not AddSorted(tb, ECLine->InConstructionBlock->Construction->Enums.Item(i), ECLine->InConstructionBlock->Construction->Enums.Object(i), Starts, , "Type") Then Exit Sub
+				Next
+			End If
+		End If
 	End If
 	For i As Integer = 0 To pComps->Count - 1
 		If Not AddSorted(tb, pComps->Item(i), pComps->Object(i), Starts, c, , False, pFiles, pFileLines) Then Exit Sub
@@ -4032,7 +4052,7 @@ Sub FindComboIndex(tb As TabWindow Ptr, ByRef sLine As WString, iEndChar As Inte
 	WDeAllocate(sTempRight)
 End Sub
 
-Sub FillIntellisenseByName(Value As String, TypeName As String, Starts As String = "", bLocal As Boolean = False, bAll As Boolean = False, NotClear As Boolean = False, TypesOnly As Boolean = False)
+Sub FillIntellisenseByName(Value As String, TypeName As String, Starts As String = "", bLocal As Boolean = False, bAll As Boolean = False, NotClear As Boolean = False, TypesOnly As Boolean = False, Oldte As TypeElement Ptr = 0)
 	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 	If tb = 0 Then Exit Sub
 	Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
@@ -4126,27 +4146,38 @@ Sub FillIntellisenseByName(Value As String, TypeName As String, Starts As String
 	End If
 	
 	Var Idx = -1
-	If TypesOnly Then
-		If tb->txtCode.Content.Namespaces.Contains(sTemp2, , , , Idx) AndAlso Cast(TypeElement Ptr, tb->txtCode.Content.Namespaces.Object(Idx))->StartLine <= iSelStartLine Then
-			tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Namespaces, bLocal, bAll, TypesOnly, tb
-		ElseIf tb->txtCode.Content.ContainsInListFiles(pGlobalNamespaces, sTemp2, Idx, pFiles, pFileLines) Then
-			tb->FillIntellisense sTemp2, FromClassName, pGlobalNamespaces, bLocal, bAll, TypesOnly, tb
-		End If
-	ElseIf tb->txtCode.Content.Types.Contains(sTemp2, , , , Idx) AndAlso CBool(Cast(TypeElement Ptr, tb->txtCode.Content.Types.Object(Idx))->StartLine <= iSelStartLine) AndAlso Not TypesOnly Then
-		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Types, bLocal, bAll, , tb
+	'If TypesOnly Then
+	'	If tb->txtCode.Content.Namespaces.Contains(sTemp2, , , , Idx) AndAlso Cast(TypeElement Ptr, tb->txtCode.Content.Namespaces.Object(Idx))->StartLine <= iSelStartLine Then
+	'		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Namespaces, bLocal, bAll, TypesOnly, tb
+	'	ElseIf tb->txtCode.Content.ContainsInListFiles(pGlobalNamespaces, sTemp2, Idx, pFiles, pFileLines) Then
+	'		tb->FillIntellisense sTemp2, FromClassName, pGlobalNamespaces, bLocal, bAll, TypesOnly, tb
+	'	End If
+	'Else
+	If CBool(ECLine <> 0) AndAlso CBool(ECLine->InConstructionBlock <> 0) AndAlso ECLine->InConstructionBlock->Types.Contains(sTemp2, , , , Idx) AndAlso CBool(Cast(TypeElement Ptr, ECLine->InConstructionBlock->Types.Object(Idx))->StartLine <= iSelStartLine) Then
+		tb->FillIntellisense sTemp2, FromClassName, @ECLine->InConstructionBlock->Types, bLocal, bAll, TypesOnly, tb
+	ElseIf CBool(ECLine <> 0) AndAlso CBool(ECLine->InConstructionBlock <> 0) AndAlso ECLine->InConstructionBlock->Enums.Contains(sTemp2, , , , Idx) AndAlso CBool(Cast(TypeElement Ptr, ECLine->InConstructionBlock->Enums.Object(Idx))->StartLine <= iSelStartLine) Then
+		tb->FillIntellisense sTemp2, FromClassName, @ECLine->InConstructionBlock->Enums, bLocal, bAll, TypesOnly, tb
+	ElseIf CBool(ECLine <> 0) AndAlso CBool(ECLine->InConstructionBlock <> 0) AndAlso CBool(ECLine->InConstructionBlock->Construction <> 0) AndAlso ECLine->InConstructionBlock->Construction->Types.Contains(sTemp2, , , , Idx) AndAlso CBool(Cast(TypeElement Ptr, ECLine->InConstructionBlock->Construction->Types.Object(Idx))->StartLine <= iSelStartLine) Then
+		tb->FillIntellisense sTemp2, FromClassName, @ECLine->InConstructionBlock->Construction->Types, bLocal, bAll, TypesOnly, tb
+	ElseIf CBool(ECLine <> 0) AndAlso CBool(ECLine->InConstructionBlock <> 0) AndAlso CBool(ECLine->InConstructionBlock->Construction <> 0) AndAlso ECLine->InConstructionBlock->Construction->Enums.Contains(sTemp2, , , , Idx) AndAlso CBool(Cast(TypeElement Ptr, ECLine->InConstructionBlock->Construction->Enums.Object(Idx))->StartLine <= iSelStartLine) Then
+		tb->FillIntellisense sTemp2, FromClassName, @ECLine->InConstructionBlock->Construction->Enums, bLocal, bAll, TypesOnly, tb
+	ElseIf CBool(Oldte <> 0) AndAlso Oldte->Elements.Contains(sTemp2, , , , Idx) Then
+		tb->FillIntellisense sTemp2, FromClassName, @Oldte->Elements, bLocal, bAll, TypesOnly, tb
+	ElseIf tb->txtCode.Content.Types.Contains(sTemp2, , , , Idx) AndAlso CBool(Cast(TypeElement Ptr, tb->txtCode.Content.Types.Object(Idx))->StartLine <= iSelStartLine) Then
+		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Types, bLocal, bAll, TypesOnly, tb
 	ElseIf tb->txtCode.Content.Enums.Contains(sTemp2, , , , Idx) AndAlso Cast(TypeElement Ptr, tb->txtCode.Content.Enums.Object(Idx))->StartLine <= iSelStartLine Then
-		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Enums, bLocal, bAll, , tb
+		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Enums, bLocal, bAll, TypesOnly, tb
 	ElseIf tb->txtCode.Content.Namespaces.Contains(sTemp2, , , , Idx) AndAlso Cast(TypeElement Ptr, tb->txtCode.Content.Namespaces.Object(Idx))->StartLine <= iSelStartLine Then
-		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Namespaces, bLocal, bAll, , tb
-		tb->FillIntellisense sTemp2, FromClassName, pGlobalNamespaces, bLocal, bAll, , tb
+		tb->FillIntellisense sTemp2, FromClassName, @tb->txtCode.Content.Namespaces, bLocal, bAll, TypesOnly, tb
+		tb->FillIntellisense sTemp2, FromClassName, pGlobalNamespaces, bLocal, bAll, TypesOnly, tb
 	ElseIf tb->txtCode.Content.ContainsInListFiles(pComps, sTemp2, Idx, pFiles, pFileLines) Then
-		tb->FillIntellisense sTemp2, FromClassName, pComps, bLocal, bAll, , tb
+		tb->FillIntellisense sTemp2, FromClassName, pComps, bLocal, bAll, TypesOnly, tb
 	ElseIf tb->txtCode.Content.ContainsInListFiles(pGlobalTypes, sTemp2, Idx, pFiles, pFileLines) Then
-		tb->FillIntellisense sTemp2, FromClassName, pGlobalTypes, bLocal, bAll, , tb
+		tb->FillIntellisense sTemp2, FromClassName, pGlobalTypes, bLocal, bAll, TypesOnly, tb
 	ElseIf tb->txtCode.Content.ContainsInListFiles(pGlobalEnums, sTemp2, Idx, pFiles, pFileLines) Then
-		tb->FillIntellisense sTemp2, FromClassName, pGlobalEnums, bLocal, bAll, , tb
+		tb->FillIntellisense sTemp2, FromClassName, pGlobalEnums, bLocal, bAll, TypesOnly, tb
 	ElseIf tb->txtCode.Content.ContainsInListFiles(pGlobalNamespaces, sTemp2, Idx, pFiles, pFileLines) Then
-		tb->FillIntellisense sTemp2, FromClassName, pGlobalNamespaces, bLocal, bAll, , tb
+		tb->FillIntellisense sTemp2, FromClassName, pGlobalNamespaces, bLocal, bAll, TypesOnly, tb
 	Else
 		Exit Sub
 	End If
@@ -5346,11 +5377,11 @@ Sub OnKeyPressEdit(ByRef Sender As Control, Key As Integer)
 			k = 2
 		End If
 		Dim As Boolean Types
-		Dim As TypeElement Ptr te
+		Dim As TypeElement Ptr te, Oldte
 		Dim As String OldTypeName
-		Dim As String TypeName = tb->txtCode.Content.GetLeftArgTypeName(iSelEndLine, iSelEndChar - k, te, , OldTypeName, Types) 'GetLeftArgTypeName(tb, iSelEndLine, iSelEndChar - k, te, , , Types)
+		Dim As String TypeName = tb->txtCode.Content.GetLeftArgTypeName(iSelEndLine, iSelEndChar - k, te, Oldte, OldTypeName, Types) 'GetLeftArgTypeName(tb, iSelEndLine, iSelEndChar - k, te, , , Types)
 		If Trim(TypeName) = "" Then Exit Sub
-		FillIntellisenseByName tb->txtCode.GetWordAt(iSelEndLine, iSelEndChar - k), TypeName, , , , , Types
+		FillIntellisenseByName tb->txtCode.GetWordAt(iSelEndLine, iSelEndChar - k), TypeName, , , , , Types, Oldte
 		#ifdef __USE_GTK__
 			If tb->txtCode.lvIntellisense.ListItems.Count = 0 Then Exit Sub
 		#else
@@ -5971,8 +6002,8 @@ Sub AnalyzeTab(Param As Any Ptr)
 											End If
 												
 											'Procedure
-											If (Not TwoDots) AndAlso (tIndex = -1) AndAlso (FECLine->InConstructionBlock > 0) AndAlso ((OldMatnLCase <> "as") OrElse WithOldSymbol) Then
-												te = GetFromConstructionBlock(FECLine->InConstructionBlock, MatnLCaseWithoutOldSymbol, z)
+											If (Not TwoDots) AndAlso (tIndex = -1) AndAlso (FECLine->InConstructionBlock > 0) Then
+												te = GetFromConstructionBlock(FECLine->InConstructionBlock, MatnLCaseWithoutOldSymbol, z, (OldMatnLCase = "as") AndAlso Not WithOldSymbol)
 												If te > 0 Then
 													tIndex = 0
 													pkeywords = @Cast(ConstructionBlock Ptr, FECLine->InConstructionBlock)->Elements
@@ -6953,21 +6984,32 @@ Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As
 	End If
 End Sub
 
+Sub DeleteFromTypeElement(te As TypeElement Ptr)
+	For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		DeleteFromTypeElement(te->Elements.Object(j))
+	Next
+	te->Types.Clear
+	te->Enums.Clear
+	te->Elements.Clear
+	_Delete(Cast(TypeElement Ptr, te))
+End Sub
+
 Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As ProjectElement Ptr, ByRef Content As EditControlContent)
 	Dim As TypeElement Ptr te, te1, tbi, func
 	Dim As ConstructionBlock Ptr cb
 	For i As Integer = Content.Types.Count - 1 To 0 Step -1
-		te = Content.Types.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			te1 = te->Elements.Object(j)
-			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-				_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
-			Next
-			te1->Elements.Clear
-			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, Content.Types.Object(i)))
+		DeleteFromTypeElement(Content.Types.Object(i))
+		'te = Content.Types.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	te1 = te->Elements.Object(j)
+		'	For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+		'		_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+		'	Next
+		'	te1->Elements.Clear
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, Content.Types.Object(i)))
 	Next
 	For i As Integer = Content.Enums.Count - 1 To 0 Step -1
 		_Delete( Cast(TypeElement Ptr, Content.Enums.Object(i)))
@@ -6976,36 +7018,41 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 		_Delete( Cast(TypeElement Ptr, Content.Namespaces.Object(i)))
 	Next
 	For i As Integer = Content.TypeProcedures.Count - 1 To 0 Step -1
-		te = Content.TypeProcedures.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			te1 = te->Elements.Object(j)
-			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-				_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
-			Next
-			te1->Elements.Clear
-			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, Content.TypeProcedures.Object(i)))
+		DeleteFromTypeElement(Content.TypeProcedures.Object(i))
+		'te = Content.TypeProcedures.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	te1 = te->Elements.Object(j)
+		'	For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+		'		_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+		'	Next
+		'	te1->Elements.Clear
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, Content.TypeProcedures.Object(i)))
 	Next
 	For i As Integer = Content.Procedures.Count - 1 To 0 Step -1
-		te = Content.Procedures.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			te1 = te->Elements.Object(j)
-			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-				_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
-			Next
-			te1->Elements.Clear
-			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, Content.Procedures.Object(i)))
+		DeleteFromTypeElement(Content.Procedures.Object(i))
+		'te = Content.Procedures.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	te1 = te->Elements.Object(j)
+		'	For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+		'		_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+		'	Next
+		'	te1->Elements.Clear
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, Content.Procedures.Object(i)))
 	Next
 	For i As Integer = Content.ConstructionBlocks.Count - 1 To 0 Step -1
 		cb = Content.ConstructionBlocks.Item(i)
 		For j As Integer = cb->Elements.Count - 1 To 0 Step -1
-			_Delete( Cast(TypeElement Ptr, cb->Elements.Object(j)))
+			DeleteFromTypeElement(cb->Elements.Object(j))
+			'_Delete( Cast(TypeElement Ptr, cb->Elements.Object(j)))
 		Next
+		cb->Types.Clear
+		cb->Enums.Clear
 		cb->Elements.Clear
 		_Delete(Cast(ConstructionBlock Ptr, Content.ConstructionBlocks.Item(i)))
 	Next
@@ -7013,11 +7060,12 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 		_Delete( Cast(TypeElement Ptr, Content.LineLabels.Object(i)))
 	Next
 	For i As Integer = Content.Args.Count - 1 To 0 Step -1
-		te = Content.Args.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			_Delete(Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		_Delete( Cast(TypeElement Ptr, Content.Args.Object(i)))
+		DeleteFromTypeElement(Content.Args.Object(i))
+		'te = Content.Args.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	_Delete(Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'_Delete( Cast(TypeElement Ptr, Content.Args.Object(i)))
 	Next
 	Content.Types.Clear
 	Content.Defines.Clear
@@ -7037,7 +7085,7 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 	Dim As TabWindow Ptr tb
 	Dim As EditControlLine Ptr ECLine, ECLine2
 	Dim As EditControlStatement Ptr ECStatement, OldECStatement = 0, ecs
-	Dim As ConstructionBlock Ptr block
+	Dim As ConstructionBlock Ptr block, blockprev
 	Dim As UString Comments, b, b0, b1, b2, bTrim, bTrimLCase, b0Trim, b0TrimLCase
 	Dim As WStringList WithArgs, Namespaces, Includes
 	Dim As Integer WithConstructionLine = -1, OldWithConstructionLine = -1
@@ -7436,24 +7484,37 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 								Constructs.Add func
 								If Comments <> "" Then te->Comment = Comments: Comments = ""
 								LastIndexFunctions = Content.Functions.Add(te->DisplayName, te)
-								If ECStatement->ConstructionIndex = C_Enum Then
-									Content.Enums.Add te->Name, te
-									Project->Globals.Enums.Add te->Name, te
-								ElseIf ECStatement->ConstructionIndex = C_Type OrElse ECStatement->ConstructionIndex = C_Class OrElse ECStatement->ConstructionIndex = C_Union Then
-									Content.Types.Add te->Name, te
-									Project->Globals.Types.Add te->Name, te
-								ElseIf TypeProcedure Then
-									Content.TypeProcedures.Add te->Name, te
-									Project->Globals.TypeProcedures.Add te->Name, te
-								Else
-									Content.Procedures.Add te->Name, te
-									Project->Globals.Functions.Add te->Name, te
-									If ECStatement->ConstructionIndex = C_P_Macro Then Content.Defines.Add te->Name, te
+								blockprev = 0
+								If ConstructBlocks.Count > 1 Then
+									blockprev = ConstructBlocks.Item(ConstructBlocks.Count - 2)
 								End If
-								If Not TypeProcedure Then
-									If Namespaces.Count > 0 Then
-										Var Index = Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-										If Index > -1 Then Cast(TypeElement Ptr, Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+								If blockprev Then
+									Select Case blockprev->ConstructionIndex
+									Case C_Enum, C_Type, C_Union, C_Class
+										blockprev->Construction->Elements.Add te->Name, te
+									Case Else
+										blockprev->Elements.Add te->Name, te
+									End Select
+								Else
+									If ECStatement->ConstructionIndex = C_Enum Then
+										Content.Enums.Add te->Name, te
+										Project->Globals.Enums.Add te->Name, te
+									ElseIf ECStatement->ConstructionIndex = C_Type OrElse ECStatement->ConstructionIndex = C_Class OrElse ECStatement->ConstructionIndex = C_Union Then
+										Content.Types.Add te->Name, te
+										Project->Globals.Types.Add te->Name, te
+									ElseIf TypeProcedure Then
+										Content.TypeProcedures.Add te->Name, te
+										Project->Globals.TypeProcedures.Add te->Name, te
+									Else
+										Content.Procedures.Add te->Name, te
+										Project->Globals.Functions.Add te->Name, te
+										If ECStatement->ConstructionIndex = C_P_Macro Then Content.Defines.Add te->Name, te
+									End If
+									If Not TypeProcedure Then
+										If Namespaces.Count > 0 Then
+											Var Index = Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+											If Index > -1 Then Cast(TypeElement Ptr, Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+										End If
 									End If
 								End If
 								If Pos2 > 0 AndAlso Pos5 > 0 Then
@@ -8258,19 +8319,20 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 	End If
 	'LoadFunctionsWithContent FileName, Project, txtCode.Content
 	Dim As TypeElement Ptr te, te1, func
-	Dim As ConstructionBlock Ptr block, ifblock, cb
+	Dim As ConstructionBlock Ptr block, blockprev, ifblock, cb
 	For i As Integer = txtCode.Content.Types.Count - 1 To 0 Step -1
-		te = txtCode.Content.Types.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			te1 = te->Elements.Object(j)
-			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-				_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
-			Next
-			te1->Elements.Clear
-			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, txtCode.Content.Types.Object(i)))
+		DeleteFromTypeElement(txtCode.Content.Types.Object(i))
+		'te = txtCode.Content.Types.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	te1 = te->Elements.Object(j)
+		'	For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+		'		_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+		'	Next
+		'	te1->Elements.Clear
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, txtCode.Content.Types.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.Enums.Count - 1 To 0 Step -1
 		_Delete( Cast(TypeElement Ptr, txtCode.Content.Enums.Object(i)))
@@ -8279,36 +8341,41 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 		_Delete( Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.TypeProcedures.Count - 1 To 0 Step -1
-		te = txtCode.Content.TypeProcedures.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			te1 = te->Elements.Object(j)
-			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-				_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
-			Next
-			te1->Elements.Clear
-			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, txtCode.Content.TypeProcedures.Object(i)))
+		DeleteFromTypeElement(txtCode.Content.TypeProcedures.Object(i))
+		'te = txtCode.Content.TypeProcedures.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	te1 = te->Elements.Object(j)
+		'	For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+		'		_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+		'	Next
+		'	te1->Elements.Clear
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, txtCode.Content.TypeProcedures.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.Procedures.Count - 1 To 0 Step -1
-		te = txtCode.Content.Procedures.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			te1 = te->Elements.Object(j)
-			For k As Integer = te1->Elements.Count - 1 To 0 Step -1
-				_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
-			Next
-			te1->Elements.Clear
-			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, txtCode.Content.Procedures.Object(i)))
+		DeleteFromTypeElement(txtCode.Content.Procedures.Object(i))
+		'te = txtCode.Content.Procedures.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	te1 = te->Elements.Object(j)
+		'	For k As Integer = te1->Elements.Count - 1 To 0 Step -1
+		'		_Delete(Cast(TypeElement Ptr, te1->Elements.Object(k)))
+		'	Next
+		'	te1->Elements.Clear
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, txtCode.Content.Procedures.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.ConstructionBlocks.Count - 1 To 0 Step -1
 		cb = txtCode.Content.ConstructionBlocks.Item(i)
 		For j As Integer = cb->Elements.Count - 1 To 0 Step -1
-			_Delete( Cast(TypeElement Ptr, cb->Elements.Object(j)))
+			DeleteFromTypeElement(cb->Elements.Object(j))
+			'_Delete( Cast(TypeElement Ptr, cb->Elements.Object(j)))
 		Next
+		cb->Types.Clear
+		cb->Enums.Clear
 		cb->Elements.Clear
 		_Delete(Cast(ConstructionBlock Ptr, txtCode.Content.ConstructionBlocks.Item(i)))
 	Next
@@ -8316,11 +8383,12 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 		_Delete( Cast(TypeElement Ptr, txtCode.Content.LineLabels.Object(i)))
 	Next
 	For i As Integer = txtCode.Content.Args.Count - 1 To 0 Step -1
-		te = txtCode.Content.Args.Object(i)
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			_Delete(Cast(TypeElement Ptr, te->Elements.Object(j)))
-		Next
-		_Delete( Cast(TypeElement Ptr, txtCode.Content.Args.Object(i)))
+		DeleteFromTypeElement(txtCode.Content.Args.Object(i))
+		'te = txtCode.Content.Args.Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	_Delete(Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'_Delete( Cast(TypeElement Ptr, txtCode.Content.Args.Object(i)))
 	Next
 	For i As Integer = AnyTexts.Count - 1 To 0 Step -1
 		_Delete( Cast(WString Ptr, AnyTexts.Object(i)))
@@ -8824,20 +8892,43 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 								Constructs.Add te
 								If Comments <> "" Then te->Comment = Comments: Comments = ""
 								If ptxtCode = @txtCode Then LastIndexFunctions = txtCode.Content.Functions.Add(te->DisplayName, te)
-								If ECStatement->ConstructionIndex = C_Enum Then
-									txtCode.Content.Enums.Add te->Name, te
-								ElseIf ECStatement->ConstructionIndex = C_Type OrElse ECStatement->ConstructionIndex = C_Class OrElse ECStatement->ConstructionIndex = C_Union Then
-									txtCode.Content.Types.Add te->Name, te
-								ElseIf TypeProcedure Then
-									txtCode.Content.TypeProcedures.Add te->Name, te
-								Else
-									txtCode.Content.Procedures.Add te->Name, te
-									If ECStatement->ConstructionIndex = C_P_Macro Then txtCode.Content.Defines.Add te->Name, te
+								blockprev = 0
+								If ConstructBlocks.Count > 1 Then
+									blockprev = ConstructBlocks.Item(ConstructBlocks.Count - 2)
 								End If
-								If Not TypeProcedure Then
-									If Namespaces.Count > 0 Then
-										Var Index = txtCode.Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-										If Index > -1 Then Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+								If blockprev Then
+									Select Case blockprev->ConstructionIndex
+									Case C_Enum, C_Type, C_Union, C_Class
+										blockprev->Construction->Elements.Add te->Name, te
+										If ECStatement->ConstructionIndex = C_Enum Then
+											blockprev->Construction->Enums.Add te->Name, te
+										ElseIf ECStatement->ConstructionIndex = C_Type OrElse ECStatement->ConstructionIndex = C_Class OrElse ECStatement->ConstructionIndex = C_Union Then
+											blockprev->Construction->Types.Add te->Name, te
+										End If
+									Case Else
+										blockprev->Elements.Add te->Name, te
+										If ECStatement->ConstructionIndex = C_Enum Then
+											blockprev->Enums.Add te->Name, te
+										ElseIf ECStatement->ConstructionIndex = C_Type OrElse ECStatement->ConstructionIndex = C_Class OrElse ECStatement->ConstructionIndex = C_Union Then
+											blockprev->Types.Add te->Name, te
+										End If
+									End Select
+								Else
+									If ECStatement->ConstructionIndex = C_Enum Then
+										txtCode.Content.Enums.Add te->Name, te
+									ElseIf ECStatement->ConstructionIndex = C_Type OrElse ECStatement->ConstructionIndex = C_Class OrElse ECStatement->ConstructionIndex = C_Union Then
+										txtCode.Content.Types.Add te->Name, te
+									ElseIf TypeProcedure Then
+										txtCode.Content.TypeProcedures.Add te->Name, te
+									Else
+										txtCode.Content.Procedures.Add te->Name, te
+										If ECStatement->ConstructionIndex = C_P_Macro Then txtCode.Content.Defines.Add te->Name, te
+									End If
+									If Not TypeProcedure Then
+										If Namespaces.Count > 0 Then
+											Var Index = txtCode.Content.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+											If Index > -1 Then Cast(TypeElement Ptr, txtCode.Content.Namespaces.Object(Index))->Elements.Add te->Name, te
+										End If
 									End If
 								End If
 								If Pos2 > 0 AndAlso Pos5 > 0 Then
