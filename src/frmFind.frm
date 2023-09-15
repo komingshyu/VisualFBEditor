@@ -206,51 +206,51 @@ pfFind = @fFind
 		End With
 	End Constructor
 	
-	Private Sub frmFind.TrackBar1_Change_(ByRef Sender As TrackBar, Position As Integer)
+	Private Sub frmFind.TrackBar1_Change_(ByRef Designer As My.Sys.Object, ByRef Sender As TrackBar, Position As Integer)
 		fFind.TrackBar1_Change(Sender, Position)
 	End Sub
 	
-	Private Sub frmFind.btnFind_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnFind_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnFind_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.btnFindAll_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnFindAll_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnFindAll_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.btnFindPrev_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnFindPrev_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnFindPrev_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.btnReplace_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnReplace_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnReplace_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.btnReplaceAll_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnReplaceAll_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnReplaceAll_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.btnReplaceShow_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnReplaceShow_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnReplaceShow_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.btnCancel_Click_(ByRef Sender As Control)
+	Private Sub frmFind.btnCancel_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.btnCancel_Click(Sender)
 	End Sub
 	
-	Private Sub frmFind.Form_Show_(ByRef Sender As Form)
+	Private Sub frmFind.Form_Show_(ByRef Designer As My.Sys.Object, ByRef Sender As Form)
 		fFind.Form_Show(Sender)
 	End Sub
 	
-	Private Sub frmFind.Form_Close_(ByRef Sender As Control, ByRef Action As Integer)
+	Private Sub frmFind.Form_Close_(ByRef Designer As My.Sys.Object, ByRef Sender As Control, ByRef Action As Integer)
 		fFind.Form_Close(Sender, Action)
 	End Sub
 	
-	Private Sub frmFind.Form_Create_(ByRef Sender As Control)
+	Private Sub frmFind.Form_Create_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		fFind.Form_Create(Sender)
 	End Sub
 	
-	Private Sub frmFind.cboFindRange_Selected_(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
+	Private Sub frmFind.cboFindRange_Selected_(ByRef Designer As My.Sys.Object, ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 		(*Cast(frmFind Ptr, Sender.Designer)).cboFindRange_Selected(Sender, ItemIndex)
 	End Sub
 	
@@ -799,7 +799,13 @@ Private Sub frmFind.btnReplaceAll_Click(ByRef Sender As Control)
 		tb->txtCode.Changing "ReplaceAll"
 		plvSearch->ListItems.Clear
 		gSearchItemIndex = 0
-		For i As Integer = 0 To tb->txtCode.LinesCount - 1
+		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		If cboFindRange.ItemIndex = 1 Then
+			iSelStartLine = 0: iSelEndLine = tb->txtCode.LinesCount - 1: iSelStartChar = 0: iSelEndChar = Len(tb->txtCode.Lines(iSelEndLine))
+		Else
+			tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar, cboFindRange.ItemIndex = 0
+		End If
+		For i As Integer = iSelStartLine To iSelEndLine
 			buff = @tb->txtCode.Lines(i)
 			ECLine = tb->txtCode.Content.Lines.Items[i]
 			If bMatchCase Then

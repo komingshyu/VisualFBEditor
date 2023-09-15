@@ -275,7 +275,7 @@ Namespace My.Sys.Forms
 				gtk_widget_show(scrollbarhLeft)
 			#endif
 		End If
-		If OnSplitVerticallyChange Then OnSplitVerticallyChange(This, Value)
+		If OnSplitVerticallyChange Then OnSplitVerticallyChange(*Designer, This, Value)
 	End Property
 	
 	Private Property EditControl.SplittedHorizontally As Boolean
@@ -320,7 +320,7 @@ Namespace My.Sys.Forms
 				gtk_widget_set_size_request(scrollbarvBottom, verticalScrollBarWidth, dwClientY - iDivideY - 7 - horizontalScrollBarHeight)
 			#endif
 		End If
-		If OnSplitHorizontallyChange Then OnSplitHorizontallyChange(This, Value)
+		If OnSplitHorizontallyChange Then OnSplitHorizontallyChange(*Designer, This, Value)
 	End Property
 	
 	Property EditControl.TopLine As Integer
@@ -429,7 +429,7 @@ Namespace My.Sys.Forms
 		End If
 		OldnCaretPosX = nCaretPosX
 		OldCharIndex = GetOldCharIndex
-		If OnChange Then OnChange(This)
+		If OnChange Then OnChange(*Designer, This)
 		Modified = True
 	End Sub
 	
@@ -1184,7 +1184,7 @@ Namespace My.Sys.Forms
 		If iCurrProcedure  Then ' For get the top line and bottom line of tne current procedure
 			Dim As Integer lLineCount
 			iSelStartLine = 0
-			For lLineCount = FSelStartLine To 1 Step -1
+			For lLineCount = FSelStartLine To 0 Step -1
 				FECLine = Content.Lines.Items[lLineCount]
 				If FECLine->ConstructionIndex >= C_Sub Then
 					If FECLine->ConstructionPart = 0 Then
@@ -1198,7 +1198,7 @@ Namespace My.Sys.Forms
 			For lLineCount = FSelStartLine To Content.Lines.Count - 1
 				FECLine = Content.Lines.Items[lLineCount]
 				If FECLine->ConstructionIndex >= C_Sub Then
-					If FECLine->ConstructionPart = 0 Then
+					If FECLine->ConstructionPart = 2 Then
 						iSelEndLine = lLineCount
 						Exit For
 					End If
@@ -1326,10 +1326,10 @@ Namespace My.Sys.Forms
 				curHistory = FHistory.Count - 1
 			End If
 		End If
-		If OnChange Then OnChange(This)
+		If OnChange Then OnChange(*Designer, This)
 		Modified = True
 		If OldLinesCount <> LinesCount Then
-			If OnLineChange Then OnLineChange(This, FSelEndLine, IIf(Abs(LinesCount - OldLinesCount) = 1, OldLine, -1))
+			If OnLineChange Then OnLineChange(*Designer, This, FSelEndLine, IIf(Abs(LinesCount - OldLinesCount) = 1, OldLine, -1))
 		End If
 		#ifdef __USE_GTK__
 			If widget AndAlso cr Then
@@ -1355,9 +1355,9 @@ Namespace My.Sys.Forms
 		If iSelEndLine > 0 Then ecOldLine = Content.Lines.Item(iSelEndLine - 1): PreviC = ecOldLine->CommentIndex: OldPreviC = PreviC: InAsm = ecOldLine->InAsm
 		For i As Integer = iSelEndLine To iSelStartLine + 1 Step -1
 			ecRemovingLine = Content.Lines.Items[i]
-			If OnLineRemoving Then OnLineRemoving(This, i)
+			If OnLineRemoving Then OnLineRemoving(*Designer, This, i)
 			Content.Lines.Remove i
-			If OnLineRemoved Then OnLineRemoved(This, i)
+			If OnLineRemoved Then OnLineRemoved(*Designer, This, i)
 			_Delete(ecRemovingLine)
 			OlddwClientX = 0
 		Next i
@@ -1388,9 +1388,9 @@ Namespace My.Sys.Forms
 			FECLine->CommentIndex = iC
 			FECLine->InAsm = InAsm
 			If c > 1 Then
-				If OnLineAdding Then OnLineAdding(This, iSelStartLine + c - 1)
+				If OnLineAdding Then OnLineAdding(*Designer, This, iSelStartLine + c - 1)
 				Content.Lines.Insert iSelStartLine + c - 1, FECLine
-				If OnLineAdded Then OnLineAdded(This, iSelStartLine + c - 1)
+				If OnLineAdded Then OnLineAdded(*Designer, This, iSelStartLine + c - 1)
 				ChangeCollapsibility iSelStartLine + c - 1
 			End If
 			If FECLine->ConstructionIndex = C_Asm Then
@@ -1879,7 +1879,7 @@ Namespace My.Sys.Forms
 		iC = FindCommentIndex(sLine, OldiC)
 		FECLine->CommentIndex = iC
 		FECLine->InAsm = InAsm
-		If OnLineAdding Then OnLineAdding(This, Index)
+		If OnLineAdding Then OnLineAdding(*Designer, This, Index)
 		Content.Lines.Insert Index, FECLine
 		ChangeCollapsibility Index
 		If FECLine->ConstructionIndex = C_Asm Then
@@ -1888,7 +1888,7 @@ Namespace My.Sys.Forms
 		FECLine->InAsm = InAsm
 		If Index <= FSelEndLine Then FSelEndLine += 1
 		If Index <= FSelStartLine Then FSelStartLine += 1
-		If OnLineAdded Then OnLineAdded(This, Index)
+		If OnLineAdded Then OnLineAdded(*Designer, This, Index)
 	End Sub
 	
 	Sub EditControl.ReplaceLine(Index As Integer, ByRef sLine As WString)
@@ -1925,7 +1925,7 @@ Namespace My.Sys.Forms
 		iC = FindCommentIndex(*FECLine->Text, OldiC)
 		FECLine->CommentIndex = iC
 		FECLine->InAsm = InAsm
-		If OnLineAdding Then OnLineAdding(This, Idx + 1)
+		If OnLineAdding Then OnLineAdding(*Designer, This, Idx + 1)
 		Content.Lines.Insert Idx + 1, FECLine
 		ChangeCollapsibility Idx + 1
 		If FECLine->ConstructionIndex = C_Asm Then
@@ -1934,16 +1934,16 @@ Namespace My.Sys.Forms
 		FECLine->InAsm = InAsm
 		If FSelStartLine = FSelEndLine Then FSelStartLine += 1
 		FSelEndLine += 1
-		If OnLineAdded Then OnLineAdded(This, Idx + 1)
+		If OnLineAdded Then OnLineAdded(*Designer, This, Idx + 1)
 		Changed "Duplicate line"
 	End Sub
 	
 	Sub EditControl.DeleteLine(Index As Integer = -1)
 		Dim As Integer i = IIf(Index = -1, FSelEndLine, Index)
-		If OnLineRemoving Then OnLineRemoving(This, i)
+		If OnLineRemoving Then OnLineRemoving(*Designer, This, i)
 		Dim As EditControlLine Ptr ecRemovingLine = Content.Lines.Items[i]
 		Content.Lines.Remove i
-		If OnLineRemoved Then OnLineRemoved(This, i)
+		If OnLineRemoved Then OnLineRemoved(*Designer, This, i)
 		_Delete(ecRemovingLine)
 		If Index <= FSelEndLine Then FSelEndLine -= 1
 		If Index <= FSelStartLine Then FSelStartLine -= 1
@@ -2255,12 +2255,12 @@ Namespace My.Sys.Forms
 			CloseToolTip()
 		End If
 		If OldLine <> FSelEndLine OrElse OldChar <> FSelEndChar Then
-			If This.OnSelChange Then This.OnSelChange(This, FSelEndLine, FSelEndChar)
+			If This.OnSelChange Then This.OnSelChange(*Designer, This, FSelEndLine, FSelEndChar)
 		End If
 		If OldLine <> FSelEndLine Then
 			If ToolTipShowed Then CloseToolTip()
 			If Not bOldCommented Then Changing "Matn kiritildi"
-			If This.OnLineChange Then This.OnLineChange(This, FSelEndLine, OldLine)
+			If This.OnLineChange Then This.OnLineChange(*Designer, This, FSelEndLine, OldLine)
 		End If
 		
 		If CInt(FSelStartLine > -1) AndAlso CInt(FSelStartLine < Content.Lines.Count) AndAlso CInt(Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelStartLine])->Visible) Then
@@ -2956,7 +2956,8 @@ Namespace My.Sys.Forms
 		Return GetFromConstructionBlock(cb->InConstructionBlock, Text, z, TypesOnly)
 	End Function
 	
-	Function EditControlContent.GetTypeFromValue(ByRef Value As String, iSelEndLine As Integer) As String
+	Function EditControlContent.GetTypeFromValue(ByRef Value As String, iSelEndLine As Integer, ByRef teCur As TypeElement Ptr = 0, ByRef teOld As TypeElement Ptr = 0) As String
+		Dim As TypeElement Ptr Oldte, OldTypete
 		If Value = "" Then Return ""
 		Dim As String sTemp
 		If (StartsWith(LCase(Value), "cast(") OrElse StartsWith(LCase(Value), "@cast(") OrElse StartsWith(LCase(Value), "*cast(") OrElse StartsWith(LCase(Value), "(*cast(")) AndAlso EndsWith(LCase(Value), ")") Then
@@ -2991,12 +2992,12 @@ Namespace My.Sys.Forms
 						If ch = "." Then
 							If Trim(..Left(Value, i - 1)) = "" Then
 								Dim As String OldTypeName
-								TypeName = GetLeftArgTypeName(iSelEndLine, 0, , , OldTypeName, , )
+								TypeName = GetLeftArgTypeName(iSelEndLine, 0, teOld, Oldte, OldTypete, OldTypeName, , )
 							Else
-								TypeName = GetTypeFromValue(..Left(Value, i - 1), iSelEndLine)
+								TypeName = GetTypeFromValue(..Left(Value, i - 1), iSelEndLine, teOld, Oldte)
 							End If
 						ElseIf ch = ">" AndAlso i > 0 AndAlso Mid(Value, i - 1, 1) = "-" Then
-							TypeName = GetTypeFromValue(..Left(Value, i - 2), iSelEndLine)
+							TypeName = GetTypeFromValue(..Left(Value, i - 2), iSelEndLine, teOld, Oldte)
 						End If
 						Exit For
 					Else
@@ -3029,13 +3030,15 @@ Namespace My.Sys.Forms
 			Dim As Integer Pos1
 			Dim As Integer Idx = -1
 			If TypeName <> "" Then
-				If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
-				ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
-				ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
-				ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te) Then
-				ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
-				ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
-				ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
+				If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine, , teOld) Then
+				ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine, , teOld) Then
+				ElseIf (Oldte <> 0) AndAlso ContainsIn(TypeName, sTemp, @Oldte->Types, pFiles, pFileLines, True, , , te, iSelEndLine, @Oldte->Types, teOld) Then
+				ElseIf (Oldte <> 0) AndAlso ContainsIn(TypeName, sTemp, @Oldte->Enums, pFiles, pFileLines, True, , , te, iSelEndLine, @Oldte->Enums, teOld) Then
+				ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te, , , teOld) Then
+				ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te, , , teOld) Then
+				ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te, , , teOld) Then
+				ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te, , , teOld) Then
+				ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te, , , teOld) Then
 				End If
 			Else
 				If ECLine AndAlso ECLine->InConstructionBlock Then
@@ -3044,6 +3047,7 @@ Namespace My.Sys.Forms
 						If te->TypeName = "" AndAlso te->Value <> "" Then
 							Return GetTypeFromValue(te->Value, iSelEndLine)
 						Else
+							teCur = te
 							Return te->TypeName
 						End If
 					End If
@@ -3056,39 +3060,53 @@ Namespace My.Sys.Forms
 					te = Procedures.Object(Idx)
 				ElseIf Args.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Args.Object(Idx))->StartLine <= iSelEndLine Then
 					te = Args.Object(Idx)
+				ElseIf Types.Contains(sTemp, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->StartLine <= iSelEndLine Then
+					te = Types.Object(Idx)
 				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Functions, sTemp, Idx, pFiles, pFileLines) Then
 					te = Globals->Functions.Object(Idx)
 				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Args, sTemp, Idx, pFiles, pFileLines) Then
 					te = Globals->Args.Object(Idx)
+				ElseIf (Globals <> 0) AndAlso ContainsInListFiles(@Globals->Types, sTemp, Idx, pFiles, pFileLines) Then
+					te = Globals->Types.Object(Idx)
 				ElseIf ContainsInListFiles(pGlobalFunctions, sTemp, Idx, pFiles, pFileLines) Then
 					te = pGlobalFunctions->Object(Idx)
 				ElseIf ContainsInListFiles(pGlobalArgs, sTemp, Idx, pFiles, pFileLines) Then
 					te = pGlobalArgs->Object(Idx)
+				ElseIf ContainsInListFiles(pComps, sTemp, Idx, pFiles, pFileLines) Then
+					te = pComps->Object(Idx)
+				ElseIf ContainsInListFiles(pGlobalTypes, sTemp, Idx, pFiles, pFileLines) Then
+					te = pGlobalTypes->Object(Idx)
 				ElseIf TypeName <> "" Then
-					If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine) Then
-					ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine) Then
-					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te) Then
-					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te) Then
-					ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te) Then
-					ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te) Then
-					ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te) Then
+					If ContainsIn(TypeName, sTemp, @Types, pFiles, pFileLines, True, , , te, iSelEndLine, , teOld) Then
+					ElseIf ContainsIn(TypeName, sTemp, @Enums, pFiles, pFileLines, True, , , te, iSelEndLine, , teOld) Then
+					ElseIf (Oldte <> 0) AndAlso ContainsIn(TypeName, sTemp, @Oldte->Types, pFiles, pFileLines, True, , , te, iSelEndLine, @Oldte->Types, teOld) Then
+					ElseIf (Oldte <> 0) AndAlso ContainsIn(TypeName, sTemp, @Oldte->Enums, pFiles, pFileLines, True, , , te, iSelEndLine, @Oldte->Enums, teOld) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Types, pFiles, pFileLines, True, , , te, , , teOld) Then
+					ElseIf (Globals <> 0) AndAlso ContainsIn(TypeName, sTemp, @Globals->Enums, pFiles, pFileLines, True, , , te, , , teOld) Then
+					ElseIf ContainsIn(TypeName, sTemp, pComps, pFiles, pFileLines, True, , , te, , , teOld) Then
+					ElseIf ContainsIn(TypeName, sTemp, pGlobalTypes, pFiles, pFileLines, True, , , te, , , teOld) Then
+					ElseIf ContainsIn(TypeName, sTemp, pGlobalEnums, pFiles, pFileLines, True, , , te, , , teOld) Then
 					End If
 				End If
 			End If
 			If te > 0 Then
 				sTemp = te->TypeName
+				If te->ElementType = E_Namespace OrElse te->ElementType = E_Type OrElse te->ElementType = E_TypeCopy OrElse te->ElementType = E_Union OrElse te->ElementType = E_Enum Then
+					sTemp = te->Name
+				End If
 				If sTemp = "" AndAlso te->Value <> "" Then
-					sTemp = GetTypeFromValue(te->Value, iSelEndLine)
+					sTemp = GetTypeFromValue(te->Value, iSelEndLine, , teOld)
 				End If
 			End If
+			teCur = te
 		End If
 		Return sTemp
 	End Function
 	
-	Function EditControlContent.GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
+	Function EditControlContent.GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef teTypeOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
 		Dim As String sTemp, sTemp2, TypeName, sOldTypeName, BaseTypeName
 		Dim sLine As WString Ptr
-		Dim As TypeElement Ptr Oldte
+		Dim As TypeElement Ptr Oldte, OldTypete
 		Dim As Integer j, iCount, Pos1
 		Dim As String ch
 		Dim As Boolean b, OneDot, TwoDots, bArg, bArgEnded
@@ -3116,11 +3134,11 @@ Namespace My.Sys.Forms
 								TwoDots = True
 							Else
 								OneDot = True
-								TypeName = GetLeftArgTypeName(j, i - 1, teEnumOld, Oldte, sOldTypeName, bTypes, bWithoutWith)
+								TypeName = GetLeftArgTypeName(j, i - 1, teEnumOld, , Oldte, sOldTypeName, bTypes, bWithoutWith)
 							End If
 						ElseIf ch = ">" AndAlso i > 0 AndAlso Mid(*sLine, i - 1, 1) = "-" Then
 							OneDot = True
-							TypeName = GetLeftArgTypeName(j, i - 2, teEnumOld, Oldte, sOldTypeName, bTypes)
+							TypeName = GetLeftArgTypeName(j, i - 2, teEnumOld, , Oldte, sOldTypeName, bTypes)
 						ElseIf CBool(CBool(ch = " ") OrElse CBool(ch = !"\t")) AndAlso CBool(i > 0) AndAlso EndsWith(RTrim(LCase(..Left(*sLine, i - 1)), Any "\t "), " as") Then
 							bTypes = True
 						End If
@@ -3164,7 +3182,7 @@ Namespace My.Sys.Forms
 							Else
 								Pos1 = Len(*ECLine->Text) + 1
 							End If
-							TypeName = GetLeftArgTypeName(i, Pos1 - 1, teEnumOld, , sOldTypeName, bTypes)
+							TypeName = GetLeftArgTypeName(i, Pos1 - 1, teEnumOld, , OldTypete, sOldTypeName, bTypes)
 							WithOldI = i
 							WithOldTypeName = TypeName
 							WithTeEnumOld = teEnumOld
@@ -3310,6 +3328,10 @@ Namespace My.Sys.Forms
 					teEnumOld = teC
 					OldTypeName = "" 'teC->DisplayName
 					sTemp = teEnum->TypeName
+					If teEnum->ElementType = E_Namespace OrElse teEnum->ElementType = E_Type OrElse teEnum->ElementType = E_TypeCopy OrElse teEnum->ElementType = E_Union OrElse teEnum->ElementType = E_Enum Then
+						sTemp = teEnum->Name
+						teTypeOld = teEnumOld
+					End If
 					If sTemp = "" AndAlso teEnum->Value <> "" Then
 						sTemp = GetTypeFromValue(teEnum->Value, iSelEndLine)
 					End If
@@ -3339,7 +3361,12 @@ Namespace My.Sys.Forms
 							teEnum = te
 							'teEnumOld = teC
 							OldTypeName = TypeName
-							Return teEnum->TypeName
+							sTemp = teEnum->TypeName
+							If teEnum->ElementType = E_Namespace OrElse teEnum->ElementType = E_Type OrElse teEnum->ElementType = E_TypeCopy OrElse teEnum->ElementType = E_Union OrElse teEnum->ElementType = E_Enum Then
+								sTemp = teEnum->Name
+								teTypeOld = teEnumOld
+							End If
+							Return sTemp
 						End If
 					End If
 				End If
@@ -3354,7 +3381,11 @@ Namespace My.Sys.Forms
 							teEnum = te
 							teEnumOld = 0
 							OldTypeName = "" 'teC->DisplayName
-							Return teEnum->TypeName
+							sTemp = teEnum->TypeName
+							If teEnum->ElementType = E_Namespace OrElse teEnum->ElementType = E_Type OrElse teEnum->ElementType = E_TypeCopy OrElse teEnum->ElementType = E_Union OrElse teEnum->ElementType = E_Enum Then
+								sTemp = teEnum->Name
+							End If
+							Return sTemp
 						End If
 					End If
 				End If
@@ -3406,12 +3437,13 @@ Namespace My.Sys.Forms
 			sTemp = te->TypeName
 			If te->ElementType = E_Namespace OrElse te->ElementType = E_Type OrElse te->ElementType = E_TypeCopy OrElse te->ElementType = E_Union OrElse te->ElementType = E_Enum Then
 				sTemp = te->Name
+				teTypeOld = teEnumOld
 			Else
 				Pos1 = InStrRev(sTemp, ".")
-				If Pos1 > 0 Then sTemp = Mid(sTemp, Pos1 + 1)
+				If Pos1 > 0 Then sTemp = GetTypeFromValue(sTemp, iSelEndLine, , teTypeOld) 'sTemp = Mid(sTemp, Pos1 + 1)
 			End If
 			If sTemp = "" AndAlso te->Value <> "" Then
-				sTemp = GetTypeFromValue(te->Value, iSelEndLine)
+				sTemp = GetTypeFromValue(te->Value, iSelEndLine, , teEnumOld)
 			End If
 		End If
 		teEnum = te
@@ -3913,7 +3945,7 @@ Namespace My.Sys.Forms
 														If Not bInAsm Then
 															If CBool(tIndex = -1) AndAlso (Not TwoDots) AndAlso (CBool(r = 46) OrElse CBool(q = 45 AndAlso r = 62)) Then
 																OneDot = True
-																Content.GetLeftArgTypeName(z, j, te, , OldTypeName, , bWithoutWith)
+																Content.GetLeftArgTypeName(z, j, te, , , OldTypeName, , bWithoutWith)
 																If bWithoutWith Then
 																	TwoDots = True
 																	OneDot = False
@@ -5036,19 +5068,19 @@ Namespace My.Sys.Forms
 	
 	Sub EditControl.Undo
 		If curHistory <= 0 Then Exit Sub
-		If OnUndoing Then OnUndoing(This)
+		If OnUndoing Then OnUndoing(*Designer, This)
 		curHistory = curHistory - 1
 		_LoadFromHistory FHistory.Items[curHistory], True, FHistory.Items[curHistory + 1], True
-		If OnUndo Then OnUndo(This)
+		If OnUndo Then OnUndo(*Designer, This)
 		ScrollToCaret
 	End Sub
 	
 	Sub EditControl.Redo
 		If curHistory >= FHistory.Count - 1 Then Exit Sub
-		If OnRedoing Then OnRedoing(This)
+		If OnRedoing Then OnRedoing(*Designer, This)
 		curHistory = curHistory + 1
 		_LoadFromHistory FHistory.Item(curHistory), False, FHistory.Item(curHistory - 1), True
-		If OnRedo Then OnRedo(This)
+		If OnRedo Then OnRedo(*Designer, This)
 		ScrollToCaret
 	End Sub
 	
@@ -5175,7 +5207,7 @@ Namespace My.Sys.Forms
 			If LastItemIndex = -1 Then cboIntellisense.ItemIndex = -1
 			ShowDropDownToolTipAt HCaretPos + 250, VCaretPos
 		#endif
-		If OnShowDropDown Then OnShowDropDown(This)
+		If OnShowDropDown Then OnShowDropDown(*Designer, This)
 	End Sub
 	
 	#ifdef __USE_WINAPI__
@@ -5352,7 +5384,7 @@ Namespace My.Sys.Forms
 			cboIntellisense.ShowDropDown False
 		#endif
 		CloseDropDownToolTip
-		If OnDropDownCloseUp Then OnDropDownCloseUp(This)
+		If OnDropDownCloseUp Then OnDropDownCloseUp(*Designer, This)
 	End Sub
 	
 	Sub EditControl.CloseDropDownToolTip()
@@ -5411,7 +5443,7 @@ Namespace My.Sys.Forms
 		Function EditControl.ActivateLink(label As GtkLabel Ptr, uri As gchar Ptr, user_data As gpointer) As Boolean
 			Dim As EditControl Ptr ec = user_data
 			If ec <> 0 Then
-				If ec->OnToolTipLinkClicked Then ec->OnToolTipLinkClicked(*ec, *uri)
+				If ec->OnToolTipLinkClicked Then ec->OnToolTipLinkClicked(*ec->Designer, *ec, *uri)
 			End If
 			Return True
 		End Function
@@ -5671,7 +5703,7 @@ Namespace My.Sys.Forms
 				Case TTN_LINKCLICK
 					Dim As PNMLINK pNMLink1 = Cast(PNMLINK, msg.lParam)
 					Dim As LITEM item = pNMLink1->item
-					If OnToolTipLinkClicked Then OnToolTipLinkClicked(This, item.szUrl)
+					If OnToolTipLinkClicked Then OnToolTipLinkClicked(*Designer, This, item.szUrl)
 				End Select
 			#endif
 			#ifndef __USE_GTK__
@@ -6264,7 +6296,7 @@ Namespace My.Sys.Forms
 					If DropDownShowed Then
 						CloseDropDown()
 						#ifdef __USE_GTK__
-							If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(lvIntellisense, LastItemIndex)
+							If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
 						#else
 							If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(cboIntellisense, LastItemIndex)
 						#endif
@@ -6336,9 +6368,9 @@ Namespace My.Sys.Forms
 				If DropDownShowed Then
 					CloseDropDown()
 					#ifdef __USE_GTK__
-						If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(lvIntellisense, LastItemIndex)
+						If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
 					#else
-						If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(cboIntellisense, LastItemIndex)
+						If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(*cboIntellisense.Designer, cboIntellisense, LastItemIndex)
 					#endif
 				End If
 				'If TabAsSpaces Then
@@ -6365,9 +6397,9 @@ Namespace My.Sys.Forms
 				If DropDownShowed Then
 					CloseDropDown()
 					#ifdef __USE_GTK__
-						If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(lvIntellisense, LastItemIndex)
+						If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
 					#else
-						If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(cboIntellisense, LastItemIndex)
+						If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(*cboIntellisense.Designer, cboIntellisense, LastItemIndex)
 					#endif
 					Exit Sub
 				End If
@@ -6701,7 +6733,7 @@ Namespace My.Sys.Forms
 					If Pos1 > 0 Then
 						Var Pos2 = InStr(Pos1 + 1, *FECLine->Text, """")
 						If Pos2 > 0 Then
-							If OnLinkClicked Then OnLinkClicked(This, Mid(*FECLine->Text, Pos1 + 1, Pos2 - Pos1 - 1))
+							If OnLinkClicked Then OnLinkClicked(*Designer, This, Mid(*FECLine->Text, Pos1 + 1, Pos2 - Pos1 - 1))
 						End If
 					End If
 				ElseIf InStartOfLine(FSelEndLine, X, y) AndAlso FSelEndLine = FSelStartLine Then

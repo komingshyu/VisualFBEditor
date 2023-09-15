@@ -280,8 +280,8 @@ Namespace My.Sys.Forms
 		Declare Function ContainsInList(List As WStringOrStringList, ByRef Matn As String, SelEndLine As Integer, InCondition As String, ByRef Index As Integer) As Boolean
 		Declare Function IndexOfInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Integer
 		Declare Function ContainsInListFiles(pList As WStringOrStringList Ptr, ByRef Matn As String, ByRef Index As Integer, Files As WStringList Ptr, FileLines As IntegerList Ptr) As Boolean
-		Declare Function GetTypeFromValue(Value As String, iSelEndLine As Integer) As String
-		Declare Function GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
+		Declare Function GetTypeFromValue(Value As String, iSelEndLine As Integer, ByRef teCur As TypeElement Ptr = 0, ByRef Oldte As TypeElement Ptr = 0) As String
+		Declare Function GetLeftArgTypeName(iSelEndLine As Integer, iSelEndChar As Integer, ByRef teEnum As TypeElement Ptr = 0, ByRef teEnumOld As TypeElement Ptr = 0, ByRef teTypeOld As TypeElement Ptr = 0, ByRef OldTypeName As String = "", ByRef bTypes As Boolean = False, ByRef bWithoutWith As Boolean = False) As String
 		Declare Function GetConstruction(ByRef sLine As WString, ByRef iType As Integer = 0, OldCommentIndex As Integer = 0, InAsm As Boolean = False) As Integer
 		Declare Sub ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "", EC As Any Ptr = 0)
 		Declare Constructor
@@ -651,25 +651,25 @@ Namespace My.Sys.Forms
 		Declare Sub UnComment
 		Declare Constructor
 		Declare Destructor
-		OnChange As Sub(ByRef Sender As EditControl)
-		OnAutoComplete As Sub(ByRef Sender As EditControl)
-		OnShowDropDown As Sub(ByRef Sender As EditControl)
-		OnDropDownCloseUp As Sub(ByRef Sender As EditControl)
-		OnValidate As Sub(ByRef Sender As EditControl)
-		OnSelChange As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer, ByVal CurrentCharIndex As Integer)
-		OnLineChange As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer, ByVal OldLine As Integer)
-		OnLineAdding As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer)
-		OnLineAdded As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer)
-		OnLineRemoving As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer)
-		OnLineRemoved As Sub(ByRef Sender As EditControl, ByVal CurrentLine As Integer)
-		OnUndoing As Sub(ByRef Sender As EditControl)
-		OnUndo As Sub(ByRef Sender As EditControl)
-		OnRedoing As Sub(ByRef Sender As EditControl)
-		OnRedo As Sub(ByRef Sender As EditControl)
-		OnLinkClicked As Sub(ByRef Sender As EditControl, ByRef link As WString)
-		OnToolTipLinkClicked As Sub(ByRef Sender As EditControl, ByRef link As WString)
-		OnSplitHorizontallyChange As Sub(ByRef Sender As EditControl, Splitted As Boolean)
-		OnSplitVerticallyChange As Sub(ByRef Sender As EditControl, Splitted As Boolean)
+		OnChange                  As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnAutoComplete            As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnShowDropDown            As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnDropDownCloseUp         As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnValidate                As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnSelChange               As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByVal CurrentLine As Integer, ByVal CurrentCharIndex As Integer)
+		OnLineChange              As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByVal CurrentLine As Integer, ByVal OldLine As Integer)
+		OnLineAdding              As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByVal CurrentLine As Integer)
+		OnLineAdded               As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByVal CurrentLine As Integer)
+		OnLineRemoving            As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByVal CurrentLine As Integer)
+		OnLineRemoved             As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByVal CurrentLine As Integer)
+		OnUndoing                 As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnUndo                    As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnRedoing                 As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnRedo                    As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl)
+		OnLinkClicked             As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByRef link As WString)
+		OnToolTipLinkClicked      As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, ByRef link As WString)
+		OnSplitHorizontallyChange As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, Splitted As Boolean)
+		OnSplitVerticallyChange   As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, Splitted As Boolean)
 	End Type
 	
 	Common Constructions() As Construction
