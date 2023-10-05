@@ -180,6 +180,41 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "ProjectProperties":                   pfProjectProperties->ShowModal *pfrmMain : pfProjectProperties->CenterToParent
 	Case "SetAsMain":                           SetAsMain @Sender = miTabSetAsMain
 	Case "ReloadHistoryCode":                   ReloadHistoryCode 
+	Case "DarkMode":
+		DarkMode = Not DarkMode
+		App.DarkMode = DarkMode
+		If (*CurrentTheme = "Default Theme" AndAlso DarkMode) OrElse (*CurrentTheme = "Dark (Visual Studio)" AndAlso Not DarkMode) Then
+			*CurrentTheme = IIf(DarkMode, "Dark (Visual Studio)", "Default Theme")
+			LoadTheme
+			Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+			If tb <> 0 Then
+				#ifdef __USE_GTK__
+					tb->txtCode.Update
+				#else
+					tb->txtCode.PaintControl True
+					'RedrawWindow tb->txtCode.Handle, NULL, NULL, RDW_INVALIDATE
+				#endif
+			End If
+		End If
+		#ifdef __USE_WINAPI__
+			If DarkMode Then
+				txtLabelProperty.BackColor = GetSysColor(COLOR_WINDOW)
+				txtLabelEvent.BackColor = GetSysColor(COLOR_WINDOW)
+				fAddIns.txtDescription.BackColor = GetSysColor(COLOR_WINDOW)
+			Else
+				txtLabelProperty.BackColor = clBtnFace
+				txtLabelEvent.BackColor = clBtnFace
+				fAddIns.txtDescription.BackColor = clBtnFace
+			End If
+			For i As Integer = 0 To pApp->FormCount - 1
+				If pApp->Forms[i]->Handle Then
+					AllowDarkModeForWindow pApp->Forms[i]->Handle, DarkMode
+					RefreshTitleBarThemeColor(pApp->Forms[i]->Handle)
+					RedrawWindow pApp->Forms[i]->Handle, 0, 0, RDW_INVALIDATE Or RDW_ALLCHILDREN
+					DrawMenuBar pApp->Forms[i]->Handle
+				End If
+			Next i
+		#endif
 	Case "ProjectExplorer":                     tpProject->SelectTab
 	Case "PropertiesWindow":                    tpProperties->SelectTab
 	Case "EventsWindow":                        tpEvents->SelectTab
@@ -619,10 +654,10 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "CloseSession":                    CloseSession
 	Case "CloseAllWithoutCurrent":          CloseAllTabs(True)
 	Case "Exit":                            pfrmMain->CloseForm
-	Case "Find":                            mFormFind = True: pfFind->Show *pfrmMain
+	Case "Find":                            pfFind->mFormFind = True: pfFind->Show *pfrmMain
 	Case "FindInFiles":                     mFormFindInFile = True:  pfFindFile->Show *pfrmMain : pfFindFile->CenterToParent
 	Case "ReplaceInFiles":                  mFormFindInFile = False:  pfFindFile->Show *pfrmMain : pfFindFile->CenterToParent
-	Case "Replace":                         mFormFind = False: pfFind->Show *pfrmMain
+	Case "Replace":                         pfFind->mFormFind = False: pfFind->Show *pfrmMain
 	Case "PinLeft":                         SetLeftClosedStyle Not tbLeft.Buttons.Item("PinLeft")->Checked, False
 	Case "PinRight":                        SetRightClosedStyle Not tbRight.Buttons.Item("PinRight")->Checked, False
 	Case "PinBottom":                       SetBottomClosedStyle Not tbBottom.Buttons.Item("PinBottom")->Checked, False

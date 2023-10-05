@@ -430,6 +430,7 @@ Namespace My.Sys.Forms
 		OldnCaretPosX = nCaretPosX
 		OldCharIndex = GetOldCharIndex
 		If OnChange Then OnChange(*Designer, This)
+		ModifiedLine = True
 		Modified = True
 	End Sub
 	
@@ -1341,14 +1342,67 @@ Namespace My.Sys.Forms
 		ChangingStarted = False
 	End Sub
 	
-	Sub EditControl.ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1)
-		Changing Comment
+	Sub EditControl.ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1, WithoutShow As Boolean = False)
+		If Not WithoutShow Then Changing Comment
 		ChangePos CharTo
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		'If iSelStartLine <> iSelEndLine Or iSelStartChar <> iSelEndChar Then AddHistory
+		If Carets.Count > 0 Then
+			Dim As TypeElement Ptr teCurrent, te
+			Dim bFind As Boolean
+			For i As Integer = 0 To Carets.Count - 1
+				teCurrent = Carets.Object(i)
+				If iSelStartLine >= teCurrent->StartLine AndAlso iSelStartLine <= teCurrent->EndLine AndAlso iSelEndLine >= teCurrent->StartLine AndAlso iSelEndLine <= teCurrent->EndLine AndAlso _
+					iSelStartChar >= teCurrent->StartChar AndAlso iSelStartChar <= teCurrent->EndChar AndAlso iSelEndChar >= teCurrent->StartChar AndAlso iSelEndChar <= teCurrent->EndChar Then
+					Var OldStartChar = teCurrent->StartChar
+					Var OldStartLine = teCurrent->StartLine
+					Var OldEndChar = teCurrent->EndChar
+					Var OldEndLine = teCurrent->EndLine
+					Var c = InStrCount(Value, !"\r") - (iSelEndLine - iSelStartLine)
+					teCurrent->EndLine += c
+					If c = 0 Then
+						teCurrent->EndChar += Len(Value) - (iSelEndChar - iSelStartChar)
+					Else
+						Var Pos1 = InStrRev(Value, !"\r")
+						teCurrent->EndChar = Len(Value) - Pos1 + teCurrent->EndChar - iSelEndChar
+					End If
+					bFind = True
+					For j As Integer = 0 To Carets.Count - 1
+						te = Carets.Object(j)
+						If te->StartLine > OldStartLine OrElse (te->StartLine = OldStartLine AndAlso te->StartChar > OldStartChar) Then
+							If te->Name = teCurrent->Name Then
+								Var OldFSelStartChar = FSelStartChar
+								Var OldFSelStartLine = FSelStartLine
+								Var OldFSelEndChar = FSelEndChar
+								Var OldFSelEndLine = FSelEndLine
+								FSelStartChar = FSelStartChar + (te->StartChar - OldStartChar)
+								FSelStartLine = FSelStartLine + (te->StartLine - OldStartLine)
+								FSelEndChar = FSelEndChar + (te->EndChar - OldEndChar)
+								FSelEndLine = FSelEndLine + (te->EndLine - OldEndLine)
+								ChangeText Value, , , , , True
+								FSelStartChar = OldFSelStartChar
+								FSelStartLine = OldFSelStartLine
+								FSelEndChar = OldFSelEndChar
+								FSelEndLine = OldFSelEndLine
+							End If
+							If te->StartLine = OldStartLine AndAlso te->StartChar > OldStartChar Then
+								te->StartChar += teCurrent->EndChar - OldEndChar
+								te->StartLine += c
+								If te->EndLine = OldStartLine Then te->EndChar += teCurrent->EndChar - OldEndChar
+								te->EndLine += c
+							ElseIf te->StartLine > OldStartLine Then
+								te->StartLine += c
+								te->EndLine += c
+							End If
+						End If
+					Next
+				End If
+			Next
+			If Not bFind Then ClearCarets
+		End If
 		Dim As EditControlLine Ptr ecStartLine = Content.Lines.Item(iSelStartLine), ecEndLine = Content.Lines.Item(iSelEndLine), ecOldLine, ecRemovingLine
 		FECLine = ecStartLine
-		'If iSelStartLine <> iSelEndLine Or iSelStartChar <> iSelEndChar Then AddHistory
 		WLet(FLine, Mid(*ecEndLine->Text, iSelEndChar + 1))
 		WLet(FECLine->Text, .Left(*ecStartLine->Text, iSelStartChar))
 		Var iC = 0, OldiC = ecEndLine->CommentIndex, OldPreviC = 0, PreviC = 0, InAsm = False, OldInAsm = ecEndLine->InAsm, Pos1 = 0, p = 1, c = 0, l = 0
@@ -1430,7 +1484,7 @@ Namespace My.Sys.Forms
 		If SelStartChar <> -1 Then FSelStartChar = SelStartChar
 		FSelEndLine = FSelStartLine
 		FSelEndChar = FSelStartChar
-		Changed Comment
+		If Not WithoutShow Then Changed Comment
 	End Sub
 	
 	Sub EditControl.SelectAll
@@ -1446,6 +1500,7 @@ Namespace My.Sys.Forms
 		CopyCurrentLineToClipboard
 		Changing "Current line was cut"
 		If FSelEndLine = Content.Lines.Count - 1 Then ReplaceLine FSelEndLine, "" Else DeleteLine
+		ModifiedLine = True
 		Changed "Current line was cut"
 	End Sub
 	
@@ -1585,6 +1640,7 @@ Namespace My.Sys.Forms
 			MsgBox ML("File not found") & ": " & FileName
 			Exit Sub
 		End If
+		ModifiedLine = False
 		#ifdef __USE_WINAPI__
 			Buff = FileName
 			If Buff <> FileName Then
@@ -1882,6 +1938,7 @@ Namespace My.Sys.Forms
 		If OnLineAdding Then OnLineAdding(*Designer, This, Index)
 		Content.Lines.Insert Index, FECLine
 		ChangeCollapsibility Index
+		ModifiedLine = True
 		If FECLine->ConstructionIndex = C_Asm Then
 			InAsm = FECLine->ConstructionPart = 0
 		End If
@@ -1894,21 +1951,60 @@ Namespace My.Sys.Forms
 	Sub EditControl.ReplaceLine(Index As Integer, ByRef sLine As WString)
 		Var iC = 0, OldiC = 0, InAsm = False
 		If Index > 0 AndAlso Index < Content.Lines.Count - 1 Then
-			OldiC = Cast(EditControlLine Ptr, Content.Lines.Items[Index])->CommentIndex
-			InAsm = Cast(EditControlLine Ptr, Content.Lines.Items[Index])->InAsm
+			OldiC = Cast(EditControlLine Ptr, Content.Lines.Items[Index - 1])->CommentIndex
+			InAsm = Cast(EditControlLine Ptr, Content.Lines.Items[Index - 1])->InAsm
 		End If
 		FECLine = Content.Lines.Items[Index]
-		WLet(FECLine->Text, sLine)
-		FECLine->Ends.Clear
-		FECLine->EndsCompleted = False
-		iC = FindCommentIndex(sLine, OldiC)
-		FECLine->CommentIndex = iC
-		FECLine->InAsm = InAsm
-		ChangeCollapsibility Index
-		If FECLine->ConstructionIndex = C_Asm Then
-			InAsm = FECLine->ConstructionPart = 0
-		End If
-		FECLine->InAsm = InAsm
+		Dim As Integer Pos1, p = 1, c
+		Do
+			Pos1 = InStr(p, sLine, Chr(13))
+			c = c + 1
+			If Pos1 = 0 Then
+				l = Len(sLine) - p + 1
+			Else
+				l = Pos1 - p
+			End If
+			FECLine->InAsm = InAsm
+			If c = 1 Then
+				WLet(FECLine->Text, Mid(sLine, p, l))
+				FECLine->Ends.Clear
+				FECLine->EndsCompleted = False
+				ChangeCollapsibility Index
+			Else
+				FECLine = _New( EditControlLine)
+				WLet(FECLine->Text, Mid(sLine, p, l))
+				OlddwClientX = 0
+			End If
+			iC = FindCommentIndex(*FECLine->Text, OldiC)
+			FECLine->CommentIndex = iC
+			FECLine->InAsm = InAsm
+			If c > 1 Then
+				If OnLineAdding Then OnLineAdding(*Designer, This, Index + c - 1)
+				Content.Lines.Insert Index + c - 1, FECLine
+				If OnLineAdded Then OnLineAdded(*Designer, This, Index + c - 1)
+				ChangeCollapsibility Index + c - 1
+			End If
+			If FECLine->ConstructionIndex = C_Asm Then
+				InAsm = FECLine->ConstructionPart = 0
+			End If
+			FECLine->InAsm = InAsm
+			p = Pos1 + 1
+			OldiC = iC
+		Loop While Pos1 > 0
+		Modified = True
+		ModifiedLine = True
+		'WLet(Cast(EditControlLine Ptr, Content.Lines.Item(FSelStartLine))->Text, *FECLine->Text & *FLine)
+		'WLet(FECLine->Text, sLine)
+		'FECLine->Ends.Clear
+		'FECLine->EndsCompleted = False
+		'iC = FindCommentIndex(sLine, OldiC)
+		'FECLine->CommentIndex = iC
+		'FECLine->InAsm = InAsm
+		'ChangeCollapsibility Index
+		'If FECLine->ConstructionIndex = C_Asm Then
+		'	InAsm = FECLine->ConstructionPart = 0
+		'End If
+		'FECLine->InAsm = InAsm
 	End Sub
 	
 	Sub EditControl.DuplicateLine(Index As Integer = -1)
@@ -1931,6 +2027,8 @@ Namespace My.Sys.Forms
 		If FECLine->ConstructionIndex = C_Asm Then
 			InAsm = FECLine->ConstructionPart = 0
 		End If
+		Modified = True
+		ModifiedLine = True
 		FECLine->InAsm = InAsm
 		If FSelStartLine = FSelEndLine Then FSelStartLine += 1
 		FSelEndLine += 1
@@ -1948,6 +2046,8 @@ Namespace My.Sys.Forms
 		If Index <= FSelEndLine Then FSelEndLine -= 1
 		If Index <= FSelStartLine Then FSelStartLine -= 1
 		OlddwClientX = 0
+		Modified = True
+		ModifiedLine = True
 	End Sub
 	
 	Sub EditControl.UnformatCode(WithoutUpdate As Boolean = False)
@@ -2379,60 +2479,96 @@ Namespace My.Sys.Forms
 		
 	End Sub
 	
+	Sub EditControl.ClearCarets
+		Dim te As TypeElement Ptr
+		For i As Integer = Carets.Count - 1 To 0 Step -1
+			te = Carets.Object(i)
+			_Delete(te)
+		Next
+		Carets.Clear
+		CurrentCaret = 0
+	End Sub
+	
 	Sub EditControl.Indent
 		Dim n As Integer
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-		If FSelStartLine = FSelEndLine Then
-			n = Len(GetTabbedText(.Left(Lines(FSelStartLine), Min(FSelStartChar, FSelEndChar))))
-			If TabAsSpaces AndAlso (ChoosedTabStyle = 0 OrElse Trim(.Left(Lines(iSelStartLine), iSelStartChar), Any !"\t ") <> "") Then
-				SelText = Space(TabWidth - (n Mod TabWidth))
+		If Carets.Count > 0 Then
+			Dim te As TypeElement Ptr
+			CurrentCaret += 1
+			Var Idx = Carets.IndexOf(CurrentCaret)
+			If Idx > -1 Then
+				te = Carets.Object(Idx)
+				SetSelection te->StartLine, te->EndLine, te->StartChar, te->EndChar
 			Else
-				SelText = !"\t"
+				ClearCarets
+				PaintControl True
 			End If
 		Else
-			UpdateLock
-			Changing("Oldga surish")
-			For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
-				FECLine = Content.Lines.Items[i]
-				If TabAsSpaces AndAlso ChoosedTabStyle = 0 Then
-					n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
-					n = TabWidth - (n Mod TabWidth)
-					WLet(FECLine->Text, Space(n) & *FECLine->Text)
+			If FSelStartLine = FSelEndLine Then
+				n = Len(GetTabbedText(.Left(Lines(FSelStartLine), Min(FSelStartChar, FSelEndChar))))
+				If TabAsSpaces AndAlso (ChoosedTabStyle = 0 OrElse Trim(.Left(Lines(iSelStartLine), iSelStartChar), Any !"\t ") <> "") Then
+					SelText = Space(TabWidth - (n Mod TabWidth))
 				Else
-					n = 1
-					WLet(FECLine->Text, !"\t" & *FECLine->Text)
+					SelText = !"\t"
 				End If
-				If i = FSelEndLine And FSelEndChar <> 0 Then FSelEndChar += n
-				If i = FSelStartLine And FSelStartChar <> 0 Then FSelStartChar += n
-				FECLine->Ends.Clear
-				FECLine->EndsCompleted = False
-			Next i
-			Changed("Oldga surish")
-			UpdateUnLock
+			Else
+				UpdateLock
+				Changing("Oldga surish")
+				For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+					FECLine = Content.Lines.Items[i]
+					If TabAsSpaces AndAlso ChoosedTabStyle = 0 Then
+						n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
+						n = TabWidth - (n Mod TabWidth)
+						WLet(FECLine->Text, Space(n) & *FECLine->Text)
+					Else
+						n = 1
+						WLet(FECLine->Text, !"\t" & *FECLine->Text)
+					End If
+					If i = FSelEndLine And FSelEndChar <> 0 Then FSelEndChar += n
+					If i = FSelStartLine And FSelStartChar <> 0 Then FSelStartChar += n
+					FECLine->Ends.Clear
+					FECLine->EndsCompleted = False
+				Next i
+				Changed("Oldga surish")
+				UpdateUnLock
+			End If
 		End If
 		ShowCaretPos True
 	End Sub
 	
 	Sub EditControl.Outdent
-		UpdateLock
-		Dim n As Integer
-		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-		Changing("Ortga surish")
-		For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
-			FECLine = Content.Lines.Items[i]
-			n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
-			n = Min(n, TabWidth - (n Mod TabWidth))
-			If n = 0 AndAlso .Left(*FECLine->Text, 1) = !"\t" Then n = 1
-			WLet(FECLine->Text, Mid(*FECLine->Text, n + 1))
-			If i = FSelEndLine And FSelEndChar <> 0 Then FSelEndChar -= n
-			If i = FSelStartLine And FSelStartChar <> 0 Then FSelStartChar -= n
-			FECLine->Ends.Clear
-			FECLine->EndsCompleted = False
-		Next i
-		Changed("Ortga surish")
-		UpdateUnLock
+		If Carets.Count > 0 Then
+			Dim te As TypeElement Ptr
+			CurrentCaret -= 1
+			Var Idx = Carets.IndexOf(CurrentCaret)
+			If Idx > -1 Then
+				te = Carets.Object(Idx)
+				SetSelection te->StartLine, te->EndLine, te->StartChar, te->EndChar
+			Else
+				ClearCarets
+				PaintControl True
+			End If
+		Else
+			UpdateLock
+			Dim n As Integer
+			Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			Changing("Ortga surish")
+			For i As Integer = iSelStartLine To iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+				FECLine = Content.Lines.Items[i]
+				n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
+				n = Min(n, TabWidth - (n Mod TabWidth))
+				If n = 0 AndAlso .Left(*FECLine->Text, 1) = !"\t" Then n = 1
+				WLet(FECLine->Text, Mid(*FECLine->Text, n + 1))
+				If i = FSelEndLine And FSelEndChar <> 0 Then FSelEndChar -= n
+				If i = FSelStartLine And FSelStartChar <> 0 Then FSelStartChar -= n
+				FECLine->Ends.Clear
+				FECLine->EndsCompleted = False
+			Next i
+			Changed("Ortga surish")
+			UpdateUnLock
+		End If
 		ShowCaretPos True
 	End Sub
 	
@@ -4506,6 +4642,39 @@ Namespace My.Sys.Forms
 							'TextOut(bufDC, LeftMargin + -HScrollPos * dwCharX + IIF(iStart = 0, 0, Sz.cx), (i - VScrollPos - 1) * dwCharY, h, Len(*h))
 						End If
 					End If
+					If Carets.Count > 0 Then
+						For pp As Integer = 0 To Carets.Count - 1
+							te = Carets.Object(pp)
+							If z >= te->StartLine And z <= te->EndLine Then
+								iPPos = 0
+								Var iStart = IIf(te->StartLine = z, te->StartChar, 0), iEnd = IIf(te->EndLine = z, te->EndChar, Len(*s))
+								WLet(FLineLeft, GetTabbedText(..Left(*s, iStart), iPPos))
+								WLet(FLineRight, GetTabbedText(Mid(*s, iStart + 1, iEnd - iStart) & IIf(z <> te->EndLine, " ", ""), iPPos))
+								#ifdef __USE_GTK__
+									Dim As PangoRectangle extend, extend2
+									extend.width = TextWidth(*FLineLeft)
+									pango_layout_set_text(layout, ToUtf8(*FLineRight), Len(ToUtf8(*FLineRight)))
+									pango_cairo_update_layout(cr, layout)
+									#ifdef pango_version
+										Dim As PangoLayoutLine Ptr pl = pango_layout_get_line_readonly(layout, 0)
+									#else
+										Dim As PangoLayoutLine Ptr pl = pango_layout_get_line(layout, 0)
+									#endif
+									pango_layout_line_get_pixel_extents(pl, NULL, @extend2)
+									cairo_set_source_rgb(cr, FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue)
+									.cairo_rectangle (cr, LeftMargin - IIf(bDividedX AndAlso zz = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + extend.width + IIf(bDividedX AndAlso zz = 1, iDividedX + 7, 0), (i - IIf(zz = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso zz = 1, iDividedY + 7, 0), extend2.width, dwCharY)
+									cairo_stroke(cr)
+								#else
+									GetTextExtentPoint32(bufDC, FLineLeft, Len(*FLineLeft), @sz)
+									Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso zz = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso zz = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, sz.cx)
+									Var y = ScaleY((i - IIf(zz = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso zz = 1, iDividedY + 7, 0))
+									Dim As ..Rect rec = Type(x, y, x + dwCharX * Len(*FLineRight), y + dwCharY)
+									This.Canvas.Brush.Color = FoldLines.Foreground
+									FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								#endif
+							End If
+						Next
+					End If
 					If HighlightBrackets Then
 						If z = BracketsStartLine AndAlso BracketsStart > -1 Then
 							Dim As ..Rect rec = Type(ScaleX(LeftMargin + -HScrollPos * dwCharX + Len(GetTabbedText(..Left(*s, BracketsStart))) * (dwCharX) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 1 + CodePaneY), ScaleX(LeftMargin + -HScrollPos * dwCharX + Len(GetTabbedText(..Left(*s, BracketsStart))) * (dwCharX) + dwCharX + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY))
@@ -5226,6 +5395,7 @@ Namespace My.Sys.Forms
 				SetWindowTheme(sbScrollBarhLeft, NULL, NULL)
 				SetWindowTheme(sbScrollBarhRight, NULL, NULL)
 			End If
+			cboIntellisense.SetDark Value
 			'SendMessage FHandle, WM_THEMECHANGED, 0, 0
 		End Sub
 	#endif
@@ -6293,30 +6463,39 @@ Namespace My.Sys.Forms
 				Bookmark
 				#ifdef __USE_GTK__
 				Case GDK_KEY_Tab
-					If DropDownShowed Then
-						CloseDropDown()
-						#ifdef __USE_GTK__
-							If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
-						#else
-							If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(cboIntellisense, LastItemIndex)
-						#endif
-					End If
-					'If TabAsSpaces Then
-					'                                Var d = 4 - (FSelEndChar Mod 4)
-					'                                for i As Integer = 0 to d - 1
-					'                                    SendMessage(FHandle, WM_CHAR, 32, 0)
-					'                                Next i
-					'                                Return
-					'Else
-					bAddText = True
-					If FSelStartLine <> FSelEndLine Then
-						Indent
+					If Carets.Count > 0 Then
+						If DropDownShowed Then CloseDropDown()
+						If bShifted Then
+							Outdent
+						Else
+							Indent
+						End If
 					Else
-						#ifdef __USE_GTK__
-							ChangeText !"\t" '*e->Key.string
-						#else
-							ChangeText WChr(msg.wParam)
-						#endif
+						If DropDownShowed Then
+							CloseDropDown()
+							#ifdef __USE_GTK__
+								If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
+							#else
+								If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(cboIntellisense, LastItemIndex)
+							#endif
+						End If
+						'If TabAsSpaces Then
+						'                                Var d = 4 - (FSelEndChar Mod 4)
+						'                                for i As Integer = 0 to d - 1
+						'                                    SendMessage(FHandle, WM_CHAR, 32, 0)
+						'                                Next i
+						'                                Return
+						'Else
+						bAddText = True
+						If FSelStartLine <> FSelEndLine Then
+							Indent
+						Else
+							#ifdef __USE_GTK__
+								ChangeText !"\t" '*e->Key.string
+							#else
+								ChangeText WChr(msg.wParam)
+							#endif
+						End If
 					End If
 					'End If
 					msg.Result = True
@@ -6365,30 +6544,39 @@ Namespace My.Sys.Forms
 				#endif
 				msg.Result = 0
 			Case 9:  ' tab
-				If DropDownShowed Then
-					CloseDropDown()
-					#ifdef __USE_GTK__
-						If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
-					#else
-						If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(*cboIntellisense.Designer, cboIntellisense, LastItemIndex)
-					#endif
-				End If
-				'If TabAsSpaces Then
-				'                                Var d = 4 - (FSelEndChar Mod 4)
-				'                                for i As Integer = 0 to d - 1
-				'                                    SendMessage(FHandle, WM_CHAR, 32, 0)
-				'                                Next i
-				'                                Return
-				'Else
-				bAddText = True
-				If FSelStartLine <> FSelEndLine Then
-					Indent
+				If Carets.Count > 0 Then
+					If DropDownShowed Then CloseDropDown()
+					If bShifted Then
+						Outdent
+					Else
+						Indent
+					End If
 				Else
-					#ifdef __USE_GTK__
-						ChangeText *e->key.string
-					#else
-						ChangeText WChr(msg.wParam)
-					#endif
+					If DropDownShowed Then
+						CloseDropDown()
+						#ifdef __USE_GTK__
+							If LastItemIndex <> -1 AndAlso lvIntellisense.OnItemActivate Then lvIntellisense.OnItemActivate(*lvIntellisense.Designer, lvIntellisense, LastItemIndex)
+						#else
+							If LastItemIndex <> -1 AndAlso cboIntellisense.OnSelected Then cboIntellisense.OnSelected(*cboIntellisense.Designer, cboIntellisense, LastItemIndex)
+						#endif
+					End If
+					'If TabAsSpaces Then
+					'                                Var d = 4 - (FSelEndChar Mod 4)
+					'                                for i As Integer = 0 to d - 1
+					'                                    SendMessage(FHandle, WM_CHAR, 32, 0)
+					'                                Next i
+					'                                Return
+					'Else
+					bAddText = True
+					If FSelStartLine <> FSelEndLine Then
+						Indent
+					Else
+						#ifdef __USE_GTK__
+							ChangeText *e->key.string
+						#else
+							ChangeText WChr(msg.wParam)
+						#endif
+					End If
 				End If
 				'End If
 				msg.Result = True
@@ -6873,6 +7061,7 @@ Namespace My.Sys.Forms
 			ShowCaretPos False
 		Case Else
 		End Select
+		LineIndex = FSelStartLine
 		Base.ProcessMessage(msg)
 	End Sub
 	
@@ -7270,6 +7459,7 @@ Namespace My.Sys.Forms
 		bOldCommented = True
 		ChangeText "", 0, "Bo`sh"
 		ShowHint = False
+		ModifiedLine = False
 		WithHistory = True
 		VScrollMaxTop = -1
 		VScrollMaxBottom = -1

@@ -142,6 +142,7 @@ Namespace My.Sys.Forms
 		E_Operator
 		E_Constructor
 		E_Destructor
+		E_Snippet
 	End Enum
 	
 	Type TypeElement
@@ -472,6 +473,9 @@ Namespace My.Sys.Forms
 		Declare Sub MiddleScroll
 	Public:
 		Content As EditControlContent
+		Carets As IntegerList
+		CurrentCaret As Integer
+		Declare Sub ClearCarets()
 		'FileLists As List
 		'FileListsLines As List
 		'Includes As WStringList
@@ -487,7 +491,8 @@ Namespace My.Sys.Forms
 		'FunctionsOthers As WStringOrStringList
 		'Args As WStringOrStringList
 		'LineLabels As WStringOrStringList
-		Dim As Boolean bInIncludeFileRect
+		Dim As Boolean bInIncludeFileRect, ModifiedLine
+		Dim As Integer LineIndex
 		Declare Function CharType(ByRef ch As WString) As Integer
 		#ifdef __USE_GTK__
 			Declare Static Function ActivateLink(Label As GtkLabel Ptr, uri As gchar Ptr, user_data As gpointer) As Boolean
@@ -615,7 +620,7 @@ Namespace My.Sys.Forms
 		Declare Sub ShowLine(Index As Integer)
 		Declare Sub GetSelection(ByRef iSelStartLine As Integer, ByRef iSelEndLine As Integer, ByRef iSelStartChar As Integer, ByRef iSelEndChar As Integer, iCurrProcedure As Boolean = False)
 		Declare Sub SetSelection(iSelStartLine As Integer, iSelEndLine As Integer, iSelStartChar As Integer, iSelEndChar As Integer)
-		Declare Sub ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1)
+		Declare Sub ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1, WithoutShow As Boolean = False)
 		Declare Sub Changing(ByRef Comment As WString = "")
 		Declare Sub Changed(ByRef Comment As WString = "")
 		Declare Sub ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "")

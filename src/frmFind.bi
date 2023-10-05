@@ -20,43 +20,36 @@ Using My.Sys.Forms
 
 '#Region "Form"
 	Type frmFind Extends Form
-		Declare Static Sub Form_Show_(ByRef Designer As My.Sys.Object, ByRef Sender As Form)
-		Declare Static Sub Form_Close_(ByRef Designer As My.Sys.Object, ByRef Sender As Control, ByRef Action As Integer)
-		Declare Static Sub Form_Create_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnFind_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnFindAll_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnFindPrev_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnReplace_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnReplaceAll_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnReplaceShow_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub btnCancel_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-		Declare Static Sub TrackBar1_Change_(ByRef Designer As My.Sys.Object, ByRef Sender As TrackBar, Position As Integer)
-		Declare Static Sub cboFindRange_Selected_(ByRef Designer As My.Sys.Object, ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
-		Declare Sub Form_Show(ByRef Sender As Form)
-		Declare Sub Form_Close(ByRef Sender As Control, ByRef Action As Integer)
-		Declare Sub btnFind_Click(ByRef Sender As Control)
+	Private:
+		Dim As Integer iStartLine, iStartChar, iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		Dim As WString * MAX_PATH FFileName
+	Public:
+		Declare Function Find(Down As Boolean, bNotShowResults As Boolean = False) As Integer
 		Declare Function FindAll(ByRef lvSearchResult As ListView Ptr, tTab As TabPage Ptr = tpFind, ByRef tSearch As WString = "", bNotShowResults As Boolean = False) As Integer
-		Declare Sub FindInProj(ByRef lvSearchResult As ListView Ptr, ByRef tSearch As WString="", ByRef tn As TreeNode Ptr)
-		Declare Sub ReplaceInProj(ByRef tSearch As WString="", ByRef tReplace As WString="", ByRef tn As TreeNode Ptr)
+		Declare Sub btnCancel_Click(ByRef Sender As Control)
+		Declare Sub btnFind_Click(ByRef Sender As Control)
+		Declare Sub btnFindAll_Click(ByRef Sender As Control)
 		Declare Sub btnFindPrev_Click(ByRef Sender As Control)
 		Declare Sub btnReplace_Click(ByRef Sender As Control)
 		Declare Sub btnReplaceAll_Click(ByRef Sender As Control)
 		Declare Sub btnReplaceShow_Click(ByRef Sender As Control)
-		Declare Sub btnCancel_Click(ByRef Sender As Control)
-		Declare Function Find(Down As Boolean, bNotShowResults As Boolean = False) As Integer
-		Declare Sub TrackBar1_Change(ByRef Sender As TrackBar, Position As Integer)
-		Declare Sub btnFindAll_Click(ByRef Sender As Control)
-		Declare Sub Form_Create(ByRef Sender As Control)
 		Declare Sub cboFindRange_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
+		Declare Sub chkBox_Click(ByRef Sender As CheckBox)
+		Declare Sub FindInProj(ByRef lvSearchResult As ListView Ptr, ByRef tSearch As WString="", ByRef tn As TreeNode Ptr)
+		Declare Sub Form_Close(ByRef Sender As Form, ByRef Action As Integer)
+		Declare Sub Form_Create(ByRef Sender As Control)
+		Declare Sub Form_Show(ByRef Sender As Form)
+		Declare Sub ReplaceInProj(ByRef tSearch As WString="", ByRef tReplace As WString="", ByRef tn As TreeNode Ptr)
+		Declare Sub TrackBar1_Change(ByRef Sender As TrackBar, Position As Integer)
 		Declare Constructor
 		Declare Destructor
-
+		
 		Dim As CheckBox chkMatchCase, chkMatchWholeWords, chkUsePatternMatching
 		Dim As Label lblFind, lblTrack, lblReplace
 		Dim As ComboBoxEdit txtFind, txtReplace, cboFindRange
 		Dim As CommandButton btnCancel, btnFind, btnFindPrev, btnReplaceAll, btnReplace, btnReplaceShow, btnFindAll
 		Dim As TrackBar TrackBar1
-		Dim As Integer ActionReplace
+		As Boolean mFormFind = True
 	End Type
 	Common Shared As frmFind Ptr pfFind
 '#End Region
@@ -66,4 +59,4 @@ Declare Sub ReplaceSubProj(Param As Any Ptr)
 #ifndef __USE_MAKE__
 	#include once "frmFind.frm"
 #endif
- 
+

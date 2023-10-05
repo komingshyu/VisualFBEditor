@@ -596,7 +596,6 @@ Sub OnChangeEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	Var tb = Cast(TabWindow Ptr, Sender.Tag)
 	If tb = 0 Then Exit Sub
 	tb->Modified = True
-	WLet(gSearchSave, "")
 	TextChanged = True
 	'    'Exit Sub
 	'    With tb->txtCode
@@ -1140,7 +1139,9 @@ Function CloseTab(ByRef tb As TabWindow Ptr, WithoutMessage As Boolean = False) 
 		ChangeMenuItemsEnabled
 		If pfMenuEditor->tb = tb Then pfMenuEditor->CloseForm
 		If pfImageListEditor->tb = tb Then pfImageListEditor->CloseForm
-		_Delete(tb)
+		#ifndef __USE_GTK__
+			_Delete(tb)
+		#endif
 		TabWindowRemovedCheck(pParentTabCode)
 		Return True
 	Else
@@ -3497,61 +3498,89 @@ End Sub
 
 #ifdef __USE_GTK__
 	Sub lvIntellisense_ItemActivate(ByRef Designer As My.Sys.Object, ByRef Sender As ListView, ByVal ItemIndex As Integer)
-		Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-		If tb = 0 Then Exit Sub
-		Dim sLine As WString Ptr = @tb->txtCode.Lines(SelLinePos)
-		'    Dim sTempRight As WString Ptr
-		'    WLet sTempRight, Mid(*sLine, SelCharPos + 1, i - SelCharPos)
-		'    ?"""" & *sTempRight & """"
-		Dim i As Integer
-		Dim As String Symbol
-		With tb->txtCode.lvIntellisense
-			If tb->txtCode.FileDropDown Then
-				Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-				tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-				i = iSelEndChar
-				If .ListItems.Item(ItemIndex)->ImageKey <> "Folder" Then Symbol = """"
-			Else
-				i = GetNextCharIndex(*sLine, SelCharPos)
-			End If
-			'        If CInt(*sTempRight = "") OrElse CInt(Not StartsWith(LCase(.Items.Item(.ItemIndex)->Text), LCase(*sTempRight))) Then
-			'        Else
-			If .ListItems.Item(ItemIndex) Then
-				tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .ListItems.Item(ItemIndex)->Text(0) & Symbol & Mid(*sLine, i + 1)
-				i = SelCharPos + Len(.ListItems.Item(ItemIndex)->Text(0) & Symbol)
-				tb->txtCode.SetSelection SelLinePos, SelLinePos, i, i
-			End If
-			tb->txtCode.SetFocus
-			#ifdef __USE_GTK__
-				tb->txtCode.CloseDropDown
-			#endif
-			'        End If
-		End With
-	End Sub
 #else
 	Sub cboIntellisense_Selected(ByRef Designer As My.Sys.Object, ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 		If ItemIndex < 0 OrElse ItemIndex > Cast(ComboBoxEx Ptr, @Sender)->Items.Count - 1 Then Exit Sub
-		Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-		If tb = 0 Then Exit Sub
-		Dim sLine As WString Ptr = @tb->txtCode.Lines(SelLinePos)
-		Dim i As Integer
-		Dim As String Symbol
-		With tb->txtCode.cboIntellisense
-			If tb->txtCode.FileDropDown Then
-				Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-				tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-				i = iSelEndChar
-				If .Items.Item(ItemIndex)->ImageKey <> "Folder" Then Symbol = """"
-			Else
-				i = GetNextCharIndex(*sLine, SelCharPos)
-			End If
-			tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .Items.Item(ItemIndex)->Text & Symbol & Mid(*sLine, i + 1)
-			i = SelCharPos + Len(.Items.Item(ItemIndex)->Text & Symbol)
-			tb->txtCode.SetSelection SelLinePos, SelLinePos, i, i
-			tb->txtCode.SetFocus
-		End With
-	End Sub
 #endif
+	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 Then Exit Sub
+	Dim sLine As WString Ptr = @tb->txtCode.Lines(SelLinePos)
+	Dim As Integer i, Pos1, Pos2, Pos3, xStartPlus, xEndPlus, yStartPlus, yEndPlus
+	Dim As String Symbol
+	Dim As TypeElement Ptr te, teParam, teParamNew
+	#ifdef __USE_GTK__
+	With tb->txtCode.lvIntellisense
+	#else
+	With tb->txtCode.cboIntellisense
+	#endif
+		If tb->txtCode.FileDropDown Then
+			Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			i = iSelEndChar
+			#ifdef __USE_GTK__
+			If .ListItems.Item(ItemIndex)->ImageKey <> "Folder" Then Symbol = """"
+			#else
+			If .Items.Item(ItemIndex)->ImageKey <> "Folder" Then Symbol = """"
+			#endif
+		Else
+			i = GetNextCharIndex(*sLine, SelCharPos)
+		End If
+		#ifdef __USE_GTK__
+		If .ListItems.Item(ItemIndex) Then
+			te = .ListItems.Item(ItemIndex)->Tag
+		#else
+		If .Items.Item(ItemIndex) Then
+			te = .ItemData(ItemIndex)
+		#endif
+			If te <> 0 AndAlso te->ElementType = E_Snippet Then
+				tb->txtCode.ClearCarets
+				Dim As UString Parameters = te->Parameters
+				Var n = Len(*sLine) - Len(LTrim(*sLine, Any !"\t "))
+				Parameters = Replace(Parameters, !"\r", !"\r" & Left(*sLine, n))
+				If te->Elements.Count > 0 AndAlso te->Elements.Object(0) > 0 Then
+					teParam = te->Elements.Object(0)
+					xStartPlus = teParam->StartChar
+					xEndPlus = teParam->EndChar
+					yStartPlus = teParam->StartLine
+					yEndPlus = teParam->EndLine
+				Else
+					Pos2 = InStrRev(Parameters, !"\r")
+					xStartPlus = Len(Parameters) - Pos2
+					xEndPlus = xStartPlus
+					yStartPlus = InStrCount(Parameters, !"\r")
+					yEndPlus = yStartPlus
+				End If
+				For j As Integer = 0 To te->Elements.Count - 1
+					teParam = te->Elements.Object(j)
+					teParamNew = New TypeElement
+					teParamNew->Name = teParam->Name
+					teParamNew->DisplayName = teParam->DisplayName
+					teParamNew->StartChar = teParam->StartChar + n
+					teParamNew->StartLine = teParam->StartLine + SelLinePos
+					teParamNew->EndChar = teParam->EndChar + n
+					teParamNew->EndLine = teParam->EndLine + SelLinePos
+					tb->txtCode.Carets.Add Val(teParam->Name), teParamNew
+				Next
+				tb->txtCode.CurrentCaret = 1
+				tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & Parameters & Symbol & Mid(*sLine, i + 1)
+				tb->txtCode.SetSelection SelLinePos + yStartPlus, SelLinePos + yEndPlus, n + xStartPlus, n + xEndPlus
+			Else
+				#ifdef __USE_GTK__
+					tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .ListItems.Item(ItemIndex)->Text(0) & Symbol & Mid(*sLine, i + 1)
+					i = SelCharPos + Len(.ListItems.Item(ItemIndex)->Text(0) & Symbol)
+				#else
+					tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .Items.Item(ItemIndex)->Text & Symbol & Mid(*sLine, i + 1)
+					i = SelCharPos + Len(.Items.Item(ItemIndex)->Text & Symbol)
+				#endif
+				tb->txtCode.SetSelection SelLinePos, SelLinePos, i, i
+			End If
+		End If
+		tb->txtCode.SetFocus
+		#ifdef __USE_GTK__
+			tb->txtCode.CloseDropDown
+		#endif
+	End With
+End Sub
 
 Declare Sub tabCode_SelChange(ByRef Designer As My.Sys.Object, ByRef Sender As TabControl, newIndex As Integer)
 
@@ -3748,6 +3777,9 @@ Sub FillAllIntellisenses(ByRef Starts As WString = "")
 		For i As Integer = 0 To keywordlist->Count - 1
 			If Not AddSorted(tb, GetKeyWordCase(keywordlist->Item(i)), , Starts) Then Exit Sub
 		Next
+	Next
+	For i As Integer = 0 To Snippets.Count - 1
+		If Not AddSorted(tb, Snippets.Item(i), Snippets.Object(i), Starts, c) Then Exit Sub
 	Next
 	'	For i As Integer = 0 To pKeyWords0->Count - 1
 	'		If Not AddSorted(tb, GetKeyWordCase(pKeyWords0->Item(i)), , Starts) Then Exit Sub
@@ -4241,7 +4273,8 @@ Sub FillIntellisenseByName(Value As String, TypeName As String, Starts As String
 			If Not AddSorted(tb, FListItems.Item(i), te, Starts) Then Exit Sub
 		Else
 			#ifdef __USE_GTK__
-				tb->txtCode.lvIntellisense.ListItems.Add FListItems.Item(i), imgKey
+				Var lvItem = tb->txtCode.lvIntellisense.ListItems.Add(FListItems.Item(i), imgKey)
+				lvItem->Tag = te
 			#else
 				tb->txtCode.cboIntellisense.Items.Add FListItems.Item(i), te, imgKey, imgKey
 			#endif
@@ -5499,7 +5532,7 @@ Sub OnKeyPressEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, Key
 		tb->txtCode.FileDropDown = False
 		SetParametersFromDropDown
 		tb->txtCode.ShowDropDownAt SelLinePos, SelCharPos
-	ElseIf CInt(Key = Asc(" ")) OrElse CInt(Key = Asc("(")) OrElse CInt(Key = Asc(",")) OrElse CInt(Key = Asc("?")) OrElse CInt(Key = 5) AndAlso CInt(Not tb->txtCode.DropDownShowed) Then
+	ElseIf CInt(Key = Asc(" ")) OrElse CInt(Key = Asc(!"\t")) OrElse CInt(Key = Asc("(")) OrElse CInt(Key = Asc(",")) OrElse CInt(Key = Asc("?")) OrElse CInt(Key = 5) AndAlso CInt(Not tb->txtCode.DropDownShowed) Then
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar, k
 		tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Dim sLine As WString Ptr = @tb->txtCode.Lines(iSelEndLine)
@@ -5515,7 +5548,7 @@ Sub OnKeyPressEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, Key
 			posL = InStrRev(*sLine, """", k) : posR = InStr(k, *sLine, """")
 			If Not (posL  > 0 AndAlso (posL < k AndAlso posR > k)) Then Exit Sub
 		End If
-		If CInt(Key = Asc(" ")) AndAlso (CInt(EndsWith(RTrim(LCase(..Left(*sLine, iSelEndChar))), " as")) OrElse _
+		If CInt(Key = Asc(" ") OrElse Key = Asc(!"\t")) AndAlso (CInt(EndsWith(RTrim(LCase(..Left(*sLine, iSelEndChar))), " as")) OrElse _
 			CInt(EndsWith(RTrim(LCase(..Left(*sLine, iSelEndChar))), !"\tas"))OrElse _
 			CInt(RTrim(LCase(..Left(*sLine, iSelEndChar))) = "as")) Then
 			FillTypeIntellisenses
