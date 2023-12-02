@@ -13,10 +13,47 @@
 	#define _NOT_AUTORUN_FORMS_
 #endif
 
+#if defined(__USE_WINAPI__) OrElse defined(__FB_WIN32__) AndAlso Not defined(__USE_GTK__)
+	#ifdef __FB_64BIT__
+		#cmdline "-x ../VisualFBEditor64.exe"
+	#else
+		#cmdline "-x ../VisualFBEditor32.exe"
+	#endif
+#elseif defined(__USE_GTK__) AndAlso defined(__FB_WIN32__)
+	#ifdef __FB_64BIT__
+		#ifdef __USE_GTK3__
+			#cmdline "-x ../VisualFBEditor64_gtk3.exe"
+		#else
+			#cmdline "-x ../VisualFBEditor64_gtk2.exe"
+		#endif
+	#else
+		#ifdef __USE_GTK3__
+			#cmdline "-x ../VisualFBEditor32_gtk3.exe"
+		#else
+			#cmdline "-x ../VisualFBEditor32_gtk2.exe"
+		#endif
+	#endif
+#else
+	#ifdef __FB_64BIT__
+		#ifdef __USE_GTK3__
+			#cmdline "-x ../VisualFBEditor64_gtk3"
+		#else
+			#cmdline "-x ../VisualFBEditor64_gtk2"
+		#endif
+	#else
+		#ifdef __USE_GTK3__
+			#cmdline "-x ../VisualFBEditor32_gtk3"
+		#else
+			#cmdline "-x ../VisualFBEditor32_gtk2"
+		#endif
+	#endif
+#endif
+
 #define APP_TITLE "Visual FB Editor"
 #define VER_MAJOR "1"
 #define VER_MINOR "3"
-#define VER_PATCH "5"
+#define VER_PATCH "6"
+#define VER_BUILD "0"
 Const VERSION    = VER_MAJOR + "." + VER_MINOR + "." + VER_PATCH
 Const BUILD_DATE = __DATE__
 Const SIGN       = APP_TITLE + " " + VERSION
@@ -408,7 +445,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			#endif
 		Else
 			'#ifndef __USE_GTK__
-				If prun AndAlso kill_process("Trying to launch but debuggee still running") = False Then
+				If prun AndAlso kill_process(ML("Trying to launch but debuggee still running")) = False Then
 					Exit Sub
 				End If
 				runtype = RTFRUN

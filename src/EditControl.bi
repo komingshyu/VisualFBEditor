@@ -148,7 +148,9 @@ Namespace My.Sys.Forms
 	Type TypeElement
 		Name As String
 		DisplayName As String
+		FullName As String
 		OwnerTypeName As String
+		OwnerNamespace As String
 		EnumTypeName As String
 		TypeName As String
 		InCondition As String
@@ -168,6 +170,7 @@ Namespace My.Sys.Forms
 		ControlType As Integer
 		Find As Boolean
 		Used As Boolean
+		CtlLibrary As Any Ptr
 		Tag As Any Ptr
 		Types As WStringOrStringList
 		Enums As WStringOrStringList
@@ -619,7 +622,7 @@ Namespace My.Sys.Forms
 		Declare Sub DuplicateLine(Index As Integer = -1)
 		Declare Sub ShowLine(Index As Integer)
 		Declare Sub GetSelection(ByRef iSelStartLine As Integer, ByRef iSelEndLine As Integer, ByRef iSelStartChar As Integer, ByRef iSelEndChar As Integer, iCurrProcedure As Boolean = False)
-		Declare Sub SetSelection(iSelStartLine As Integer, iSelEndLine As Integer, iSelStartChar As Integer, iSelEndChar As Integer)
+		Declare Sub SetSelection(iSelStartLine As Integer, iSelEndLine As Integer, iSelStartChar As Integer, iSelEndChar As Integer, WithoutShow As Boolean = False)
 		Declare Sub ChangeText(ByRef Value As WString, CharTo As Integer = 0, ByRef Comment As WString = "", SelStartLine As Integer = -1, SelStartChar As Integer = -1, WithoutShow As Boolean = False)
 		Declare Sub Changing(ByRef Comment As WString = "")
 		Declare Sub Changed(ByRef Comment As WString = "")

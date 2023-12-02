@@ -5,6 +5,10 @@
 '#           Liu XiaLin (LiuZiQi.HK@hotmail.com)         #
 '#########################################################
 
+#ifdef __FB_WIN32__
+	#define UNICODE
+	#include once "windows.bi"
+#endif
 #include once "mff/WStringList.bi"
 #include once "mff/Dictionary.bi"
 #include once "mff/Form.bi"
@@ -25,7 +29,7 @@
 	#include once "mff/Printer.bi"
 #endif
 
-#ifdef __FB_WIN32__
+#ifndef __USE_GTK__
 	#ifdef __FB_64BIT__
 		#define SettingsPath ExePath & "/Settings/VisualFBEditor64.ini"
 	#else
@@ -33,16 +37,32 @@
 	#endif
 #else
 	#ifdef __USE_GTK3__
-		#ifdef __FB_64BIT__
-			#define SettingsPath ExePath & "/Settings/VisualFBEditorX64_gtk3.ini"
+		#ifdef __FB_WIN32__
+			#ifdef __FB_64BIT__
+				#define SettingsPath ExePath & "/Settings/VisualFBEditor64_gtk3.ini"
+			#else
+				#define SettingsPath ExePath & "/Settings/VisualFBEditor32_gtk3.ini"
+			#endif
 		#else
-			#define SettingsPath ExePath & "/Settings/VisualFBEditorX32_gtk3.ini"
+			#ifdef __FB_64BIT__
+				#define SettingsPath ExePath & "/Settings/VisualFBEditorX64_gtk3.ini"
+			#else
+				#define SettingsPath ExePath & "/Settings/VisualFBEditorX32_gtk3.ini"
+			#endif
 		#endif
 	#else
-		#ifdef __FB_64BIT__
-			#define SettingsPath ExePath & "/Settings/VisualFBEditorX64_gtk2.ini"
+		#ifdef __FB_WIN32__
+			#ifdef __FB_64BIT_
+				#define SettingsPath ExePath & "/Settings/VisualFBEditor64_gtk2.ini"
+			#else
+				#define SettingsPath ExePath & "/Settings/VisualFBEditor32_gtk2.ini"
+			#endif
 		#else
-			#define SettingsPath ExePath & "/Settings/VisualFBEditorX32_gtk2.ini"
+			#ifdef __FB_64BIT__
+				#define SettingsPath ExePath & "/Settings/VisualFBEditorX64_gtk2.ini"
+			#else
+				#define SettingsPath ExePath & "/Settings/VisualFBEditorX32_gtk2.ini"
+			#endif
 		#endif
 	#endif
 #endif
@@ -77,9 +97,9 @@ Namespace VisualFBEditor
 	End Type
 End Namespace
 
-#if defined(__FB_WIN32__) AndAlso defined(__USE_GTK__)
-	#define MAX_PATH 260
-#endif
+'#if defined(__FB_WIN32__) AndAlso defined(__USE_GTK__)
+'	#define MAX_PATH 260
+'#endif
 
 Type HelpOptions
 	CurrentPath As WString * MAX_PATH
@@ -88,6 +108,7 @@ End Type
 Common Shared As HelpOptions HelpOption
 
 Declare Function ML(ByRef msg As WString) ByRef As WString
+Declare Function MS cdecl(ByRef V As WString, ...) As UString
 Declare Function HK(Key As String, Default As String = "", WithSpace As Boolean = False) As String
 Declare Function MP(ByRef V As WString) ByRef As WString
 Declare Function MLCompilerFun(ByRef V As WString) ByRef As WString
@@ -166,6 +187,11 @@ Type Library
 	HeadersFolder As UString
 	SourcesFolder As UString
 	IncludeFolder As UString
+	Lib32Folder As UString
+	Lib64Folder As UString
+	Lib64ArmFolder As UString
+	LibX32Folder As UString
+	LibX64Folder As UString
 	Enabled As Boolean
 	Handle As Any Ptr
 End Type
@@ -248,12 +274,12 @@ Declare Sub ChangeEnabledDebug(bStart As Boolean, bBreak As Boolean, bEnd As Boo
 Declare Sub ChangeUseDebugger(bUseDebugger As Boolean, ChangeObject As Integer = -1)
 Declare Sub ChangeFileEncoding(FileEncoding As FileEncodings)
 Declare Sub ChangeNewLineType(NewLineType As NewLineTypes)
-#ifdef __USE_GTK__
+#ifdef __FB_WIN32__
+	Common Shared As UINT_PTR CurrentTimer, CurrentTimerData
+	Declare Sub TimerProc(hwnd As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
+#else
 	Common Shared As Long CurrentTimer, CurrentTimerData
 	Declare Sub TimerProc()
-#else
-	Common Shared As UINT_PTR CurrentTimer, CurrentTimerData
-	Declare Sub TimerProc(hwnd As hwnd, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
 #endif
 Declare Function WithoutPointers(ByRef e As String) As String
 Declare Function WithoutQuotes(ByRef e As UString) As UString
@@ -313,7 +339,7 @@ Dim Shared symbols(0 To 15) As UByte
 Const plus  As UByte = 43
 Const minus As UByte = 45
 Const dot   As UByte = 46
-Declare Function isNumeric(ByRef subject As Const WString, base_ As Integer = 10) As Boolean
+Declare Function IsNumeric(ByRef subject As Const WString, base_ As Integer = 10) As Boolean
 Declare Function utf16BeByte2wchars( ta() As UByte ) ByRef As WString
 
 #ifndef __USE_MAKE__

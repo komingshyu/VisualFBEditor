@@ -538,7 +538,7 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 				#else
 					tb->NewLineType = NewLineTypes.LinuxLF
 				#endif
-				tb->FileEncoding = FileEncodings.Utf8BOM
+				tb->FileEncoding = FileEncodings.Utf8
 			End If
 			ChangeFileEncoding tb->FileEncoding
 			ChangeNewLineType tb->NewLineType
@@ -897,6 +897,18 @@ Operator TabWindow.Cast As TabPage Ptr
 	Return Cast(TabPage Ptr, @This)
 End Operator
 
+Sub DeleteFromTypeElement(te As TypeElement Ptr)
+	If te->ElementType <> E_Enum Then
+		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			DeleteFromTypeElement(te->Elements.Object(j))
+		Next
+	End If
+	te->Types.Clear
+	te->Enums.Clear
+	te->Elements.Clear
+	_Delete(Cast(TypeElement Ptr, te))
+End Sub
+
 Sub RemoveGlobalTypeElements(ByRef FileName As WString)
 	Var FileIndex = IncludeFiles.IndexOf(FileName)
 	If FileIndex <> 0 Then
@@ -927,11 +939,12 @@ Sub RemoveGlobalTypeElements(ByRef FileName As WString)
 		For i As Integer = pGlobalTypes->Count - 1 To 0 Step -1
 			te = pGlobalTypes->Object(i)
 			If te->FileName = FileName Then
-				For j As Integer = te->Elements.Count - 1 To 0 Step -1
-					_Delete(Cast(TypeElement Ptr, te->Elements.Object(j)))
-				Next
-				te->Elements.Clear
-				_Delete(Cast(TypeElement Ptr, pGlobalTypes->Object(i)))
+				DeleteFromTypeElement(te)
+				'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+				'	_Delete(Cast(TypeElement Ptr, te->Elements.Object(j)))
+				'Next
+				'te->Elements.Clear
+				'_Delete(Cast(TypeElement Ptr, pGlobalTypes->Object(i)))
 				pGlobalTypes->Remove i
 			Else
 				For j As Integer = te->Elements.Count - 1 To 0 Step -1
@@ -1205,7 +1218,7 @@ Sub TabWindow.FillProperties(ByRef ClassName As WString)
 	If ClassName = "" Then Exit Sub
 	Dim As Integer i, iIndex
 	If pComps->Contains(ClassName, , , , iIndex) Then
-		tbi = pComps->Object(iIndex)
+		Dim As TypeElement Ptr te, tbi = pComps->Object(iIndex)
 		If tbi Then
 			i = 0
 			Do While i <= tbi->Elements.Count - 1
@@ -3566,13 +3579,17 @@ End Sub
 				tb->txtCode.SetSelection SelLinePos + yStartPlus, SelLinePos + yEndPlus, n + xStartPlus, n + xEndPlus
 			Else
 				#ifdef __USE_GTK__
-					tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .ListItems.Item(ItemIndex)->Text(0) & Symbol & Mid(*sLine, i + 1)
+					tb->txtCode.SetSelection SelLinePos, SelLinePos, SelCharPos, i, True
+					tb->txtCode.ChangeText .ListItems.Item(ItemIndex)->Text(0) & Symbol
+					'tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .ListItems.Item(ItemIndex)->Text(0) & Symbol & Mid(*sLine, i + 1)
 					i = SelCharPos + Len(.ListItems.Item(ItemIndex)->Text(0) & Symbol)
 				#else
-					tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .Items.Item(ItemIndex)->Text & Symbol & Mid(*sLine, i + 1)
+					tb->txtCode.SetSelection SelLinePos, SelLinePos, SelCharPos, i, True
+					tb->txtCode.ChangeText .Items.Item(ItemIndex)->Text & Symbol
+					'tb->txtCode.ReplaceLine SelLinePos, ..Left(*sLine, SelCharPos) & .Items.Item(ItemIndex)->Text & Symbol & Mid(*sLine, i + 1)
 					i = SelCharPos + Len(.Items.Item(ItemIndex)->Text & Symbol)
 				#endif
-				tb->txtCode.SetSelection SelLinePos, SelLinePos, i, i
+				'tb->txtCode.SetSelection SelLinePos, SelLinePos, i, i
 			End If
 		End If
 		tb->txtCode.SetFocus
@@ -7056,18 +7073,6 @@ Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As
 	End If
 End Sub
 
-Sub DeleteFromTypeElement(te As TypeElement Ptr)
-	If te->ElementType <> E_Enum Then
-		For j As Integer = te->Elements.Count - 1 To 0 Step -1
-			DeleteFromTypeElement(te->Elements.Object(j))
-		Next
-	End If
-	te->Types.Clear
-	te->Enums.Clear
-	te->Elements.Clear
-	_Delete(Cast(TypeElement Ptr, te))
-End Sub
-
 Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As ProjectElement Ptr, ByRef Content As EditControlContent)
 	Dim As TypeElement Ptr te, te1, tbi, func
 	Dim As ConstructionBlock Ptr cb
@@ -9994,7 +9999,7 @@ Sub pnlForm_Message(ByRef Designer As My.Sys.Object, ByRef Sender As Control, By
 			si.fMask  = SIF_RANGE Or SIF_PAGE
 			si.nMin   = 0
 			If dwClientX - iWidth < 0 Then
-				si.nMax   = iWidth - dwClientX
+				si.nMax   = ScaleX(iWidth - dwClientX)
 			Else
 				si.nMax   = 0
 			End If
@@ -10009,7 +10014,7 @@ Sub pnlForm_Message(ByRef Designer As My.Sys.Object, ByRef Sender As Control, By
 			si.fMask  = SIF_RANGE Or SIF_PAGE
 			si.nMin   = 0
 			If dwClientY - iHeight < 0 Then
-				si.nMax   = iHeight - dwClientY
+				si.nMax   = ScaleY(iHeight - dwClientY)
 			Else
 				si.nMax   = 0
 			End If
@@ -11527,6 +11532,73 @@ Sub Versioning(ByRef FileName As WString, ByRef sFirstLine As WString, ByRef Pro
 	'End If
 End Sub
 
+Function CheckCondition(ByRef sLine As WString, ForWindows As Boolean) As Boolean
+	If StartsWith(sLine, "not ") Then
+		Return Not CheckCondition(Mid(sLine, 5), ForWindows)
+	Else
+		Select Case sLine
+		Case "__fb_win32__", "defined(__fb_win32__)"
+			If ForWindows Then
+				Return True
+			Else
+				#ifdef __FB_WIN32__
+					Return True
+				#else
+					Return False
+				#endif
+			End If
+		Case "__fb_linux__", "defined(__fb_linux__)"
+			#ifdef __FB_LINUX__
+				Return True
+			#else
+				Return False
+			#endif
+		Case "__fb_main__", "defined(__fb_main__)"
+			Return True
+		Case "__fb_64bit__", "defined(__fb_64bit__)"
+			Return tbt64Bit->Checked
+		Case "__use_winapi__", "defined(__use_winapi__)"
+			Return InStr(LCase(UseDefine), "__use_winapi__") > 0
+		Case "__use_gtk2__", "defined(__use_gtk2__)"
+			Return InStr(LCase(UseDefine), "__use_gtk2__") > 0
+		Case "__use_gtk3__", "defined(__use_gtk3__)"
+			Return InStr(LCase(UseDefine), "__use_gtk3__") > 0
+		Case "__use_gtk4__", "defined(__use_gtk4__)"
+			Return InStr(LCase(UseDefine), "__use_gtk4__") > 0
+		Case "__use_gtk__", "defined(__use_gtk__)"
+			Return InStr(LCase(UseDefine), "__use_gtk__") > 0
+		Case Else
+			Return False
+		End Select
+	End If
+End Function
+
+Function CheckExpression(ByRef sLine As WString, ForWindows As Boolean) As Boolean
+	Dim As UString resultOrElse()
+	Split(sLine, " orelse ", resultOrElse())
+	Dim As Boolean bOrElse
+	For i As Integer = 0 To UBound(resultOrElse)
+		Dim As UString resultAndAlso()
+		Dim As UString item = Trim(resultOrElse(i))
+		Split(item, " andalso ", resultAndAlso())
+		Dim As Boolean bAndAlso
+		For j As Integer = 0 To UBound(resultAndAlso)
+			Dim As UString item = Trim(resultAndAlso(j))
+			If j = 0 Then
+				bAndAlso = CheckCondition(item, ForWindows)
+			Else
+				bAndAlso = bAndAlso AndAlso CheckCondition(item, ForWindows)
+			End If
+		Next
+		If i = 0 Then
+			bOrElse = bAndAlso
+		Else
+			bOrElse = bOrElse OrElse bAndAlso
+		End If
+	Next
+	Return bOrElse
+End Function
+
 Function GetFirstCompileLine(ByRef FileName As WString, ByRef Project As ProjectElement Ptr, CompileLine As UString, ForWindows As Boolean = False) As UString
 	Dim As Boolean Bit32 = tbt32Bit->Checked
 	Dim As UString Result
@@ -11597,8 +11669,9 @@ Function GetFirstCompileLine(ByRef FileName As WString, ByRef Project As Project
 	If FileOpenResult = 0 Then
 		Dim As WString * 1024 sLine
 		Dim As Integer i, n, l = 0
-		Dim As Boolean k(10)
+		Dim As Boolean k(10), kIfElseIf(10)
 		k(l) = True
+		kIfElseIf(l) = True
 		Do Until IIf(bFromTab, d = LinesCount, EOF(Fn))
 			If bFromTab Then
 				sLine = tb->txtCode.Lines(d)
@@ -11608,36 +11681,23 @@ Function GetFirstCompileLine(ByRef FileName As WString, ByRef Project As Project
 			End If
 			If StartsWith(LTrim(LCase(sLine), Any !"\t "), "'") AndAlso Not StartsWith(LTrim(LCase(sLine), Any !"\t "), "'#compile ") Then
 				Continue Do
-			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#ifdef __fb_win32__") OrElse StartsWith(LTrim(LCase(sLine), Any !"\t "), "#if defined(__fb_win32__) andalso defined(__fb_main__)") Then
+			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#if ") Then
 				l = l + 1
-				If ForWindows Then
-					k(l) = True
-				Else
-					#ifdef __FB_WIN32__
-						k(l) = True
-					#else
-						k(l) = False
-					#endif
-				End If
-			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#ifndef __fb_win32__") Then
+				k(l) = CheckExpression(Mid(LTrim(LCase(sLine), Any !"\t "), 5), ForWindows)
+				kIfElseIf(l) = k(l)
+			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#ifdef ") Then
 				l = l + 1
-				If ForWindows Then
-					k(l) = True
-				Else
-					#ifndef __FB_WIN32__
-						k(l) = True
-					#else
-						k(l) = False
-					#endif
-				End If
-			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#ifdef __fb_64bit__") Then
+				k(l) = CheckExpression(Mid(LTrim(LCase(sLine), Any !"\t "), 8), ForWindows)
+				kIfElseIf(l) = k(l)
+			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#ifndef ") Then
 				l = l + 1
-				k(l) = tbt64Bit->Checked
-			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#ifndef __fb_64bit__") Then
-				l = l + 1
-				k(l) = Not tbt64Bit->Checked
+				k(l) = Not CheckExpression(Mid(LTrim(LCase(sLine), Any !"\t "), 9), ForWindows)
+				kIfElseIf(l) = k(l)
+			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#elseif ") Then
+				k(l) = CheckExpression(Mid(LTrim(LCase(sLine), Any !"\t "), 9), ForWindows)
+				kIfElseIf(l) = kIfElseIf(l) OrElse k(l)
 			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#else") Then
-				k(l) = Not k(l)
+				k(l) = Not kIfElseIf(l)
 			ElseIf StartsWith(LTrim(LCase(sLine), Any !"\t "), "#endif") Then
 				l = l - 1
 				If l < 0 Then Exit Do
@@ -11978,7 +12038,7 @@ Sub RunPr(Debugger As String = "")
 		If Workdir Then _Deallocate( Workdir)
 		If CmdL Then _Deallocate(CmdL)
 	Else
-		WLet(ExeFileName, (GetExeFileName(MainFile, FirstLine & CompileLine)))
+		WLet(ExeFileName, (GetExeFileName(MainFile, CompileLine & " " & FirstLine)))
 		#ifdef __USE_GTK__
 			Dim As GPid pid = 0
 			'		Dim As GtkWidget Ptr win, vte
@@ -12216,14 +12276,14 @@ Sub TabWindow.AddSpaces(ByVal StartLine As Integer = -1, ByVal EndLine As Intege
 						CInt(c <> "<" OrElse LCase(Right(RTrim(..Left(*ecl->Text, i - 1)), 4)) <> "type") AndAlso _
 						CInt(c <> ">" OrElse InStr(..Left(LCase(*ecl->Text), i - 1), "type<") = 0) AndAlso _
 						CInt(c <> "-" OrElse InStr("([{,;:+-*/=<>eE", Right(RTrim(..Left(*ecl->Text, i - 1)), 1)) = 0 AndAlso LCase(Right(RTrim(..Left(*ecl->Text, i - 1)), 6)) <> "return" AndAlso LCase(Right(RTrim(..Left(*ecl->Text, i - 1)), 3)) <> " to" AndAlso LCase(Right(RTrim(..Left(*ecl->Text, i - 1)), 5)) <> " step") AndAlso _
-						CInt(Mid(*ecl->Text, i - 1, 2) <> "->") AndAlso CInt(CInt(c <> "*") OrElse CInt(isNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn)))) OrElse _
+						CInt(Mid(*ecl->Text, i - 1, 2) <> "->") AndAlso CInt(CInt(c <> "*") OrElse CInt(IsNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn)))) OrElse _
 						CInt(InStr(",:;=", c) > 0 AndAlso (c <> "=" OrElse cn <> ">") AndAlso cn <> "" AndAlso cn <> " " AndAlso cn <> !"\t") OrElse _
 						CInt(c = """" AndAlso IsArg(Asc(cn))) OrElse CInt(c = ")" AndAlso IsArg(Asc(cn))) Then
 						WLetEx ecl->Text, ..Left(*ecl->Text, i) & " " & Mid(*ecl->Text, i + 1), True
 					End If
 					If CInt(CInt(IsArg(Asc(cp)) OrElse InStr("{[("")]}", cp) > 0) AndAlso CInt(c <> """") AndAlso CInt(c <> "'") AndAlso CInt(c <> ",") AndAlso CInt(c <> ":") AndAlso _
 						CInt(c <> ";") AndAlso CInt(c <> "(") AndAlso CInt(c <> ")") AndAlso CInt(Mid(*ecl->Text, i, 2) <> "->") AndAlso _
-						CInt(CInt(c <> "*") OrElse CInt(isNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn)))) AndAlso _
+						CInt(CInt(c <> "*") OrElse CInt(IsNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn)))) AndAlso _
 						CInt(CInt(c <> ">") OrElse InStr(..Left(LCase(*ecl->Text), i - 1), "type<") = 0)) AndAlso _
 						CInt(CInt(c <> "-") OrElse CInt(cp <> " ") AndAlso CInt(cp <> !"\t") AndAlso CInt(IsArg(Asc(cn))) AndAlso CInt(c <> "'") AndAlso _
 						CInt(InStr("+-*/=", Right(RTrim(..Left(*ecl->Text, i - 1)), 1)) > 0) AndAlso _
@@ -12295,7 +12355,7 @@ Sub NumberingOn(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1, 
 			n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
 			If StartsWith(LTrim(*FECLine->Text), "?") Then
 				Var Pos1 = InStr(LTrim(*FECLine->Text), ":")
-				If isNumeric(Mid(..Left(LTrim(*FECLine->Text), Pos1 - 1), 2)) Then
+				If IsNumeric(Mid(..Left(LTrim(*FECLine->Text), Pos1 - 1), 2)) Then
 					WLet(FECLine->Text, Space(n) & Mid(LTrim(*FECLine->Text), Pos1 + 1))
 					bChanged = True
 				End If
@@ -12544,7 +12604,7 @@ Sub NumberingOff(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1,
 			n = Len(*FECLine->Text) - Len(LTrim(*FECLine->Text))
 			If StartsWith(LTrim(*FECLine->Text, Any !"\t "), "?") Then
 				Var Pos1 = InStr(LTrim(*FECLine->Text), ":")
-				If isNumeric(Mid(..Left(LTrim(*FECLine->Text), Pos1 - 1), 2)) Then
+				If IsNumeric(Mid(..Left(LTrim(*FECLine->Text), Pos1 - 1), 2)) Then
 					WLet(FECLine->Text, Space(n) & Mid(LTrim(*FECLine->Text), Pos1 + 1))
 					FECLine->Ends.Clear
 					FECLine->EndsCompleted = False

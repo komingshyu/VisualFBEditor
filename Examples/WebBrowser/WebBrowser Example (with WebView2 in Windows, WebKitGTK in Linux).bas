@@ -1,10 +1,19 @@
 ﻿#ifdef __FB_WIN32__
-	'#Compile -exx "WebBrowser Example.rc"
+	#ifdef __FB_64BIT__
+		#ifdef __FB_ARM__
+			#cmdline "-exx ""WebBrowser Example (with WebView2).rc"" -x ""Release/win-arm64/WebBrowser Example (with WebView2).exe"""
+		#else
+			#cmdline "-exx ""WebBrowser Example (with WebView2).rc"" -x ""Release/win-x64/WebBrowser Example (with WebView2).exe"""
+		#endif
+	#else
+		#cmdline "-exx ""WebBrowser Example (with WebView2).rc"" -x ""Release/win-x86/WebBrowser Example (with WebView2).exe"""
+	#endif
 #else
-	'#Compile -exx
+	#cmdline "-exx -x ""Release/linux/WebBrowser Example (with WebKitGTK)"""
 #endif
-#define __USE_GTK3__
 '#Region "Form"
+	#define __USE_WEBVIEW2__ ' for Windows
+	#define __USE_GTK3__ ' for Linux
 	#include once "mff/Form.bi"
 	#include once "mff/WebBrowser.bi"
 	#include once "mff/CommandButton.bi"
@@ -33,14 +42,14 @@
 			.Text = "Form1"
 			.Designer = @This
 			.DefaultButton = @cmdGo
-			.SetBounds 0, 0, 360, 290
+			.SetBounds 0, 0, 360, 450
 		End With
 		' WebBrowser1
 		With WebBrowser1
 			.Name = "WebBrowser1"
 			.Text = "about:blank"
 			.TabIndex = 0
-			.SetBounds 10, 40, 324, 201
+			.SetBounds 10, 40, 324, 361
 			.Anchor.Top = AnchorStyle.asAnchor
 			.Anchor.Right = AnchorStyle.asAnchor
 			.Anchor.Left = AnchorStyle.asAnchor
@@ -121,5 +130,10 @@ Private Sub Form1.cmdGo_Click_(ByRef Designer As My.Sys.Object, ByRef Sender As 
 	(*Cast(Form1 Ptr, Sender.Designer)).cmdGo_Click(Sender)
 End Sub
 Private Sub Form1.cmdGo_Click(ByRef Sender As Control)
+	#ifdef __USE_WEBVIEW2__
+		If InStr(txtAddress.Text, ":") = 0 Then
+			txtAddress.Text = "https://" & txtAddress.Text
+		End If
+	#endif
 	WebBrowser1.Navigate txtAddress.Text
 End Sub

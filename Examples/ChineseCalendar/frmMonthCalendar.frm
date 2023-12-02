@@ -6,7 +6,7 @@
 	#if defined(__FB_MAIN__) AndAlso Not defined(__MAIN_FILE__)
 		#define __MAIN_FILE__
 		#ifdef __FB_WIN32__
-			#cmdline "Form1.rc"
+			#cmdline "Clock.rc"
 		#endif
 		Const _MAIN_FILE_ = __FILE__
 	#endif
@@ -27,6 +27,7 @@
 		Declare Sub Panel2_Paint(ByRef Sender As Control, ByRef Canvas As My.Sys.Drawing.Canvas)
 		Declare Sub Panel2_MouseUp(ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
 		Declare Sub Form_Close(ByRef Sender As Form, ByRef Action As Integer)
+		Declare Sub Panel2_MouseMove(ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
 		Declare Constructor
 		
 		Dim As Panel Panel1, Panel2
@@ -38,11 +39,6 @@
 		' frmMonthCalendar
 		With This
 			.Name = "frmMonthCalendar"
-			#ifdef __USE_GTK__
-				This.Icon.LoadFromFile(ExePath & ".\month.ico")
-			#else
-				This.Icon.LoadFromResourceID(3)
-			#endif
 			#ifdef __FB_64BIT__
 				.Caption = "VFBE MonthCalendar 64"
 			#else
@@ -51,11 +47,11 @@
 			.Designer = @This
 			.OnCreate = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @Form_Create)
 			.Location = Type<My.Sys.Drawing.Point>(0, 0)
-			.StartPosition = FormStartPosition.DefaultLocation
 			.Size = Type<My.Sys.Drawing.Size>(330, 250)
 			.Opacity = 250
 			.OnClose = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Form, ByRef Action As Integer), @Form_Close)
-			.SetBounds 0, 0, 330, 250
+			.Icon = "3"
+			.SetBounds 0, 0, 330, 254
 		End With
 		' Panel1
 		With Panel1
@@ -128,10 +124,11 @@
 			.Align = DockStyle.alClient
 			.Location = Type<My.Sys.Drawing.Point>(0, 40)
 			.Size = Type<My.Sys.Drawing.Size>(334, 221)
-			.SetBounds 65180, 23, 314, 188
+			.SetBounds 0, 23, 314, 188
 			.Designer = @This
 			.OnPaint = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control, ByRef Canvas As My.Sys.Drawing.Canvas), @Panel2_Paint)
 			.OnMouseUp = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer), @Panel2_MouseUp)
+			.OnMouseMove = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer), @Panel2_MouseMove)
 			.Parent = @This
 		End With
 	End Constructor
@@ -162,15 +159,16 @@ Private Sub frmMonthCalendarType.Form_Create(ByRef Sender As Control)
 End Sub
 
 Private Sub frmMonthCalendarType.ComboBoxEdit1_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
-	Panel2_Paint Sender, Panel2.Canvas
+	Panel2.Repaint
+	'Panel2_Paint Sender, Panel2.Canvas
 End Sub
 
 Private Sub frmMonthCalendarType.CommandButton1_Click(ByRef Sender As Control)
 	ComboBoxEdit1.ItemIndex = Year(Now) - 2020
 	ComboBoxEdit2.ItemIndex = Month(Now) - 1
 	ComboBoxEdit3.ItemIndex = Day(Now) - 1
-	
-	Panel2_Paint Sender, Panel2.Canvas
+	Panel2.Repaint
+	'Panel2_Paint Sender, Panel2.Canvas
 End Sub
 
 Private Sub frmMonthCalendarType.Panel2_Paint(ByRef Sender As Control, ByRef Canvas As My.Sys.Drawing.Canvas)
@@ -181,8 +179,9 @@ Private Sub frmMonthCalendarType.Panel2_Paint(ByRef Sender As Control, ByRef Can
 		Caption = "VFBE MonthCalendar32 - " & Format(DateTime, "yyyy/mm/dd")
 	#endif
 	DMCalendar.DrawMonthCalendar(Canvas, DateTime)
-	frmDayCalendar.DCDate= DateTime
-	frmDayCalendar.Panel1_Paint Sender, frmDayCalendar.Panel1.Canvas
+	frmDayCalendar.DCDate = DateTime
+	frmDayCalendar.Panel1.Repaint
+	'frmDayCalendar.Panel1_Paint Sender, frmDayCalendar.Panel1.Canvas
 End Sub
 
 Private Sub frmMonthCalendarType.Panel2_MouseUp(ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
@@ -190,9 +189,16 @@ Private Sub frmMonthCalendarType.Panel2_MouseUp(ByRef Sender As Control, MouseBu
 	ComboBoxEdit1.ItemIndex = Year(DateTime) - 2020
 	ComboBoxEdit2.ItemIndex = Month(DateTime) - 1
 	ComboBoxEdit3.ItemIndex = Day(DateTime) - 1
-	Panel2_Paint Sender, Panel2.Canvas
+	Panel2.Repaint
+	'Panel2_Paint Sender, Panel2.Canvas
 End Sub
 
 Private Sub frmMonthCalendarType.Form_Close(ByRef Sender As Form, ByRef Action As Integer)
-	frmClock.mnuMonthCalendar.Checked = False 
+	frmClock.mnuMonthCalendar.Checked = False
+End Sub
+
+Private Sub frmMonthCalendarType.Panel2_MouseMove(ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
+	If MouseButton <> 0 Then Exit Sub
+	ReleaseCapture()
+	SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0)
 End Sub

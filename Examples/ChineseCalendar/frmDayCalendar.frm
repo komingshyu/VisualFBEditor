@@ -6,7 +6,7 @@
 	#if defined(__FB_MAIN__) AndAlso Not defined(__MAIN_FILE__)
 		#define __MAIN_FILE__
 		#ifdef __FB_WIN32__
-			#cmdline "Form1.rc"
+			#cmdline "Clock.rc"
 		#endif
 		Const _MAIN_FILE_ = __FILE__
 	#endif
@@ -21,6 +21,7 @@
 		
 		Declare Sub Panel1_Paint(ByRef Sender As Control, ByRef Canvas As My.Sys.Drawing.Canvas)
 		Declare Sub Form_Close(ByRef Sender As Form, ByRef Action As Integer)
+		Declare Sub Form_MouseMove(ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
 		Declare Constructor
 		
 		Dim As Panel Panel1
@@ -30,11 +31,6 @@
 		' frmDayCalendar
 		With This
 			.Name = "frmDayCalendar"
-			#ifdef __USE_GTK__
-				This.Icon.LoadFromFile(ExePath & ".\day.ico")
-			#else
-				This.Icon.LoadFromResourceID(2)
-			#endif
 			#ifdef __FB_64BIT__
 				.Caption = "VFBE DayCalendar64"
 			#else
@@ -42,8 +38,10 @@
 			#endif
 			.Designer = @This
 			.Size = Type<My.Sys.Drawing.Size>(330, 250)
-			.Opacity = 250
+			.Opacity = 254
 			.OnClose = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Form, ByRef Action As Integer), @Form_Close)
+			.Icon = "2"
+			.OnMouseMove = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer), @Form_MouseMove)
 			.SetBounds 0, 0, 330, 250
 		End With
 		' Panel1
@@ -54,7 +52,8 @@
 			.Align = DockStyle.alClient
 			.Location = Type<My.Sys.Drawing.Point>(0, 0)
 			.Size = Type<My.Sys.Drawing.Size>(334, 261)
-			.SetBounds 0, 0, 304, 211
+			.Enabled = False
+			.SetBounds 0, 0, 314, 211
 			.Designer = @This
 			.OnPaint = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control, ByRef Canvas As My.Sys.Drawing.Canvas), @Panel1_Paint)
 			.Parent = @This
@@ -83,4 +82,10 @@ End Sub
 
 Private Sub frmDayCalendarType.Form_Close(ByRef Sender As Form, ByRef Action As Integer)
 	frmClock.mnuDayCalendar.Checked = False 
+End Sub
+
+Private Sub frmDayCalendarType.Form_MouseMove(ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
+	If MouseButton <> 0 Then Exit Sub
+	ReleaseCapture()
+	SendMessage(Sender.Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0)
 End Sub
