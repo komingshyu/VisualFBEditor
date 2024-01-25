@@ -1694,13 +1694,15 @@ Function TabWindow.WriteObjProperty(ByRef Obj As Any Ptr, ByRef PropertyName As 
 						iIndex = cboClass.Items.IndexOf(Trim(*FLine3))
 						If iIndex <> -1 Then
 							PropertyCtrl = Cast(Any Ptr, cboClass.Items.Item(iIndex)->Object)
-							If Des <> 0 AndAlso st->WritePropertyFunc <> 0 Then
+							If Des <> 0 AndAlso PropertyCtrl <> 0 AndAlso st->WritePropertyFunc <> 0 Then
 								Var te = GetPropertyType(QWString(st->ReadPropertyFunc(Obj, "ClassName")), PropertyName)
 								If te <> 0 Then
 									Dim As String PropertyType = GetOriginalType(te->TypeName)
 									Dim As String PropertyCtrlType = QWString(st->ReadPropertyFunc(PropertyCtrl, "ClassName"))
 									If IsBase(PropertyCtrlType, PropertyType) Then
 										Result = st->WritePropertyFunc(Obj, PropertyName, PropertyCtrl)
+									ElseIf Cpnt = 0 Then
+										MsgBox "Unable set property " & PropertyName & " with type " & PropertyType & " to " & QWString(st->ReadPropertyFunc(PropertyCtrl, "Name")) & " with type " & PropertyCtrlType
 									Else
 										MsgBox "Unable set property " & PropertyName & " with type " & PropertyType & " of " & QWString(st->ReadPropertyFunc(Cpnt, "Name")) & " to " & QWString(st->ReadPropertyFunc(PropertyCtrl, "Name")) & " with type " & PropertyCtrlType
 									End If
@@ -3444,31 +3446,48 @@ Sub DesignerDblClickControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 	If st = 0 OrElse st->ReadPropertyFunc = 0 Then Exit Sub
 	Select Case QWString(st->ReadPropertyFunc(Ctrl, "ClassName"))
 	Case "MainMenu", "PopupMenu"
+		pfMenuEditor->UpdateLock
+		pfMenuEditor->ActiveCtrl = 0
+		pfMenuEditor->ActiveRect = 0
+		pfMenuEditor->ParentRect = 0
+		pfMenuEditor->picActive.Visible = False
 		pfMenuEditor->tb = tb
 		pfMenuEditor->Des = @Sender
 		pfMenuEditor->CurrentMenu = Ctrl
 		pfMenuEditor->CurrentToolBar = 0
 		pfMenuEditor->CurrentStatusBar = 0
-		pfMenuEditor->ParentRect = 0
 		pfMenuEditor->Caption = ML("Menu Editor") & ": " & QWString(st->ReadPropertyFunc(Ctrl, "Name"))
+		pfMenuEditor->UpdateUnLock
 		pfMenuEditor->Repaint
 		pfMenuEditor->Show *pfrmMain
 	Case "ToolBar"
+		pfMenuEditor->UpdateLock
+		pfMenuEditor->ActiveCtrl = 0
+		pfMenuEditor->ActiveRect = 0
+		pfMenuEditor->ParentRect = 0
+		pfMenuEditor->picActive.Visible = False
 		pfMenuEditor->tb = tb
 		pfMenuEditor->Des = @Sender
 		pfMenuEditor->CurrentMenu = 0
 		pfMenuEditor->CurrentToolBar = Ctrl
 		pfMenuEditor->CurrentStatusBar = 0
 		pfMenuEditor->Caption = ML("ToolBar Editor") & ": " & QWString(st->ReadPropertyFunc(Ctrl, "Name"))
+		pfMenuEditor->UpdateUnLock
 		pfMenuEditor->Repaint
 		pfMenuEditor->Show *pfrmMain
 	Case "StatusBar"
+		pfMenuEditor->UpdateLock
+		pfMenuEditor->ActiveCtrl = 0
+		pfMenuEditor->ActiveRect = 0
+		pfMenuEditor->ParentRect = 0
+		pfMenuEditor->picActive.Visible = False
 		pfMenuEditor->tb = tb
 		pfMenuEditor->Des = @Sender
 		pfMenuEditor->CurrentMenu = 0
 		pfMenuEditor->CurrentToolBar = 0
 		pfMenuEditor->CurrentStatusBar = Ctrl
 		pfMenuEditor->Caption = ML("StatusBar Editor") & ": " & QWString(st->ReadPropertyFunc(Ctrl, "Name"))
+		pfMenuEditor->UpdateUnLock
 		pfMenuEditor->Repaint
 		pfMenuEditor->Show *pfrmMain
 	Case "ImageList"
@@ -3479,7 +3498,11 @@ Sub DesignerDblClickControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 		pfImageListEditor->Show *pfrmMain
 	Case Else
 		If tb->cboFunction.Items.Count > 1 Then
-			FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnClick"
+			If QWString(st->ReadPropertyFunc(Ctrl, "ClassName")) = "TimerComponent" Then
+				FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnTimer"
+			Else
+				FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnClick"
+			End If
 			If tb->tbrTop.Buttons.Item("CodeAndForm")->Checked Then
 				tb->tbrTop.Buttons.Item("Code")->Checked = True
 				tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Code")

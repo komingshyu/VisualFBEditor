@@ -92,7 +92,7 @@ Dim Shared As ProgressBar prProgress
 Dim Shared As CommandButton btnPropertyValue
 Dim Shared As TextBox txtPropertyValue, txtLabelProperty, txtLabelEvent
 Dim Shared As ComboBoxEdit cboPropertyValue
-Dim Shared As PopupMenu mnuForm, mnuVars, mnuWatch, mnuExplorer, mnuTabs, mnuProcedures
+Dim Shared As PopupMenu mnuForm, mnuVars, mnuWatch, mnuExplorer, mnuTabs, mnuProcedures, mnuProblems
 Dim Shared As ImageList imgList, imgListD, imgListTools, imgListStates
 Dim Shared As TreeListView lvProperties, lvEvents, lvLocals, lvGlobals, lvThreads, lvWatches
 Dim Shared As ToolPalette tbToolBox
@@ -6236,6 +6236,9 @@ Sub LoadSettings
 	'gLocalKeyWords = iniSettings.ReadBool("Options", "KeyWordsLocal", False)
 	ProjectAutoSuggestions = False
 
+	If (*CurrentTheme = "Default Theme" AndAlso DarkMode) OrElse (*CurrentTheme = "Dark (Visual Studio)" AndAlso Not DarkMode) Then
+		*CurrentTheme = IIf(DarkMode, "Dark (Visual Studio)", "Default Theme")
+	End If
 	#ifdef __USE_WINAPI__
 		If DarkMode Then
 			txtLabelProperty.BackColor = GetSysColor(COLOR_WINDOW)
@@ -6976,6 +6979,9 @@ Sub CreateMenusAndToolBars
 	mnuWatch.Add("-")
 	mnuWatch.Add(ML("Show String"), "", "ShowStringWatch", @mClick)
 	mnuWatch.Add(ML("Show/Expand Variable"), "", "ShowExpandVariableWatch", @mClick)
+	
+	mnuProblems.Add(ML("Copy "), "", "ProblemsCopy", @mClick)
+	mnuProblems.Add(ML("Copy All"), "", "ProblemsCopyAll", @mClick)
 	
 	mnuProcedures.Add(ML("Locate procedure (source)"), "", "LocateProcedure", @mClick)
 	mnuProcedures.Add(ML("Toggle sort by module or by procedure"), "", "ToggleSort", @mClick)
@@ -8451,6 +8457,8 @@ Sub lvWatches_CellEdited(ByRef Designer As My.Sys.Object, ByRef Sender As TreeLi
 	End If
 End Sub
 
+lvProblems.ContextMenu = @mnuProblems
+
 lvWatches.Align = DockStyle.alClient
 lvWatches.ContextMenu = @mnuVars
 lvWatches.EditLabels = True
@@ -8585,7 +8593,7 @@ Sub tabCode_SelChange(ByRef Designer As My.Sys.Object, ByRef Sender As TabContro
 '	pLocalArgs = @tb->Args
 	If tb->tn Then tb->tn->SelectItem
 	For i As Integer = 3 To miWindow->Count - 1
-		miWindow->Item(i)->Checked = miWindow->Item(i) = tb->mi
+		If miWindow->Item(i) > 0 AndAlso tb->mi > 0 Then miWindow->Item(i)->Checked = miWindow->Item(i) = tb->mi
 	Next
 	If tbOld AndAlso tb = tbOld Then Exit Sub
 	If tbOld > 0 Then
@@ -8892,7 +8900,7 @@ lvSuggestions.Align = DockStyle.alClient
 lvSuggestions.Columns.Add ML("Content"), , 500, cfLeft
 lvSuggestions.Columns.Add ML("Line"), , 50, cfRight
 lvSuggestions.Columns.Add ML("Column"), , 50, cfRight
-lvSuggestions.Columns.Add ML("File"), , 500, cfLeft
+lvSuggestions.Columns.Add ML("File"), , 700, cfLeft
 lvSuggestions.Columns.Add ML("Project"), , 500, cfLeft
 lvSuggestions.OnItemActivate = @lvSuggestions_ItemActivate
 
@@ -9143,6 +9151,49 @@ pnlBottomPin.Width = tbLeft.Height
 pnlBottomPin.Parent = @pnlBottom
 
 'pnlBottom.Add ptabBottom
+
+#ifdef __USE_WINAPI__
+	Dim Shared As Integer iLine, iChar, CanvasHeight, CanvasWidth
+	Sub Document_PrintPage(ByRef Sender As PrintDocument, ByRef Canvas As My.Sys.Drawing.Canvas, ByRef HasMorePages As Boolean)
+		Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+		If tb = 0 Then Return
+		Canvas.Font = tb->txtCode.Font
+		If iLine = 0 AndAlso iChar = 0 Then
+			CanvasWidth = Sender.PrinterSettings.PrintableWidth
+			CanvasHeight = Sender.PrinterSettings.PrintableHeight
+		End If
+		Dim As Integer CharHeight = Canvas.TextHeight("P")
+		Dim As Integer CharWidth = Canvas.TextWidth("P")
+		Dim As Integer CharsCount = (CanvasWidth - PageSetupD.LeftMargin - PageSetupD.RightMargin) / CharWidth, LinesCount = 0, LineCharsCount, SpacePos
+		Dim As UString sLine, sLineToPrint
+		For i As Integer = iLine To tb->txtCode.LinesCount - 1
+			sLine = Replace(tb->txtCode.Lines(i), !"\t", Space(TabWidth))
+			LineCharsCount = Len(sLine)
+			Do
+				LinesCount += 1
+				If PageSetupD.TopMargin + PageSetupD.BottomMargin + LinesCount * CharHeight > CanvasHeight Then
+					iLine = i
+					HasMorePages = True
+					Exit Sub
+				End If
+				sLineToPrint = Mid(sLine, iChar + 1, CharsCount)
+				SpacePos = InStrRev(sLineToPrint, " ")
+				If LineCharsCount > iChar + CharsCount AndAlso SpacePos > 0 Then
+					sLineToPrint = Left(sLineToPrint, SpacePos) '& "_"
+					iChar += SpacePos
+				Else
+					iChar += CharsCount
+				End If
+				Canvas.TextOut PageSetupD.LeftMargin, PageSetupD.TopMargin + (LinesCount - 1) * CharHeight, sLineToPrint
+			Loop While LineCharsCount > iChar
+			iChar = 0
+		Next
+		'Canvas.Line 10, 10, 20, 20
+		iLine = 0
+	End Sub
+	
+	PrintPreviewD.Document->OnPrintPage = @Document_PrintPage
+#endif
 
 Sub frmMain_ActiveControlChanged(ByRef Designer As My.Sys.Object, ByRef sender As My.Sys.Object)
 	If frmMain.ActiveControl = 0 Then Exit Sub
@@ -9642,7 +9693,7 @@ Function IsNumeric(ByRef subject As Const WString, base_ As Integer = 10) As Boo
 		isValid = False
 		
 		For j As Integer = 0 To base_ - 1
-			If t[i] = Symbols(j) Then
+			If t[i] = symbols(j) Then
 				isValid = True
 				Exit For
 			End If
