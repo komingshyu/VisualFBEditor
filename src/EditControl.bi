@@ -77,22 +77,29 @@ Enum
 End Enum
 
 Type Construction
-	Name0 As String * 50
-	Name01 As String * 50
-	Name02 As String * 50
-	Name03 As String * 50
-	Name04 As String * 50
-	Name05 As String * 50
-	Name06 As String * 50
-	Name07 As String * 50
-	Name08 As String * 50
-	Name1 As String * 50
-	Name2 As String * 50
-	Name3 As String * 50
-	EndName As String * 50
-	Exception As String * 50
+	Name0 As ZString * 50
+	Name01 As ZString * 50
+	Name02 As ZString * 50
+	Name03 As ZString * 50
+	Name04 As ZString * 50
+	Name05 As ZString * 50
+	Name06 As ZString * 50
+	Name07 As ZString * 50
+	Name08 As ZString * 50
+	Name1 As ZString * 50
+	Name2 As ZString * 50
+	Name3 As ZString * 50
+	EndName As ZString * 50
+	Exception As ZString * 50
 	Collapsible As Boolean
 	Accessible As Boolean
+End Type
+
+Type ElementType
+	Name As ZString * 50
+	MLName As ZString * 50
+	IconName As ZString * 50
+	Colors As ECColorScheme Ptr
 End Type
 
 Namespace My.Sys.Forms
@@ -143,9 +150,16 @@ Namespace My.Sys.Forms
 		E_Constructor
 		E_Destructor
 		E_Snippet
+		E_Count
 	End Enum
 	
-	Type TypeElement
+	Type ExplorerElement Extends Object
+		FileName As WString Ptr
+		TemplateFileName As WString Ptr
+		Declare Destructor
+	End Type
+	
+	Type TypeElement Extends ExplorerElement
 		Name As String
 		DisplayName As String
 		FullName As String
@@ -171,10 +185,11 @@ Namespace My.Sys.Forms
 		Find As Boolean
 		Used As Boolean
 		CtlLibrary As Any Ptr
-		Tag As Any Ptr
 		Types As WStringOrStringList
 		Enums As WStringOrStringList
 		Elements As WStringOrStringList
+		Tag As Any Ptr
+		Tag2 As Any Ptr
 		Declare Destructor
 	End Type
 	
@@ -317,6 +332,7 @@ Namespace My.Sys.Forms
 		Dim FLineTab As WString Ptr
 		Dim FLineSpace As WString Ptr
 		Dim FHintDropDown As WString Ptr
+		Dim FHintMouseHover As WString Ptr
 		Dim FHintWord As WString Ptr
 		Dim HScrollMaxLeft As Integer
 		Dim HScrollMaxRight As Integer
@@ -379,8 +395,8 @@ Namespace My.Sys.Forms
 			Dim As HDC bufDC
 			Dim As HBITMAP bufBMP
 			Dim As TEXTMETRIC tm
-			Dim As HWND hwndTT, hwndTTDropDown
-			Dim As ToolTips TT, TTDropDown
+			Dim As HWND hwndTT, hwndTTDropDown, hwndTTMouseHover
+			Dim As ToolTips TT, TTDropDown, TTMouseHover
 		#endif
 		Dim As ..Rect rc
 		#ifndef __USE_GTK__
@@ -524,6 +540,7 @@ Namespace My.Sys.Forms
 			Dim As GtkWidget Ptr winIntellisense
 			Dim As GtkWidget Ptr scrollwinIntellisense
 			Dim As GtkWidget Ptr winDropDownTooltip
+			Dim As GtkWidget Ptr winMouseHoverTooltip
 			Dim As GtkWidget Ptr winTooltip
 			Dim As Integer verticalScrollBarWidth
 			Dim As Integer horizontalScrollBarHeight
@@ -563,6 +580,7 @@ Namespace My.Sys.Forms
 			lvIntellisense As ListView
 			lblTooltip As GtkWidget Ptr
 			lblDropDownTooltip As GtkWidget Ptr
+			lblMouseHoverTooltip As GtkWidget Ptr
 		#else
 			cboIntellisense As ComboBoxEx
 			pnlIntellisense As Panel
@@ -573,6 +591,7 @@ Namespace My.Sys.Forms
 		DropDownChar As Integer
 		DropDownToolTipShowed As Boolean
 		DropDownToolTipItemIndex As Integer
+		MouseHoverToolTipShowed As Boolean
 		ToolTipShowed As Boolean
 		ToolTipChar As Integer
 		Declare Sub SetScrollsInfo()
@@ -581,20 +600,23 @@ Namespace My.Sys.Forms
 		Declare Sub ShowDropDownAt(iSelEndLine As Integer, iSelEndChar As Integer)
 		Declare Sub ShowDropDownToolTipAt(X As Integer, Y As Integer)
 		Declare Sub ShowToolTipAt(iSelEndLine As Integer, iSelEndChar As Integer)
+		Declare Sub ShowMouseHoverToolTipAt(X As Integer, Y As Integer)
 		Declare Sub UpdateToolTip
 		Declare Sub UpdateDropDownToolTip
+		Declare Sub UpdateMouseHoverToolTip
 		Declare Sub CloseDropDownToolTip()
 		Declare Sub CloseDropDown()
 		Declare Sub CloseToolTip()
+		Declare Sub CloseMouseHoverToolTip()
 		Declare Sub FormatCode(WithoutUpdate As Boolean = False)
 		Declare Sub UnformatCode(WithoutUpdate As Boolean = False)
 		Declare Function GetTabbedLength(ByRef SourceText As WString) As Integer
 		Declare Function GetTabbedText(ByRef SourceText As WString, ByRef PosText As Integer = 0, ForPrint As Boolean = False) ByRef As WString
 		Declare Sub PaintControl(bFull As Boolean = False)
 		Declare Sub PaintControlPriv(bFull As Boolean = False)
-		Declare Function GetWordAt(LineIndex As Integer, CharIndex As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0) As String
-		Declare Function GetWordAtCursor(WithDot As Boolean = False) As String
-		Declare Function GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False) As String
+		Declare Function GetWordAt(LineIndex As Integer, CharIndex As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
+		Declare Function GetWordAtCursor(WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
+		Declare Function GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
 		Declare Function GetCaretPosY(LineIndex As Integer) As Integer
 		Declare Function CharIndexFromPoint(X As Integer, Y As Integer, CodePane As Integer = -1) As Integer
 		Declare Function LineIndexFromPoint(X As Integer, Y As Integer, CodePane As Integer = -1) As Integer
@@ -606,6 +628,8 @@ Namespace My.Sys.Forms
 		Declare Property Text(ByRef Value As WString)
 		Declare Property HintDropDown ByRef As WString
 		Declare Property HintDropDown(ByRef Value As WString)
+		Declare Property HintMouseHover ByRef As WString
+		Declare Property HintMouseHover(ByRef Value As WString)
 		Declare Property HintWord ByRef As WString
 		Declare Property HintWord(ByRef Value As WString)
 		Declare Property SelText ByRef As WString
@@ -680,7 +704,8 @@ Namespace My.Sys.Forms
 		OnSplitVerticallyChange   As Sub(ByRef Designer As My.Sys.Object, ByRef Sender As EditControl, Splitted As Boolean)
 	End Type
 	
-	Common Constructions() As Construction
+	Dim Shared Constructions() As Construction
+	Dim Shared ElementTypeNames() As ElementType
 	Common As EditControl Ptr CurEC, ScrEC
 	Common As Integer MiddleScrollIndexX, MiddleScrollIndexY
 End Namespace

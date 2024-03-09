@@ -13,6 +13,11 @@
 Dim Shared As WStringList KeywordLists 'keywords0, keywords1, keywords2, keywords3
 
 Namespace My.Sys.Forms
+	Destructor ExplorerElement
+		If FileName Then _Deallocate( FileName)
+		If TemplateFileName Then _Deallocate( TemplateFileName)
+	End Destructor
+
 	Destructor EditControlHistory
 		If Comment Then _Deallocate( Comment)
 		For i As Integer = Lines.Count - 1 To 0 Step -1
@@ -40,30 +45,62 @@ End Namespace
 
 ' Add Try End_Try
 ReDim Constructions(C_Count - 1) As Construction
-Constructions(C_If)             = Type<Construction>("If",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "ElseIf",   "Else",       "",        "End If",          "Then ", True,  False)
-Constructions(C_P_If)           = Type<Construction>("#If",           "#IfDef",             "#IfNDef",             "",                   "",                          "",                           "",                "",                       "",                        "#ElseIf",  "#Else",      "",        "#EndIf",          "",      True,  False)
-Constructions(C_P_Macro)        = Type<Construction>("#Macro",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "#EndMacro",       "",      True,  True)
-Constructions(C_Extern)         = Type<Construction>("Extern",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Extern",      "As ",   True,  False)
-Constructions(C_Try)            = Type<Construction>("Try",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Catch",    "Finally",    "",        "EndTry",          "",      True,  False)
-Constructions(C_Asm)            = Type<Construction>("Asm",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Asm",         " ",     True,  False)
-Constructions(C_Select_Case)    = Type<Construction>("Select Case",   "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Case",     "",           "",        "End Select",      "",      True,  False)
-Constructions(C_For)            = Type<Construction>("For",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Next",            "",      True,  False)
-Constructions(C_Do)             = Type<Construction>("Do",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Loop",            "",      True,  False)
-Constructions(C_While)          = Type<Construction>("While",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Wend",            "",      True,  False)
-Constructions(C_With)           = Type<Construction>("With",          "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End With",        "",      True,  False)
-Constructions(C_Scope)          = Type<Construction>("Scope",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Scope",       "",      True,  False)
-Constructions(C_P_Region)       = Type<Construction>("'#Region",      "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "'#End Region",    "",      True,  False)
-Constructions(C_Namespace)      = Type<Construction>("Namespace",     "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Namespace",   "",      True,  False)
-Constructions(C_Enum)           = Type<Construction>("Enum",          "Public Enum",        "Private Enum",        "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Enum",        "",      True,  True)
-Constructions(C_Class)          = Type<Construction>("Class",         "Public Class",       "Private Class",       "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Class",       "As ",   True,  True)
-Constructions(C_Type)           = Type<Construction>("Type",          "Public Type",        "Private Type",        "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Type",        "As ",   True,  True)
-Constructions(C_Union)          = Type<Construction>("Union",         "Public Union",       "Private Union",       "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Union",       "",      True,  True)
-Constructions(C_Sub)            = Type<Construction>("Sub",           "Public Sub",         "Private Sub",         "Virtual Sub",        "Public Virtual Sub",        "Private Virtual Sub",        "Static Sub",      "Public Static Sub",      "Private Static Sub",      "",         "",           "",        "End Sub",         "",      True,  True)
-Constructions(C_Function)       = Type<Construction>("Function",      "Public Function",    "Private Function",    "Virtual Function",   "Public Virtual Function",   "Private Virtual Function",   "Static Function", "Public Static Function", "Private Static Function", "",         "",           "",        "End Function",    "",      True,  True)
-Constructions(C_Property)       = Type<Construction>("Property",      "Public Property",    "Private Property",    "Virtual Property",   "Public Virtual Property",   "Private Virtual Property",   "",                "",                       "",                        "",         "",           "",        "End Property",    "",      True,  True)
-Constructions(C_Operator)       = Type<Construction>("Operator",      "Public Operator",    "Private Operator",    "Virtual Operator",   "Public Virtual Operator",   "Private Virtual Operator",   "",                "",                       "",                        "",         "",           "",        "End Operator",    "",      True,  True)
-Constructions(C_Constructor)    = Type<Construction>("Constructor",   "Public Constructor", "Private Constructor", "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Constructor", "",      True,  True)
-Constructions(C_Destructor)     = Type<Construction>("Destructor",    "Public Destructor",  "Private Destructor",  "Virtual Destructor", "Public Virtual Destructor", "Private Virtual Destructor", "",                "",                       "",                        "",         "",           "",        "End Destructor",  "",      True,  True)
+Constructions(C_If)                 = Type<Construction>("If",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "ElseIf",   "Else",       "",        "End If",          "Then ", True,  False)
+Constructions(C_P_If)               = Type<Construction>("#If",           "#IfDef",             "#IfNDef",             "",                   "",                          "",                           "",                "",                       "",                        "#ElseIf",  "#Else",      "",        "#EndIf",          "",      True,  False)
+Constructions(C_P_Macro)            = Type<Construction>("#Macro",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "#EndMacro",       "",      True,  True)
+Constructions(C_Extern)             = Type<Construction>("Extern",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Extern",      "As ",   True,  False)
+Constructions(C_Try)                = Type<Construction>("Try",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Catch",    "Finally",    "",        "EndTry",          "",      True,  False)
+Constructions(C_Asm)                = Type<Construction>("Asm",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Asm",         " ",     True,  False)
+Constructions(C_Select_Case)        = Type<Construction>("Select Case",   "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Case",     "",           "",        "End Select",      "",      True,  False)
+Constructions(C_For)                = Type<Construction>("For",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Next",            "",      True,  False)
+Constructions(C_Do)                 = Type<Construction>("Do",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Loop",            "",      True,  False)
+Constructions(C_While)              = Type<Construction>("While",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Wend",            "",      True,  False)
+Constructions(C_With)               = Type<Construction>("With",          "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End With",        "",      True,  False)
+Constructions(C_Scope)              = Type<Construction>("Scope",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Scope",       "",      True,  False)
+Constructions(C_P_Region)           = Type<Construction>("'#Region",      "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "'#End Region",    "",      True,  False)
+Constructions(C_Namespace)          = Type<Construction>("Namespace",     "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Namespace",   "",      True,  False)
+Constructions(C_Enum)               = Type<Construction>("Enum",          "Public Enum",        "Private Enum",        "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Enum",        "",      True,  True)
+Constructions(C_Class)              = Type<Construction>("Class",         "Public Class",       "Private Class",       "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Class",       "As ",   True,  True)
+Constructions(C_Type)               = Type<Construction>("Type",          "Public Type",        "Private Type",        "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Type",        "As ",   True,  True)
+Constructions(C_Union)              = Type<Construction>("Union",         "Public Union",       "Private Union",       "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Union",       "",      True,  True)
+Constructions(C_Sub)                = Type<Construction>("Sub",           "Public Sub",         "Private Sub",         "Virtual Sub",        "Public Virtual Sub",        "Private Virtual Sub",        "Static Sub",      "Public Static Sub",      "Private Static Sub",      "",         "",           "",        "End Sub",         "",      True,  True)
+Constructions(C_Function)           = Type<Construction>("Function",      "Public Function",    "Private Function",    "Virtual Function",   "Public Virtual Function",   "Private Virtual Function",   "Static Function", "Public Static Function", "Private Static Function", "",         "",           "",        "End Function",    "",      True,  True)
+Constructions(C_Property)           = Type<Construction>("Property",      "Public Property",    "Private Property",    "Virtual Property",   "Public Virtual Property",   "Private Virtual Property",   "",                "",                       "",                        "",         "",           "",        "End Property",    "",      True,  True)
+Constructions(C_Operator)           = Type<Construction>("Operator",      "Public Operator",    "Private Operator",    "Virtual Operator",   "Public Virtual Operator",   "Private Virtual Operator",   "",                "",                       "",                        "",         "",           "",        "End Operator",    "",      True,  True)
+Constructions(C_Constructor)        = Type<Construction>("Constructor",   "Public Constructor", "Private Constructor", "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Constructor", "",      True,  True)
+Constructions(C_Destructor)         = Type<Construction>("Destructor",    "Public Destructor",  "Private Destructor",  "Virtual Destructor", "Public Virtual Destructor", "Private Virtual Destructor", "",                "",                       "",                        "",         "",           "",        "End Destructor",  "",      True,  True)
+
+ReDim ElementTypeNames(E_Count - 1) As ElementType
+ElementTypeNames(E_ByRefParameter)     = Type<ElementType>("ByRef Parameters", ML("ByRef Parameters"), "Property", @ColorByRefParameters)
+ElementTypeNames(E_ByValParameter)     = Type<ElementType>("ByVal Parameters", ML("ByVal Parameters"), "Property", @ColorByValParameters)
+ElementTypeNames(E_Class)              = Type<ElementType>("Classes", ML("Classes"), "Type", @ColorGlobalTypes)
+ElementTypeNames(E_CommonVariable)     = Type<ElementType>("Common Variables", ML("Common Variables"), "Property", @ColorLocalVariables)
+ElementTypeNames(E_Constant)           = Type<ElementType>("Constants", ML("Constants"), "Property", @ColorConstants)
+ElementTypeNames(E_Constructor)        = Type<ElementType>("Constructors", ML("Constructors"), "Sub", @ColorSubs)
+ElementTypeNames(E_Define)             = Type<ElementType>("Defines", ML("Defines"), "Sub", @ColorDefines)
+ElementTypeNames(E_Destructor)         = Type<ElementType>("Destructors", ML("Destructors"), "Sub", @ColorSubs)
+ElementTypeNames(E_Enum)               = Type<ElementType>("Enums", ML("Enums"), "Enum", @ColorGlobalEnums)
+ElementTypeNames(E_EnumItem)           = Type<ElementType>("Enum Items", ML("Enum Items"), "EnumItem", @ColorEnumMembers)
+ElementTypeNames(E_Event)              = Type<ElementType>("Events", ML("Events"), "Event", @ColorFields)
+ElementTypeNames(E_ExternVariable)     = Type<ElementType>("Extern Variables", ML("Extern Variables"), "Property", @ColorCommonVariables)
+ElementTypeNames(E_Field)              = Type<ElementType>("Fields", ML("Fields"), "Property", @ColorProperties)
+ElementTypeNames(E_Function)           = Type<ElementType>("Functions", ML("Functions"), "Function", @ColorGlobalFunctions)
+ElementTypeNames(E_Keyword)            = Type<ElementType>("Keywords", ML("Keywords"), "Keyword", @ColorGlobalFunctions)
+ElementTypeNames(E_KeywordFunction)    = Type<ElementType>("Keyword Functions", ML("Keyword Functions"), "Keyword", @ColorGlobalFunctions)
+ElementTypeNames(E_KeywordOperator)    = Type<ElementType>("Keyword Operators", ML("Keyword Operators"), "Operator", @ColorGlobalFunctions)
+ElementTypeNames(E_KeywordSub)         = Type<ElementType>("Keyword Subs", ML("Keyword Subs"), "Sub", @ColorGlobalFunctions)
+ElementTypeNames(E_LineLabel)          = Type<ElementType>("Line Labels", ML("Line Labels"), "Sub", @ColorLineLabels)
+ElementTypeNames(E_LocalVariable)      = Type<ElementType>("Local Variables", ML("Local Variables"), "Property", @ColorLocalVariables)
+ElementTypeNames(E_Macro)              = Type<ElementType>("Macros", ML("Macros"), "Sub", @ColorMacros)
+ElementTypeNames(E_Namespace)          = Type<ElementType>("Namespaces", ML("Namespaces"), "Sub", @ColorGlobalNamespaces)
+ElementTypeNames(E_Operator)           = Type<ElementType>("Operators", ML("Operators"), "Sub", @ColorOperators)
+ElementTypeNames(E_Property)           = Type<ElementType>("Properties", ML("Properties"), "Property", @ColorProperties)
+ElementTypeNames(E_SharedVariable)     = Type<ElementType>("Shared Variables", ML("Shared Variables"), "Property", @ColorSharedVariables)
+ElementTypeNames(E_Snippet)            = Type<ElementType>("Snippets", ML("Snippets"), "Sub", @ColorSubs)
+ElementTypeNames(E_Sub)                = Type<ElementType>("Subs", ML("Subs"), "Sub", @ColorSubs)
+ElementTypeNames(E_Type)               = Type<ElementType>("Types", ML("Types"), "Type", @ColorGlobalTypes)
+ElementTypeNames(E_TypeCopy)           = Type<ElementType>("Type Copies", ML("Type Copies"), "Type", @ColorGlobalTypes)
+ElementTypeNames(E_Union)              = Type<ElementType>("Unions", ML("Unions"), "Type", @ColorGlobalTypes)
 
 Namespace My.Sys.Forms
 	Function EditControl.deltaToScrollAmount(lDelta As Integer) As Integer
@@ -1591,7 +1628,14 @@ Namespace My.Sys.Forms
 	
 	Property EditControl.HintDropDown(ByRef Value As WString)
 		WLet(FHintDropDown, Value)
-		
+	End Property
+	
+	Property EditControl.HintMouseHover ByRef As WString
+		Return WGet(FHintMouseHover)
+	End Property
+	
+	Property EditControl.HintMouseHover(ByRef Value As WString)
+		WLet(FHintMouseHover, Value)
 	End Property
 	
 	Property EditControl.HintWord ByRef As WString
@@ -2252,7 +2296,7 @@ Namespace My.Sys.Forms
 		Return i - 1
 	End Function
 	
-	Function EditControl.GetWordAt(LineIndex As Integer, CharIndex As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0) As String
+	Function EditControl.GetWordAt(LineIndex As Integer, CharIndex As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
 		If LineIndex < 0 OrElse Content.Lines.Item(LineIndex) = 0 Then Return ""
 		Dim As Integer i
 		Dim As String s, sWord
@@ -2267,14 +2311,15 @@ Namespace My.Sys.Forms
 			s = Mid(*sLine, i, 1)
 			If CInt(CInt(IsArg(Asc(s))) OrElse CInt(CInt(s = "#" OrElse s = "$"))) OrElse IIf(WithDot, s = ".", 0) OrElse IIf(WithQuestion, s = "?", 0) Then sWord = sWord & s Else Exit For
 		Next
+		EndChar = StartChar + Len(sWord)
 		Return sWord
 	End Function
 	
-	Function EditControl.GetWordAtCursor(WithDot As Boolean = False) As String
-		Return GetWordAt(FSelEndLine, FSelEndChar, WithDot)
+	Function EditControl.GetWordAtCursor(WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
+		Return GetWordAt(FSelEndLine, FSelEndChar, WithDot, WithQuestion, StartChar, EndChar)
 	End Function
 	
-	Function EditControl.GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False) As String
+	Function EditControl.GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
 		If X <= LeftMargin OrElse Content.Lines.Count < 1 Then Return ""
 		Dim As Integer LineIndex
 		If Y <= iDividedY AndAlso bDividedY Then
@@ -2286,7 +2331,7 @@ Namespace My.Sys.Forms
 		For i As Integer = 0 To Content.Lines.Count - 1
 			If Cast(EditControlLine Ptr, Content.Lines.Items[i])->Visible Then
 				j = j + 1
-				If j = LineIndex Then k = j: Exit For
+				If j = LineIndex Then k = i: Exit For
 			End If
 		Next
 		If k = -1 OrElse Content.Lines.Item(k) = 0 Then Return ""
@@ -2301,7 +2346,7 @@ Namespace My.Sys.Forms
 			If w - 2 > nCaretPosX Then Exit For
 			Idx = i
 		Next i
-		Return GetWordAt(k, Idx, WithDot)
+		Return GetWordAt(k, Idx, WithDot, WithQuestion, StartChar, EndChar)
 	End Function
 	
 	Function EditControl.GetTabbedLength(ByRef SourceText As WString) As Integer
@@ -2362,6 +2407,7 @@ Namespace My.Sys.Forms
 		End If
 		If OldLine <> FSelEndLine Then
 			If ToolTipShowed Then CloseToolTip()
+			If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
 			If Not bOldCommented Then Changing "Matn kiritildi"
 			If This.OnLineChange Then This.OnLineChange(*Designer, This, FSelEndLine, OldLine)
 		End If
@@ -4117,6 +4163,8 @@ Namespace My.Sys.Forms
 																			sc = @ColorDefines
 																		Case E_Macro
 																			sc = @ColorMacros
+																		Case E_Constant
+																			sc = @ColorConstants
 																		Case Else
 																			sc = @ColorLocalVariables
 																		End Select
@@ -4214,6 +4262,8 @@ Namespace My.Sys.Forms
 																			sc = @ColorGlobalTypes
 																		Case E_Enum
 																			sc = @ColorGlobalEnums
+																		Case E_Constant
+																			sc = @ColorConstants
 																		Case Else
 																			sc = @ColorLocalVariables
 																		End Select
@@ -4252,6 +4302,8 @@ Namespace My.Sys.Forms
 																				sc = @ColorGlobalTypes
 																			Case E_Enum
 																				sc = @ColorGlobalEnums
+																			Case E_Constant
+																				sc = @ColorConstants
 																			Case Else
 																				sc = @ColorLocalVariables
 																			End Select
@@ -4294,6 +4346,8 @@ Namespace My.Sys.Forms
 																					sc = @ColorGlobalTypes
 																				Case E_Enum
 																					sc = @ColorGlobalEnums
+																				Case E_Constant
+																					sc = @ColorConstants
 																				Case Else
 																					sc = @ColorLocalVariables
 																				End Select
@@ -5459,6 +5513,53 @@ Namespace My.Sys.Forms
 		This.SetFocus
 	End Sub
 	
+	Sub EditControl.ShowMouseHoverToolTipAt(X As Integer, Y As Integer)
+		MouseHoverToolTipShowed = True
+		If *FHintMouseHover = "" Then WLet(FHintMouseHover, " ")
+		#ifdef __USE_GTK__
+			gtk_label_set_markup(GTK_LABEL(lblMouseHoverTooltip), ToUtf8(Replace(*FHintMouseHover, "<=", "\u003c=")))
+			gtk_window_move(GTK_WINDOW(winMouseHoverTooltip), ScaleX(X), ScaleY(Y))
+			gtk_window_resize(GTK_WINDOW(winMouseHoverTooltip), ScaleX(100), ScaleY(25))
+			gtk_widget_show_all(winMouseHoverTooltip)
+		#else
+			Dim As TOOLINFO    ti
+			ZeroMemory(@ti, SizeOf(ti))
+			
+			ti.cbSize = SizeOf(ti)
+			ti.hwnd   = FHandle
+			'ti.uId    = Cast(UINT, FHandle)
+			
+			If hwndTTMouseHover = 0 Then
+				TTMouseHover.CreateWnd
+				hwndTTMouseHover = TTMouseHover.Handle 'CreateWindowW(TOOLTIPS_CLASS, "", WS_POPUP, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, Cast(HMENU, NULL), GetModuleHandle(NULL), NULL)
+				If g_darkModeEnabled Then
+					SetWindowTheme(hwndTTMouseHover, "DarkMode_Explorer", nullptr)
+				End If
+				ti.uFlags = TTF_IDISHWND Or TTF_TRACK Or TTF_ABSOLUTE Or TTF_PARSELINKS Or TTF_TRANSPARENT
+				ti.hinst  = GetModuleHandle(NULL)
+				ti.lpszText  = FHintMouseHover
+				
+				SendMessage(hwndTTMouseHover, TTM_ADDTOOL, 0, Cast(LPARAM, @ti))
+			Else
+				SendMessage(hwndTTMouseHover, TTM_GETTOOLINFO, 0, CInt(@ti))
+				
+				ti.lpszText = FHintMouseHover
+				
+				SendMessage(hwndTTMouseHover, TTM_UPDATETIPTEXT, 0, CInt(@ti))
+			End If
+			
+			SendMessage(hwndTTMouseHover, TTM_SETMAXTIPWIDTH, 0, 1000)
+			SendMessage(hwndTTMouseHover, TTM_TRACKACTIVATE, True, Cast(LPARAM, @ti))
+			
+			Var Result = SendMessage(hwndTTMouseHover, TTM_GETBUBBLESIZE, 0, Cast(LPARAM, @ti))
+			
+			Dim As ..Rect rc, rc2
+			GetWindowRect(FHandle, @rc)
+			SendMessage(hwndTTMouseHover, TTM_TRACKPOSITION, 0, MAKELPARAM(rc.Left + ScaleX(X), rc.Top + ScaleY(Y)))
+		#endif
+		This.SetFocus
+	End Sub
+	
 	Sub EditControl.ShowToolTipAt(iSelEndLine As Integer, iSelEndChar As Integer)
 		Var nCaretPosY = GetCaretPosY(iSelEndLine)
 		Var nCaretPosX = TextWidth(GetTabbedText(..Left(Lines(iSelEndLine), iSelEndChar)))
@@ -5533,6 +5634,28 @@ Namespace My.Sys.Forms
 		#endif
 	End Sub
 	
+	Sub EditControl.UpdateMouseHoverToolTip()
+		#ifdef __USE_GTK__
+			gtk_label_set_markup(GTK_LABEL(lblMouseHoverTooltip), ToUtf8(Replace(*FHintMouseHover, "<=", "\u003c=")))
+		#else
+			If hwndTTMouseHover <> 0 Then
+				Dim As TOOLINFO    ti
+				ZeroMemory(@ti, SizeOf(ti))
+				
+				ti.cbSize = SizeOf(ti)
+				ti.hwnd   = FHandle
+				
+				SendMessage(hwndTTMouseHover, TTM_GETTOOLINFO, 0, CInt(@ti))
+				
+				If *FHintMouseHover = "" Then WLet(FHintMouseHover, " ")
+				
+				ti.lpszText = FHintMouseHover
+				
+				SendMessage(hwndTTMouseHover, TTM_UPDATETIPTEXT, 0, CInt(@ti))
+			End If
+		#endif
+	End Sub
+	
 	Sub EditControl.UpdateToolTip()
 		#ifdef __USE_GTK__
 			gtk_label_set_markup(GTK_LABEL(lblTooltip), ToUtf8(Replace(*FHint, "<=", "\u003c=")))
@@ -5577,6 +5700,22 @@ Namespace My.Sys.Forms
 			'ti.uId    = Cast(UINT, FHandle)
 			
 			SendMessage(hwndTTDropDown, TTM_TRACKACTIVATE, False, Cast(LPARAM, @ti))
+		#endif
+	End Sub
+	
+	Sub EditControl.CloseMouseHoverToolTip()
+		MouseHoverToolTipShowed = False
+		#ifdef __USE_GTK__
+			gtk_widget_hide(GTK_WIDGET(winMouseHoverTooltip))
+		#else
+			Dim As TOOLINFO    ti
+			ZeroMemory(@ti, SizeOf(ti))
+			
+			ti.cbSize = SizeOf(ti)
+			ti.hwnd   = FHandle
+			'ti.uId    = Cast(UINT, FHandle)
+			
+			SendMessage(hwndTTMouseHover, TTM_TRACKACTIVATE, False, Cast(LPARAM, @ti))
 		#endif
 	End Sub
 	
@@ -5692,6 +5831,8 @@ Namespace My.Sys.Forms
 			#else
 			Case WM_MOUSEWHEEL
 			#endif
+			If ToolTipShowed Then CloseToolTip
+			If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
 			If DropDownShowed Then
 				#ifdef __USE_WINAPI__
 					Dim As HWND cmbHandle = Cast(HWND, SendMessageW(cboIntellisense.Handle, CBEM_GETCOMBOCONTROL, 0, 0))
@@ -5981,6 +6122,8 @@ Namespace My.Sys.Forms
 						ScrollBarHandle = sbScrollBarhRight
 					End If
 				Else
+					If ToolTipShowed Then CloseToolTip()
+					If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
 					scrStyle = SB_VERT
 					If bDividedY OrElse bDividedX Then
 						Dim As Point pt
@@ -6827,7 +6970,8 @@ Namespace My.Sys.Forms
 			ElseIf InCollapseRect(FSelEndLine, X, y) Then
 			Else
 				FSelEndChar = CharIndexFromPoint(X, y)
-				If CInt(Not bShifted) And CInt(FSelEndLine <> FSelStartLine Or FSelEndChar <> FSelStartChar) Then
+				FECLine = Content.Lines.Items[FSelEndLine]
+				If CInt(Not bShifted) AndAlso CInt(FSelEndLine <> FSelStartLine OrElse FSelEndChar <> FSelStartChar) Then
 					FSelStartLine = FSelEndLine
 					FSelStartChar = FSelEndChar
 				Else
@@ -6885,10 +7029,17 @@ Namespace My.Sys.Forms
 					OldnCaretPosX = nCaretPosX
 					OldCharIndex = GetOldCharIndex
 				Else
+					Dim As Integer OldSelEndChar = FSelEndChar
 					FSelEndChar = CharIndexFromPoint(X, y)
 					If Not bShifted Then
-						FSelStartLine = FSelEndLine
-						FSelStartChar = FSelEndChar
+						If FSelStartLine = FSelEndLine AndAlso FSelEndChar > FSelStartChar AndAlso FSelEndChar < OldSelEndChar Then
+							FSelStartChar = 0
+							FSelEndLine = FSelStartLine + 1
+							FSelEndChar = 0
+						Else
+							FSelStartLine = FSelEndLine
+							FSelStartChar = FSelEndChar
+						End If
 					End If
 					If X < LeftMargin Then
 						FSelEndChar = Len(*Cast(EditControlLine Ptr, Content.Lines.Item(FSelEndLine))->Text)
@@ -7508,6 +7659,8 @@ Namespace My.Sys.Forms
 		WDeAllocate(FLineTemp)
 		WDeAllocate(FLineTab)
 		WDeAllocate(FLineSpace)
+		WDeAllocate(FHintDropDown)
+		WDeAllocate(FHintMouseHover)
 		WDeAllocate(FHintWord)
 		WDeAllocate(CurrentFontName)
 		WDeAllocate(DropDownPath)

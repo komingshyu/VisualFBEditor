@@ -28,17 +28,12 @@ Using My.Sys.Forms
 
 Declare Sub CompleteWord()
 
-Type ExplorerElement Extends Object
-	FileName As WString Ptr
-	TemplateFileName As WString Ptr
-	Declare Destructor
-End Type
-
 Enum CompileToVariants
 	ByDefault
 	ToGAS
 	ToLLVM
 	ToGCC
+	ToCLANG
 End Enum
 
 Type ProjectElement Extends ExplorerElement
@@ -131,6 +126,11 @@ Type TabPanel Extends Panel
 	Declare Constructor
 End Type
 
+Type GlobalSettings
+	ShowSymbolsTooltipsOnMouseHover As Boolean
+	ShowClassesExplorerOnOpenWindow As Boolean
+End Type
+
 Type TabWindow Extends TabPage
 Private:
 	FCaptionNew As WString Ptr
@@ -215,7 +215,7 @@ Public:
 		overlay As GtkWidget Ptr
 		layout As GtkWidget Ptr
 	#else
-		ToolTipHandle As HWND
+		'ToolTipHandle As HWND
 		DateFileTime As FILETIME
 	#endif
 	NewLineType As NewLineTypes
@@ -256,6 +256,7 @@ Public:
 	Declare Sub Indent
 	Declare Sub Outdent
 	Declare Sub Define
+	Declare Sub ClearTypes
 	Declare Sub FormDesign(NotForms As Boolean = False)
 	Declare Constructor(ByRef wFileName As WString = "", bNewForm As Boolean = False, TreeN As TreeNode Ptr = 0)
 	Declare Destructor
@@ -435,6 +436,8 @@ Declare Sub NumberingOff(ByVal StartLine As Integer = -1, ByVal EndLine As Integ
 Declare Sub PreprocessorNumberingOn(ByRef txtCode As EditControl, ByRef FileName As WString, WithoutUpdate As Boolean = False)
 
 Declare Sub PreprocessorNumberingOff(ByRef txtCode As EditControl, WithoutUpdate As Boolean = False)
+
+Declare Sub ParameterInfo(Key As Integer = Asc(","), SelStartChar As Integer = -1, SelEndChar As Integer = -1, sWordAt As String = "")
 
 #ifndef __USE_MAKE__
 	#include once "TabWindow.bas"

@@ -36,6 +36,7 @@ Private Sub gdipForm.Create(Handle As HWND, Img As GpImage Ptr)
 	Release()
 	
 	mHandle = Handle
+	
 	GdipGetImageDimension(Img, @sWidth, @sHeight)
 	
 	With bmHeader.bmiHeader
@@ -127,7 +128,7 @@ Private Sub gdipForm.Transform(ByVal Alpha As Integer = 255)
 	End With
 	
 	'设置窗口WS_EX_LAYERED
-	Enabled = True
+	If Enabled <> True Then Exit Sub
 	
 	'更新具有透明效果的窗口
 	UpdateLayeredWindow(mHandle, hScrDC, @ULWpptDst, @ULWpsize, hMemDC, @ULWpptSrc, ULWcrKey, @ULWpblend, ULW_ALPHA)

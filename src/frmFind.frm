@@ -241,7 +241,7 @@ pfFind = @fFind
 
 Public Function frmFind.Find(Down As Boolean, bNotShowResults As Boolean = False) As Integer
 	If txtFind.Text = "" OrElse mTabSelChangeByError Then Exit Function
-	If CInt(*gSearchSave <> txtFind.Text OrElse plvSearch->ListItems.Count < 1) AndAlso CInt(cboFindRange.ItemIndex = 2) Then FindAll plvSearch, tpFind, , False : WLet(gSearchSave, txtFind.Text)
+	If CInt(*gSearchSave <> txtFind.Text OrElse plvSearch->ListItems.Count < 1) AndAlso CInt(cboFindRange.ItemIndex = 2) Then FindAll plvSearch, tpFind, , False : WLet(gSearchSave, txtFind.Text) : Exit Function
 	Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 	If tb = 0 Then Exit Function
 	Dim txt As EditControl Ptr = @tb->txtCode
@@ -249,7 +249,7 @@ Public Function frmFind.Find(Down As Boolean, bNotShowResults As Boolean = False
 	Dim As Boolean bMatchCase = chkMatchCase.Checked
 	Dim buff As WString Ptr
 	Dim As Integer i, SearchCount, SearchLen
-	If CInt(*gSearchSave <> txtFind.Text OrElse plvSearch->ListItems.Count < 1) OrElse CInt(tb > 0 AndAlso tb->txtCode.ModifiedLine = True AndAlso cboFindRange.ItemIndex < 2) Then FindAll plvSearch, tpFind, , False : WLet(gSearchSave, txtFind.Text): tb->txtCode.ModifiedLine = False
+	If CInt(*gSearchSave <> txtFind.Text OrElse plvSearch->ListItems.Count < 1) OrElse CInt(tb > 0 AndAlso tb->txtCode.ModifiedLine = True AndAlso cboFindRange.ItemIndex <> 2) Then FindAll plvSearch, tpFind, , False : WLet(gSearchSave, txtFind.Text): tb->txtCode.ModifiedLine = False
 	If plvSearch->ListItems.Count < 1 Then This.Caption = ML("Find: No Results") : Return -1
 	If cboFindRange.ItemIndex = 1 OrElse cboFindRange.ItemIndex = 2 Then
 		iSelStartLine = 0: iSelEndLine = tb->txtCode.LinesCount - 1: iSelStartChar = 0: iSelEndChar = Len(tb->txtCode.Lines(iSelEndLine))
@@ -553,7 +553,7 @@ Private Sub frmFind.ReplaceInProj(ByRef tSearch As WString="", ByRef tReplace As
 											WAdd BuffOut, Chr(13,10) & *SubStr(i)
 											If InStr(*SubStr(i), "&")>0 Then WAdd BuffOut, Chr(13,10) & Replace(*SubStr(i),"&","")
 										End If
-										Deallocate SubStr(i): SubStr(i)=0
+										_Deallocate(SubStr(i)): SubStr(i) = 0
 									Next
 									Erase SubStr
 								Else
@@ -604,7 +604,7 @@ Private Sub frmFind.ReplaceInProj(ByRef tSearch As WString="", ByRef tReplace As
 		End If
 		CloseFile_(Fn)
 	End If
-	Deallocate BuffOut
+	_Deallocate(BuffOut)
 End Sub
 
 Sub FindSubProj(Param As Any Ptr)
@@ -924,7 +924,7 @@ End Sub
 
 Private Sub frmFind.btnReplaceShow_Click(ByRef Sender As Control)
 	If Len(*gSearchSave) > 0 Then Clipboard.SetAsText *gSearchSave
-	mFormFind = IIf(Height > 80, True, False)
+	If Sender.Name = btnReplaceShow.Name Then mFormFind = IIf(Height > 80, True, False)
 	This.Caption = IIf(mFormFind, ML("Find"), ML("Replace"))
 	btnReplaceShow.Caption = IIf(mFormFind, ">", "^")
 	btnReplaceShow.Hint = IIf(mFormFind, ML("Expand to Replace Mode"), ML("Narrowdown to Find mode"))
@@ -1008,7 +1008,7 @@ Private Sub frmFind.Form_Show(ByRef Sender As Form)
 		If Posi < 1 Then Posi = Len(SelText)
 		txtFind.Text = ..Left(SelText, Posi)
 	End If
-	btnReplaceShow_Click(btnReplaceShow)
+	btnReplaceShow_Click(Sender)
 	txtFind.SetFocus
 End Sub
 

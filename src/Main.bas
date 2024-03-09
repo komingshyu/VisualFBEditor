@@ -14,6 +14,7 @@
 #include once "mff/TabControl.bi"
 #include once "mff/StatusBar.bi"
 #include once "mff/Splitter.bi"
+#include once "mff/HorizontalBox.bi"
 #include once "mff/ToolBar.bi"
 #include once "mff/ListControl.bi"
 #include once "mff/CheckBox.bi"
@@ -52,7 +53,9 @@ pfSplash->Show
 pApp->DoEvents
 
 Dim Shared As VisualFBEditor.Application VisualFBEditorApp
+Dim Shared As ComboBoxEdit cboBuildConfiguration
 Dim Shared As IniFile iniSettings, iniTheme
+Dim Shared As TextBox txtExplorer, txtForm, txtProperties, txtEvents
 Dim Shared As ToolBar tbStandard, tbEdit, tbBuild, tbRun, tbProject, tbExplorer, tbForm, tbProperties, tbEvents, tbBottom, tbLeft, tbRight
 Dim Shared As StatusBar stBar
 Dim Shared As Splitter splLeft, splRight, splBottom, splProperties, splEvents
@@ -62,6 +65,7 @@ Dim Shared As RadioButton radButton
 Dim Shared As ScrollBarControl scrLeft
 Dim Shared As Label lblLeft
 Dim Shared As Panel pnlLeft, pnlRight, pnlBottom, pnlBottomTab, pnlLeftPin, pnlRightPin, pnlBottomPin, pnlPropertyValue, pnlColor
+Dim Shared As HorizontalBox hbxExplorer, hbxForm, hbxProperties, hbxEvents
 Dim Shared As TrackBar trLeft
 Dim Shared As MainMenu mnuMain
 Dim Shared As MenuItem Ptr mnuStartWithCompile, mnuStart, mnuBreak, mnuEnd, mnuRestart, mnuStandardToolBar, mnuEditToolBar, mnuProjectToolBar, mnuBuildToolBar, mnuRunToolBar, mnuSplit, mnuSplitHorizontally, mnuSplitVertically, mnuWindowSeparator, miRecentProjects, miRecentFiles, miRecentFolders, miRecentSessions, miSetAsMain, miTabSetAsMain, miTabReloadHistoryCode, miRemoveFiles, miToolBars
@@ -82,11 +86,11 @@ Dim Shared As ReBar MainReBar
 	Dim Shared As My.Sys.ComponentModel.Printer pPrinter
 #endif
 Dim Shared As List Tools, TabPanels, ControlLibraries
-Dim Shared As WStringOrStringList Comps, GlobalAsmFunctionsHelp, GlobalFunctionsHelp, Snippets
+Dim Shared As WStringOrStringList Comps, GlobalAsmFunctionsHelp, GlobalFunctionsHelp, Snippets, TypesInFunc, EnumsInFunc
 'Dim Shared As WStringOrStringList GlobalNamespaces, GlobalTypes, GlobalEnums, GlobalDefines, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
 Dim Shared As WStringList AddIns, IncludeFiles, LoadPaths, IncludePaths, LibraryPaths, MRUFiles, MRUFolders, MRUProjects, MRUSessions ' add Sessions
 Dim Shared As WString Ptr RecentFiles, RecentFile, RecentProject, RecentFolder, RecentSession '
-Dim Shared As Dictionary Helps, HotKeys, Compilers, MakeTools, Debuggers, Terminals, OtherEditors, mlKeys, mlCompiler, mlTemplates, mpKeys, mcKeys
+Dim Shared As Dictionary Helps, HotKeys, Compilers, MakeTools, Debuggers, Terminals, OtherEditors, BuildConfigurations, mlCompiler, mlTemplates, mpKeys, mcKeys
 Dim Shared As ListView lvProblems, lvSuggestions, lvSearch, lvToDo, lvMemory
 Dim Shared As ProgressBar prProgress
 Dim Shared As CommandButton btnPropertyValue
@@ -123,6 +127,7 @@ pHelps = @Helps
 plvSearch = @lvSearch
 plvToDo = @lvToDo '
 ptbStandard = @tbStandard
+pcboBuildConfiguration = @cboBuildConfiguration
 plvProperties = @lvProperties
 plvEvents = @lvEvents
 pprProgress = @prProgress
@@ -226,21 +231,10 @@ Namespace VisualFBEditor
 	End Function
 End Namespace
 
-Function ML(ByRef V As WString) ByRef As WString
-	If LCase(CurLanguage) = "english" Then Return V
-	Dim As Integer tIndex = mlKeys.IndexOfKey(V) ' For improve the speed
-	If tIndex >= 0 Then
-		Return mlKeys.Item(tIndex)->Text
-	Else
-		tIndex = mlKeys.IndexOfKey(Replace(V, "&", "")) '
-		If tIndex >= 0 Then Return mlKeys.Item(tIndex)->Text Else Return V
-	End If
-End Function
-
 Function MS cdecl(ByRef V As WString, ...) As UString
 	Dim As UString Result
 	Dim As Boolean bFind
-	If LCase(CurLanguage) <> "english" Then
+	If LCase(App.CurLanguage) <> "english" Then
 		Dim As Integer tIndex = mlKeys.IndexOfKey(V)
 		If tIndex >= 0 Then
 			Result = mlKeys.Item(tIndex)->Text
@@ -258,7 +252,7 @@ Function MS cdecl(ByRef V As WString, ...) As UString
 End Function
 
 Function MLCompilerFun(ByRef V As WString) ByRef As WString
-	If LCase(CurLanguage) = "english" Then Return V
+	If LCase(App.CurLanguage) = "english" Then Return V
 	Dim As Integer tIndex = mlCompiler.IndexOfKey(V) ' For improve the speed
 	If tIndex >= 0 Then Return mlCompiler.Item(tIndex)->Text Else Return V
 End Function
@@ -275,7 +269,7 @@ Function MC(ByRef V As WString) ByRef As WString
 End Function
 
 Function MP(ByRef V As WString) ByRef As WString
-	If (Not gLocalProperties) OrElse LCase(CurLanguage) = "english" Then Return V
+	If (Not gLocalProperties) OrElse LCase(App.CurLanguage) = "english" Then Return V
 	Dim As Integer tIndex = -1, tIndex2 = -1
 	If InStr(V,".") Then
 		Static As WString*50 TempWstr =""
@@ -2132,16 +2126,38 @@ Function SaveSession() As Boolean
 	Dim As Integer p
 	Dim As String Zv
 	Dim As Integer Fn = FreeFile_
+	Dim As TabWindow Ptr tb
 	If Open(SaveD.FileName For Output Encoding "utf-8" As #Fn) = 0 Then
 		For i As Integer = 0 To tvExplorer.Nodes.Count - 1
 			tn1 = tvExplorer.Nodes.Item(i)
 			ee = tn1->Tag
-			If ee = 0 Then Continue For
-			Zv = IIf(tn1 = MainNode, "*", "")
-			If StartsWith(*ee->FileName & Slash, GetFolderName(SaveD.FileName)) Then
-				Print #Fn, Zv & "File=" & Replace(Mid(*ee->FileName, Len(GetFolderName(SaveD.FileName)) + 1), "\", "/")
+			If ee = 0 Then 
+				For j As Integer = 0 To TabPanels.Count - 1
+					Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(j))->tabCode
+					For i As Integer = 0 To ptabCode->TabCount - 1
+						tb = Cast(TabWindow Ptr, ptabCode->Tabs[i])
+						If tb AndAlso tb->tn = tn1 Then
+							If tb->Modified Then
+								If (Not tb->Save) AndAlso CBool(tb->FileName = "" OrElse tb->FileName = ML("Untitled")) Then
+									Continue For
+								End If
+							End If
+							Zv = IIf(tn1 = MainNode, "*", "")
+							If StartsWith(tb->FileName & Slash, GetFolderName(SaveD.FileName)) Then
+								Print #Fn, Zv & "File=" & Replace(Mid(tb->FileName, Len(GetFolderName(SaveD.FileName)) + 1), "\", "/")
+							Else
+								Print #Fn, Zv & "File=" & tb->FileName
+							End If
+						End If
+					Next i
+				Next j
 			Else
-				Print #Fn, Zv & "File=" & *ee->FileName
+				Zv = IIf(tn1 = MainNode, "*", "")
+				If StartsWith(*ee->FileName & Slash, GetFolderName(SaveD.FileName)) Then
+					Print #Fn, Zv & "File=" & Replace(Mid(*ee->FileName, Len(GetFolderName(SaveD.FileName)) + 1), "\", "/")
+				Else
+					Print #Fn, Zv & "File=" & *ee->FileName
+				End If
 			End If
 		Next
 	End If
@@ -2582,7 +2598,7 @@ Sub RunHelp(Param As Any Ptr)
 		Dim As WString * MAX_PATH wszKeyword, wszKeywordUpper
 		Dim As Boolean bFind
 		Dim As Any Ptr gpHelpLib
-		Dim HtmlHelpW As Function (ByVal hwndCaller As HWnd, _
+		Dim HtmlHelpW As Function (ByVal hwndCaller As HWND, _
 		ByVal pswzFile As WString Ptr, _
 		ByVal uCommand As UINT, _
 		ByVal dwData As DWORD_PTR _
@@ -3780,6 +3796,9 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If inType Then OldTypes.Add t, tbi
 						typ = tbi
 						If Types.Contains(t, , , , Idx) AndAlso Cast(TypeElement Ptr, Types.Object(Idx))->FileName = PathFunction Then
+							If OldTypes.Count > 1 Then
+								TypesInFunc.Add t, tbi
+							End If
 						ElseIf InFunc = False Then
 							If OldTypes.Count > 1 Then
 								Dim As TypeElement Ptr teOld = OldTypes.Object(OldTypes.Count - 2)
@@ -3795,6 +3814,8 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 									Next
 								End If
 							End If
+						Else
+							TypesInFunc.Add t, tbi
 						End If
 					End If
 				ElseIf StartsWith(bTrimLCase & " ", "end type ") OrElse StartsWith(bTrimLCase & " ", "end class ") OrElse StartsWith(bTrimLCase & " ", "__startofclassbody__ ") Then
@@ -4122,7 +4143,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							TypesPubProPri.Item(Idx) = inPubProPri
 						End If
 						Comment = ""
-					ElseIf CInt(StartsWith(bTrimLCase, "as ")) OrElse InStr(bTrimLCase, " as ") Then
+					ElseIf CInt(StartsWith(bTrimLCase, "as ")) OrElse CInt(StartsWith(bTrimLCase, "const ")) OrElse InStr(bTrimLCase, " as ") Then
 						Dim As UString b2 = bTrim
 						Dim As UString CurType, ElementValue, TypeComment
 						Dim As UString res1(Any)
@@ -4233,7 +4254,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							te->TypeIsPointer = EndsWith(LCase(te->TypeName), " ptr") OrElse EndsWith(LCase(te->TypeName), " pointer")
 							te->TypeName = WithoutPointers(te->TypeName)
 							te->Value = ElementValue
-							te->ElementType = IIf(StartsWith(LCase(te->TypeName), "sub(") OrElse StartsWith(LCase(te->TypeName), "function("), E_Event, E_Field)
+							te->ElementType = IIf(StartsWith(bTrimLCase, "const "), E_Constant, IIf(StartsWith(LCase(te->TypeName), "sub(") OrElse StartsWith(LCase(te->TypeName), "function("), E_Event, E_Field))
 							te->Locals = inPubProPri
 							te->StartLine = i
 							te->Parameters = res1(n) & " As " & CurType
@@ -4272,6 +4293,8 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 									Next
 								End If
 							End If
+						Else
+							EnumsInFunc.Add t, tbi
 						End If
 					End If
 				ElseIf CInt(StartsWith(bTrimLCase, "end enum")) Then
@@ -4812,11 +4835,11 @@ Sub LoadHelp
 	Dim As WStringOrStringList Ptr pFunctions = @Globals.Functions
 	Dim As Boolean InEnglish
 	Dim As Integer Fn = FreeFile_, tEncode
-	If LCase(CurLanguage) = "english" OrElse Dir(ExePath & "/Settings/Others/KeywordsHelp." & CurLanguage & ".txt") = "" Then
+	If LCase(App.CurLanguage) = "english" OrElse Dir(ExePath & "/Settings/Others/KeywordsHelp." & App.CurLanguage & ".txt") = "" Then
 		InEnglish = True
 		WLet(KeywordsHelpPath, ExePath & "/Settings/Others/KeywordsHelp.txt")
 	Else
-		WLet(KeywordsHelpPath, ExePath & "/Settings/Others/KeywordsHelp." & CurLanguage & ".txt")
+		WLet(KeywordsHelpPath, ExePath & "/Settings/Others/KeywordsHelp." & App.CurLanguage & ".txt")
 	End If
 	Dim As Integer Result = -1
 	Result = Open(*KeywordsHelpPath For Input Encoding "utf-8" As #Fn)
@@ -4990,11 +5013,11 @@ Sub LoadHelp
 	pFunctions = @GlobalAsmFunctionsHelp
 	InEnglish = False
 	Fn = FreeFile_
-	If LCase(CurLanguage) = "english" OrElse Dir(ExePath & "/Settings/Others/AsmKeywordsHelp." & CurLanguage & ".txt") = "" Then
+	If LCase(App.CurLanguage) = "english" OrElse Dir(ExePath & "/Settings/Others/AsmKeywordsHelp." & App.CurLanguage & ".txt") = "" Then
 		InEnglish = True
 		WLet(AsmKeywordsHelpPath, ExePath & "/Settings/Others/AsmKeywordsHelp.txt")
 	Else
-		WLet(AsmKeywordsHelpPath, ExePath & "/Settings/Others/AsmKeywordsHelp." & CurLanguage & ".txt")
+		WLet(AsmKeywordsHelpPath, ExePath & "/Settings/Others/AsmKeywordsHelp." & App.CurLanguage & ".txt")
 	End If
 	Result = -1
 	Result = Open(*AsmKeywordsHelpPath For Input Encoding "utf-8" As #Fn)
@@ -6090,6 +6113,7 @@ Sub LoadSettings
 	Dim As UString Temp
 	Dim As ToolType Ptr Tool
 	Dim i As Integer = 0
+	cboBuildConfiguration.AddItem ML("No options")
 	Do Until iniSettings.KeyExists("Compilers", "Version_" & WStr(i)) + iniSettings.KeyExists("MakeTools", "Version_" & WStr(i)) + _
 		iniSettings.KeyExists("Debuggers", "Version_" & WStr(i)) + iniSettings.KeyExists("Terminals", "Version_" & WStr(i)) + _
 		iniSettings.KeyExists("Helps", "Version_" & WStr(i)) + iniSettings.KeyExists("OtherEditors", "Version_" & WStr(i)) + _
@@ -6137,6 +6161,8 @@ Sub LoadSettings
 		End If
 		Temp = iniSettings.ReadString("Helps", "Version_" & WStr(i), "")
 		If Temp <> "" Then Helps.Add Temp, iniSettings.ReadString("Helps", "Path_" & WStr(i), "")
+		Temp = iniSettings.ReadString("BuildConfigurations", "Name_" & WStr(i), "")
+		If Temp <> "" Then BuildConfigurations.Add Temp, iniSettings.ReadString("BuildConfigurations", "Switches_" & WStr(i), ""): cboBuildConfiguration.AddItem Temp
 		Temp = iniSettings.ReadString("IncludePaths", "Path_" & WStr(i), "")
 		If Temp <> "" Then IncludePaths.Add Temp
 		Temp = iniSettings.ReadString("LibraryPaths", "Path_" & WStr(i), "")
@@ -6170,6 +6196,8 @@ Sub LoadSettings
 	WLet(TerminalPath, Terminals.Get(*CurrentTerminal, ""))
 	WLet(DefaultHelp, iniSettings.ReadString("Helps", "DefaultHelp", ""))
 	WLet(HelpPath, Helps.Get(*DefaultHelp, ""))
+	WLet(DefaultBuildConfiguration, iniSettings.ReadString("BuildConfigurations", "DefaultBuildConfiguration", ""))
+	cboBuildConfiguration.ItemIndex = Max(0, cboBuildConfiguration.IndexOf(*DefaultBuildConfiguration))
 	UseMakeOnStartWithCompile = iniSettings.ReadBool("Options", "UseMakeOnStartWithCompile", False)
 	CreateNonStaticEventHandlers = iniSettings.ReadBool("Options", "CreateNonStaticEventHandlers", True)
 	PlaceStaticEventHandlersAfterTheConstructor = iniSettings.ReadBool("Options", "PlaceStaticEventHandlersAfterTheConstructor", True)
@@ -6200,6 +6228,8 @@ Sub LoadSettings
 	ShowSpaces = iniSettings.ReadBool("Options", "ShowSpaces", True)
 	ShowKeywordsToolTip = iniSettings.ReadBool("Options", "ShowKeywordsTooltip", True)
 	ShowTooltipsAtTheTop = iniSettings.ReadBool("Options", "ShowTooltipsAtTheTop", False)
+	GlobalSettings.ShowSymbolsTooltipsOnMouseHover = iniSettings.ReadBool("Options", "ShowSymbolsTooltipsOnMouseHover", True)
+	GlobalSettings.ShowClassesExplorerOnOpenWindow = iniSettings.ReadBool("Options", "ShowClassesExplorerOnOpenWindow", True)
 	ShowHorizontalSeparatorLines = iniSettings.ReadBool("Options", "ShowHorizontalSeparatorLines", True)
 	HighlightBrackets = iniSettings.ReadBool("Options", "HighlightBrackets", True)
 	HighlightCurrentLine = iniSettings.ReadBool("Options", "HighlightCurrentLine", True)
@@ -6269,18 +6299,23 @@ End Sub
 
 Sub LoadLanguageTexts
 	iniSettings.Load SettingsPath
-	CurLanguage = iniSettings.ReadString("Options", "Language", "english")
+	App.CurLanguagePath = ExePath & "/Settings/Languages/"
+	App.CurLanguage = iniSettings.ReadString("Options", "Language", "english")
 	Dim As Boolean StartGeneral = True, StartKeyWords, StartProperty, StartCompiler, StartTemplates
-	If CurLanguage = "" Then
+	If App.CurLanguage = "" Then
 		mpKeys.Add "#Til", "English"
 		mlKeys.Add "#Til", "English"
 		mlCompiler.Add "#Til", "English"
-		CurLanguage = "English"
+		App.CurLanguage = "English"
 	Else
+		mlKeys.Clear
+		mcKeys.Clear
+		mpKeys.Clear
+		mlCompiler.Clear
 		Dim As Integer i, Pos1, Pos2
 		Dim As Integer Fn = FreeFile_, Result
 		Dim As WString * 2048 Buff, tKey
-		Dim As UString FileName = ExePath & "/Settings/Languages/" & CurLanguage & ".lng"
+		Dim As UString FileName = ExePath & "/Settings/Languages/" & App.CurLanguage & ".lng"
 		Result = Open(FileName For Input Encoding "utf-8" As #Fn)
 		If Result <> 0 Then Result = Open(FileName For Input Encoding "utf-16" As #Fn)
 		If Result <> 0 Then Result = Open(FileName For Input Encoding "utf-32" As #Fn)
@@ -6357,19 +6392,18 @@ Sub LoadLanguageTexts
 			CloseFile_(Fn)
 			Exit Sub
 		Else
-			MsgBox ML("Open file failure!") &  " " & Chr(13, 10) & ML("in function") & " Main.LoadLanguageTexts" & Chr(13, 10) & "  " & ExePath & "/Settings/Languages/" & CurLanguage & ".lng"
+			MsgBox ML("Open file failure!") &  " " & Chr(13, 10) & ML("in function") & " Main.LoadLanguageTexts" & Chr(13, 10) & "  " & ExePath & "/Settings/Languages/" & App.CurLanguage & ".lng"
 		End If
 		CloseFile_(Fn)
 	End If
 	mlKeys.Clear
 	mcKeys.Clear
 	mpKeys.Clear
-	
 	mlCompiler.Clear
 	mpKeys.Add "#Til", "English"
 	mlKeys.Add "#Til", "English"
 	mlCompiler.Add "#Til", "English"
-	CurLanguage = "English"
+	App.CurLanguage = "english"
 End Sub
 
 Sub LoadHotKeys
@@ -6558,6 +6592,7 @@ Sub CreateMenusAndToolBars
 	imgList.Add "Fixme", "Fixme"
 	imgList.Add "Suggestions", "Suggestions"
 	imgList.Add "DarkMode", "DarkMode"
+	imgList.Add "FindSymbol", "FindSymbol"
 	'imgListD.Add "StartWithCompileD", "StartWithCompile"
 	'imgListD.Add "StartD", "Start"
 	'imgListD.Add "BreakD", "Break"
@@ -7172,6 +7207,10 @@ Sub CreateMenusAndToolBars
 	Var mnuWASM = tbButton->DropDownMenu.Add("WASM", "", "WASM:__USE_WASM__ -target js-asmjs -r", @mClickUseDefine)
 	mnuDefault->Checked = True
 	miUseDefine = mnuDefault
+	tbProject.Buttons.Add tbsSeparator
+	tbButton = tbProject.Buttons.Add(tbsCustom)
+	tbButton->Width = 170
+	tbButton->Child = @cboBuildConfiguration
 End Sub
 
 CreateMenusAndToolBars
@@ -7181,7 +7220,8 @@ tbExplorer.ImagesList = @imgList
 tbExplorer.HotImagesList = @imgList
 'tbExplorer.DisabledImagesList = @imgList
 tbExplorer.Flat = True
-tbExplorer.Align = DockStyle.alTop
+tbExplorer.Align = DockStyle.alLeft
+tbExplorer.AutoSize = True
 tbExplorer.Buttons.Add , "Add",, @mClick, "AddFilesToProject", , ML("Add"), True
 tbtRemoveFileFromProject = tbExplorer.Buttons.Add(, "Remove", , @mClick, "RemoveFileFromProject", , ML("&Remove"), True, 0)
 tbExplorer.Buttons.Add tbsSeparator
@@ -7209,7 +7249,7 @@ End Sub
 tbForm.ImagesList = @imgList
 tbForm.HotImagesList = @imgList
 'tbForm.DisabledImagesList = @imgListD
-tbForm.Align = DockStyle.alTop
+tbForm.Align = DockStyle.alLeft
 tbForm.Flat = True
 tbForm.Buttons.Add tbsCheck, "Label", , @tbFormClick, "Text", "", ML("Text"), , tstChecked Or tstEnabled
 tbForm.Buttons.Add tbsSeparator
@@ -7396,25 +7436,37 @@ Sub tvExplorer_NodeActivate(ByRef Designer As My.Sys.Object, ByRef Sender As Con
 	If Item.ImageKey = "Project" AndAlso Item.ParentNode = 0 Then Exit Sub
 	Dim As ExplorerElement Ptr ee = Item.Tag
 	If ee <> 0 Then
-		Dim As Integer Pos1 = InStrRev(*ee->FileName, ".")
-		If Pos1 > 0 Then
-			Dim As UString Extension = Mid(*ee->FileName, Pos1)
-			For i As Integer = 0 To pOtherEditors->Count - 1
-				Dim As ToolType Ptr Tool = pOtherEditors->Item(i)->Object
-				If InStr(" " & LCase(Tool->Extensions) & ",", " " & LCase(Extension) & ",") > 0 Then
-					If Not FileExists(GetFullPath(Tool->Path)) Then Continue For
-					'Shell """" & Tool->GetCommand(*ee->FileName) & """"
-					PipeCmd "", Tool->GetCommand(*ee->FileName)
-					Exit Sub
+		If *ee Is TypeElement Then
+			Dim As TypeElement Ptr te = Item.Tag
+			If te->Tag <> 0 Then
+				Dim As TabWindow Ptr tb = te->Tag
+				If Not tb->IsSelected Then
+					tb->SelectTab
 				End If
-			Next
-		End If
-		If (EndsWith(*ee->FileName, ".exe") OrElse EndsWith(*ee->FileName, ".dll") OrElse EndsWith(*ee->FileName, ".dll.a") OrElse EndsWith(*ee->FileName, ".so") OrElse _
-			EndsWith(*ee->FileName, ".png") OrElse EndsWith(*ee->FileName, ".jpg") OrElse EndsWith(*ee->FileName, ".bmp") OrElse EndsWith(*ee->FileName, ".ico") OrElse EndsWith(*ee->FileName, ".cur") OrElse EndsWith(*ee->FileName, ".gif") OrElse EndsWith(*ee->FileName, ".avi") OrElse _
-			EndsWith(*ee->FileName, ".chm") OrElse EndsWith(*ee->FileName, ".zip") OrElse EndsWith(*ee->FileName, ".7z") OrElse EndsWith(*ee->FileName, ".rar")) Then
-			'Shell *ee->FileName
-			PipeCmd "", *ee->FileName
+				tb->txtCode.SetSelection te->StartLine, te->StartLine, te->StartChar, te->StartChar
+			End If
 			Exit Sub
+		Else
+			Dim As Integer Pos1 = InStrRev(*ee->FileName, ".")
+			If Pos1 > 0 Then
+				Dim As UString Extension = Mid(*ee->FileName, Pos1)
+				For i As Integer = 0 To pOtherEditors->Count - 1
+					Dim As ToolType Ptr Tool = pOtherEditors->Item(i)->Object
+					If InStr(" " & LCase(Tool->Extensions) & ",", " " & LCase(Extension) & ",") > 0 Then
+						If Not FileExists(GetFullPath(Tool->Path)) Then Continue For
+						'Shell """" & Tool->GetCommand(*ee->FileName) & """"
+						PipeCmd "", Tool->GetCommand(*ee->FileName)
+						Exit Sub
+					End If
+				Next
+			End If
+			If (EndsWith(*ee->FileName, ".exe") OrElse EndsWith(*ee->FileName, ".dll") OrElse EndsWith(*ee->FileName, ".dll.a") OrElse EndsWith(*ee->FileName, ".so") OrElse _
+				EndsWith(*ee->FileName, ".png") OrElse EndsWith(*ee->FileName, ".jpg") OrElse EndsWith(*ee->FileName, ".bmp") OrElse EndsWith(*ee->FileName, ".ico") OrElse EndsWith(*ee->FileName, ".cur") OrElse EndsWith(*ee->FileName, ".gif") OrElse EndsWith(*ee->FileName, ".avi") OrElse _
+				EndsWith(*ee->FileName, ".chm") OrElse EndsWith(*ee->FileName, ".zip") OrElse EndsWith(*ee->FileName, ".7z") OrElse EndsWith(*ee->FileName, ".rar")) Then
+				'Shell *ee->FileName
+				PipeCmd "", *ee->FileName
+				Exit Sub
+			End If
 		End If
 	End If
 	Dim t As Boolean
@@ -7661,9 +7713,10 @@ pnlLeft.Add @tabLeft
 'tabLeft.TabPosition = tpLeft
 
 tbLeft.ImagesList = @imgList
+tbLeft.Buttons.Add tbsAutosize, "FindSymbol", , @mClick, "FindItemInProject", "", ML("Find"), , tstEnabled
 tbLeft.Buttons.Add tbsCheck, "Pinned", , @mClick, "PinLeft", "", ML("Pin"), , tstEnabled Or tstChecked
 tbLeft.Flat = True
-tbLeft.Width = 23
+tbLeft.Width = 46
 tbLeft.Parent = @pnlLeftPin
 
 tpProject = tabLeft.AddTab(ML("Project"))
@@ -7705,10 +7758,51 @@ pnlLeftPin.Parent = @pnlLeft
 	#endif
 #endif
 
+Function SetVisibleToTreeNode(Node As TreeNode Ptr, ByRef SearchText As WString) As Boolean
+	Dim As Boolean bVisible
+	If Node->Nodes.Count > 0 Then
+		If SearchText = "" AndAlso (Node->ParentNode <> 0 OrElse Node->ImageKey <> "Project") Then
+			Node->Collapse
+		Else
+			Node->Expand
+		End If
+	End If
+	For i As Integer = 0 To Node->Nodes.Count - 1
+		If SetVisibleToTreeNode(Node->Nodes.Item(i), SearchText) Then
+			bVisible = True
+		End If
+	Next
+	If Not bVisible Then
+		bVisible = SearchText = "" OrElse InStr(LCase(Node->Text), SearchText) > 0
+	End If
+	Node->Visible = bVisible
+	Return bVisible
+End Function
+
+Sub txtExplorer_Change(ByRef Designer As My.Sys.Object, Sender As TextBox)
+	Dim As UString SearchText = Trim(LCase(txtExplorer.Text))
+	For i As Integer = 0 To tvExplorer.Nodes.Count - 1
+		SetVisibleToTreeNode(tvExplorer.Nodes.Item(i), SearchText)
+	Next
+	If SearchText <> "" Then
+		tvExplorer.ExpandAll
+	End If
+End Sub
+
+txtExplorer.ExtraMargins.Right = pnlLeftPin.Width + 2
+txtExplorer.ExtraMargins.Bottom = 5
+txtExplorer.Align = DockStyle.alClient
+txtExplorer.OnChange = @txtExplorer_Change
+
+hbxExplorer.Align = DockStyle.alTop
+hbxExplorer.Height = 10
+hbxExplorer.Add @tbExplorer
+hbxExplorer.Add @txtExplorer
+
 lblLeft.Text = ML("Main File") & ": " & ML("Automatic")
 lblLeft.Align = DockStyle.alBottom
 
-tpProject->Add @tbExplorer
+tpProject->Add @hbxExplorer
 tpProject->Add @lblLeft
 tpProject->Add @tvExplorer
 
@@ -7719,8 +7813,29 @@ pnlToolBox.Add @tbToolBox
 #endif
 pnlToolBox.OnResize = @pnlToolBox_Resize
 
+Sub txtForm_Change(ByRef Designer As My.Sys.Object, Sender As TextBox)
+	Dim As Boolean bVisible
+	Dim As UString SearchText = Trim(LCase(txtForm.Text))
+	For i As Integer = 0 To tbToolBox.Groups.Count - 1
+		For j As Integer = 0 To tbToolBox.Groups.Item(i)->Buttons.Count - 1
+			bVisible =  SearchText = "" OrElse InStr(LCase(tbToolBox.Groups.Item(i)->Buttons.Item(j)->Caption), SearchText) > 0
+			tbToolBox.Groups.Item(i)->Buttons.Item(j)->Visible = bVisible
+		Next
+	Next
+End Sub
+
+txtForm.ExtraMargins.Right = pnlLeftPin.Width + 2
+txtForm.ExtraMargins.Bottom = 5
+txtForm.Align = DockStyle.alClient
+txtForm.OnChange = @txtForm_Change
+
+hbxForm.Align = DockStyle.alTop
+hbxForm.Height = 10
+hbxForm.Add @tbForm
+hbxForm.Add @txtForm
+
 tpToolbox->Add @pnlToolBox 'tbToolBox
-tpToolbox->Add @tbForm
+tpToolbox->Add @hbxForm
 'tpToolbox->Style = tpToolbox->Style Or ES_AUTOVSCROLL or WS_VSCROLL
 
 'pnlLeft.Width = 153
@@ -7737,21 +7852,33 @@ Sub tbProperties_ButtonClick(ByRef Designer As My.Sys.Object, ByRef Sender As My
 End Sub
 
 tbProperties.ImagesList = @imgList
-tbProperties.Align = DockStyle.alTop
+tbProperties.Align = DockStyle.alLeft
 tbProperties.List = True
 tbProperties.Buttons.Add tbsCheck Or tbsAutosize, "Categorized", , @tbProperties_ButtonClick, "PropertyCategory", "", ML("Categorized"), , tstEnabled Or tstChecked
 tbProperties.Buttons.Add tbsSeparator
 tbProperties.Buttons.Add tbsAutosize, "Property", , @tbProperties_ButtonClick, "Properties", "", ML("Properties"), , tstEnabled
 tbProperties.Buttons.Add tbsShowText, "", , , "SelControlName", "", "", , 0
+tbProperties.Buttons.Add tbsAutosize, "FindSymbol", , @tbProperties_ButtonClick, "FindItemInProperties", "", ML("Find"), , tstEnabled
 tbProperties.Flat = True
 
+hbxProperties.Align = DockStyle.alTop
+hbxProperties.Height = 10
+hbxProperties.Add @tbProperties
+hbxProperties.Add @txtProperties
+
 tbEvents.ImagesList = @imgList
-tbEvents.Align = DockStyle.alTop
+tbEvents.Align = DockStyle.alLeft
 tbEvents.List = True
 tbEvents.Buttons.Add tbsAutosize Or tbsCheck, "Categorized", , @tbProperties_ButtonClick, "EventCategory", "", ML("Categorized"), , tstEnabled
 tbEvents.Buttons.Add tbsSeparator
 tbEvents.Buttons.Add tbsShowText, "", , , "SelControlName", "", "", , 0
+tbEvents.Buttons.Add tbsAutosize, "FindSymbol", , @tbProperties_ButtonClick, "FindItemInEvents", "", ML("Find"), , tstEnabled
 tbEvents.Flat = True
+
+hbxEvents.Align = DockStyle.alTop
+hbxEvents.Height = 10
+hbxEvents.Add @tbEvents
+hbxEvents.Add @txtEvents
 
 Sub txtPropertyValue_Activate(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	lvProperties.SetFocus
@@ -8519,12 +8646,12 @@ tabRight.Detachable = True
 tabRight.Reorderable = True
 'tabRight.TabPosition = tpRight
 tpProperties = tabRight.AddTab(ML("Properties"))
-tpProperties->Add @tbProperties
+tpProperties->Add @hbxProperties
 tpProperties->Add @txtLabelProperty
 tpProperties->Add @splProperties
 tpProperties->Add @lvProperties
 tpEvents = tabRight.AddTab(ML("Events"))
-tpEvents->Add @tbEvents
+tpEvents->Add @hbxEvents
 tpEvents->Add @txtLabelEvent
 tpEvents->Add @splEvents
 tpEvents->Add @lvEvents
@@ -8576,6 +8703,55 @@ pnlRightPin.Parent = @pnlRight
 'pnlRight.Width = 153
 'pnlRight.Align = 2
 'pnlRight.AddRange 1, @tabRight
+
+Function SetVisibleToTreeListViewItem(Sender As TreeListView, Node As TreeListViewItem Ptr, ByRef SearchText As WString) As Boolean
+	Dim As Boolean bVisible
+	If Node->Nodes.Count > 0 Then
+		If SearchText = "" Then
+			Node->Collapse
+		Else
+			Node->Expand
+		End If
+	End If
+	For i As Integer = 0 To Node->Nodes.Count - 1
+		If SetVisibleToTreeListViewItem(Sender, Node->Nodes.Item(i), SearchText) Then
+			bVisible = True
+		End If
+	Next
+	If Not bVisible Then
+		bVisible = SearchText = "" OrElse InStr(LCase(Node->Text(0)), SearchText) > 0
+	End If
+	Node->Visible = bVisible
+	Return bVisible
+End Function
+
+Sub txtProperties_Change(ByRef Designer As My.Sys.Object, Sender As TextBox)
+	tabRight.UpdateLock
+	Dim As UString SearchText = Trim(LCase(txtProperties.Text))
+	For i As Integer = 0 To lvProperties.Nodes.Count - 1
+		SetVisibleToTreeListViewItem(lvProperties, lvProperties.Nodes.Item(i), SearchText)
+	Next
+	tabRight.UpdateUnLock
+End Sub
+
+Sub txtEvents_Change(ByRef Designer As My.Sys.Object, Sender As TextBox)
+	tabRight.UpdateLock
+	Dim As UString SearchText = Trim(LCase(txtEvents.Text))
+	For i As Integer = 0 To lvEvents.Nodes.Count - 1
+		SetVisibleToTreeListViewItem(lvEvents, lvEvents.Nodes.Item(i), SearchText)
+	Next
+	tabRight.UpdateUnLock
+End Sub
+
+txtProperties.ExtraMargins.Right = pnlRightPin.Width + 2
+txtProperties.ExtraMargins.Bottom = 5
+txtProperties.Align = DockStyle.alClient
+txtProperties.OnChange = @txtProperties_Change
+
+txtEvents.ExtraMargins.Right = pnlRightPin.Width + 2
+txtEvents.ExtraMargins.Bottom = 5
+txtEvents.Align = DockStyle.alClient
+txtEvents.OnChange = @txtEvents_Change
 
 'ptabCode->Images.AddIcon bmp
 
@@ -9613,6 +9789,15 @@ Sub frmMain_Create(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		tviewthd = @tvThd
 		tviewwch = @tvWch
 	#endif
+	#ifdef __USE_WINAPI__
+		Dim As ..Size sz
+		SendMessage(tbExplorer.Handle, TB_GETIDEALSIZE, 0, Cast(LPARAM, @sz))
+		tbExplorer.Width = UnScaleX(sz.cx)
+		hbxExplorer.RequestAlign
+		SendMessage(tbForm.Handle, TB_GETIDEALSIZE, 0, Cast(LPARAM, @sz))
+		tbForm.Width = UnScaleX(sz.cx)
+		hbxForm.RequestAlign
+	#endif
 	'	If MainNode <> 0 Then
 	'		' Should have changelog file for every project
 	'		If MainNode->Text<>"" AndAlso InStr(MainNode->Text,".") Then
@@ -9935,7 +10120,7 @@ frmMain.KeyPreview = True
 #else
 	frmMain.Icon.LoadFromResourceID(1)
 #endif
-frmMain.StartPosition = FormStartPosition.DefaultBounds
+'frmMain.StartPosition = FormStartPosition.DefaultBounds
 frmMain.MainForm = True
 #ifdef __FB_64BIT__
 	frmMain.Text = "Visual FB Editor (x64)"
@@ -10018,6 +10203,7 @@ Sub OnProgramQuit() Destructor
 	WDeAllocate(RecentSession)
 	WDeAllocate(DefaultHelp)
 	WDeAllocate(HelpPath)
+	WDeAllocate(DefaultBuildConfiguration)
 	WDeAllocate(KeywordsHelpPath)
 	WDeAllocate(AsmKeywordsHelpPath)
 	WDeAllocate(CurrentTheme)
@@ -10099,23 +10285,41 @@ Sub OnProgramQuit() Destructor
 		Next
 		_Delete( Cast(TypeElement Ptr, pGlobalNamespaces->Object(i)))
 	Next
-	For i As Integer = pComps->Count - 1 To 0 Step -1
-		te = pComps->Object(i)
+	For i As Integer = Snippets.Count - 1 To 0 Step -1
+		te = Snippets.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
 			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, pComps->Object(i)))
-		'pComps->Remove i
+		_Delete( Cast(TypeElement Ptr, Snippets.Object(i)))
+	Next
+	For i As Integer = pComps->Count - 1 To 0 Step -1
+		DeleteFromTypeElement(pComps->Object(i))
+		'te = pComps->Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, pComps->Object(i)))
+		''pComps->Remove i
 	Next
 	For i As Integer = pGlobalTypes->Count - 1 To 0 Step -1
-		te = pGlobalTypes->Object(i)
+		DeleteFromTypeElement(pGlobalTypes->Object(i))
+		'te = pGlobalTypes->Object(i)
+		'For j As Integer = te->Elements.Count - 1 To 0 Step -1
+		'	_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		'Next
+		'te->Elements.Clear
+		'_Delete( Cast(TypeElement Ptr, pGlobalTypes->Object(i)))
+		''pGlobalTypes->Remove i
+	Next
+	For i As Integer = TypesInFunc.Count - 1 To 0 Step -1
+		te = TypesInFunc.Object(i)
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
 			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
 		Next
 		te->Elements.Clear
-		_Delete( Cast(TypeElement Ptr, pGlobalTypes->Object(i)))
-		'pGlobalTypes->Remove i
+		_Delete( Cast(TypeElement Ptr, TypesInFunc.Object(i)))
 	Next
 	For i As Integer = pGlobalEnums->Count - 1 To 0 Step -1
 		te = pGlobalEnums->Object(i)
@@ -10125,6 +10329,14 @@ Sub OnProgramQuit() Destructor
 		te->Elements.Clear
 		_Delete( Cast(TypeElement Ptr, pGlobalEnums->Object(i)))
 		'pGlobalEnums->Remove i
+	Next
+	For i As Integer = EnumsInFunc.Count - 1 To 0 Step -1
+		te = EnumsInFunc.Object(i)
+		For j As Integer = te->Elements.Count - 1 To 0 Step -1
+			_Delete( Cast(TypeElement Ptr, te->Elements.Object(j)))
+		Next
+		te->Elements.Clear
+		_Delete( Cast(TypeElement Ptr, EnumsInFunc.Object(i)))
 	Next
 	For i As Integer = pGlobalFunctions->Count - 1 To 0 Step -1
 		te = pGlobalFunctions->Object(i)

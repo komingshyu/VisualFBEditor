@@ -12,6 +12,7 @@
 #include once "mff/WStringList.bi"
 #include once "mff/Dictionary.bi"
 #include once "mff/Form.bi"
+#include once "mff/ComboBoxEdit.bi"
 #include once "mff/CommandButton.bi"
 #include once "mff/Dialogs.bi"
 #include once "mff/TreeView.bi"
@@ -107,7 +108,6 @@ Type HelpOptions
 End Type
 Common Shared As HelpOptions HelpOption
 
-Declare Function ML(ByRef msg As WString) ByRef As WString
 Declare Function MS cdecl(ByRef V As WString, ...) As UString
 Declare Function HK(Key As String, Default As String = "", WithSpace As Boolean = False) As String
 Declare Function MP(ByRef V As WString) ByRef As WString
@@ -124,6 +124,7 @@ Declare Sub LoadSettings
 Declare Sub LoadLanguageTexts
 
 Common Shared As Form Ptr pfrmMain
+Common Shared As ComboBoxEdit Ptr pcboBuildConfiguration
 Common Shared As SaveFileDialog Ptr pSaveD
 Common Shared As ListView Ptr plvSearch, plvToDo
 Common Shared As StatusBar Ptr pstBar 'David Changed
@@ -167,12 +168,13 @@ Common Shared As Integer gSearchItemIndex
 Common Shared As Integer InterfaceFontSize
 Common Shared As Integer LastOpenedFileType
 Common Shared As Integer LoadFunctionsCount
-Common Shared As String  CurLanguage, UseDefine
+Common Shared As String  UseDefine
+'CurLanguage
 Common Shared As WString Ptr DefaultProjectFile
 Common Shared As WString Ptr InterfaceFontName
 Common Shared As WString Ptr gSearchSave, EnvironmentVariables
 Common Shared As WString Ptr ProjectsPath, LastOpenPath, CommandPromptFolder
-Common Shared As WString Ptr DefaultHelp, HelpPath, KeywordsHelpPath, AsmKeywordsHelpPath
+Common Shared As WString Ptr DefaultHelp, HelpPath, KeywordsHelpPath, AsmKeywordsHelpPath, DefaultBuildConfiguration
 Common Shared As WString Ptr DefaultMakeTool, CurrentMakeTool1, CurrentMakeTool2
 Common Shared As WString Ptr DefaultDebugger32, DefaultDebugger64, GDBDebugger32, GDBDebugger64, CurrentDebugger32, CurrentDebugger64, DefaultTerminal, CurrentTerminal
 Common Shared As WString Ptr DefaultCompiler32, CurrentCompiler32, DefaultCompiler64, CurrentCompiler64
