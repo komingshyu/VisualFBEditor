@@ -35,6 +35,7 @@
 #include once "mff/ScrollControl.bi"
 #include once "mff/VerticalBox.bi"
 #include once "mff/HorizontalBox.bi"
+#include once "mff/PagePanel.bi"
 
 Using My.Sys.Forms
 
@@ -181,11 +182,12 @@ Common Shared As Integer oldIndex, newIndex
 		Dim As CheckBox chkAllLNG, chkFrame, chkForeground, chkBackground, chkIndicator
 		Dim As CheckBox chkHighlightCurrentWord
 		Dim As CheckBox chkHighlightCurrentLine
-		Dim As CheckBox chkHighlightBrackets, chkIncludeMFFPath, chkLimitDebug, chkDisplayWarningsInDebug, chkCreateNonStaticEventHandlers, chkShowKeywordsTooltip, chkShowSymbolsTooltipsOnMouseHover, chkShowClassesExplorerOnOpenWindow, chkAddSpacesToOperators, chkCreateFormTypesWithoutTypeWord, chkTurnOnEnvironmentVariables, chkDarkMode, chkPlaceStaticEventHandlersAfterTheConstructor, chkCreateStaticEventHandlersWithAnUnderscoreAtTheBeginning, chkAddRelativePathsToRecent, chkShowTooltipsAtTheTop, chkChangeIdentifiersCase, chkSyntaxHighlightingIdentifiers, chkEnableAutoSuggestions, chkShowHorizontalSeparatorLines, chkCreateEventHandlersWithoutStaticEventHandlerIfEventAllowsIt
+		Dim As CheckBox chkHighlightBrackets, chkIncludeMFFPath, chkLimitDebug, chkDisplayWarningsInDebug, chkCreateNonStaticEventHandlers, chkShowKeywordsTooltip, chkShowSymbolsTooltipsOnMouseHover, chkShowClassesExplorerOnOpenWindow, chkAddSpacesToOperators, chkCreateFormTypesWithoutTypeWord, chkTurnOnEnvironmentVariables, chkDarkMode, chkPlaceStaticEventHandlersAfterTheConstructor, chkCreateStaticEventHandlersWithAnUnderscoreAtTheBeginning, chkAddRelativePathsToRecent, chkShowTooltipsAtTheTop, chkChangeIdentifiersCase, chkSyntaxHighlightingIdentifiers, chkEnableAutoSuggestions, chkShowHorizontalSeparatorLines, chkCreateEventHandlersWithoutStaticEventHandlerIfEventAllowsIt, chkAutoSaveSession
 		Dim As Boolean oldDisplayMenuIcons
 		Dim As RadioButton optSaveCurrentFile, optDoNotSave, optSaveAllFiles, optPromptForProjectAndFile, optCreateProjectFile, optOpenLastSession, optDoNotNothing, optPromptToSave, optMainFileFolder, optInFolder
 		Dim As VerticalBox vbxCodeEditor, vbxGeneral, vbxColors
 		Dim As VerticalBox vbxTheme
+		Dim As PagePanel pplGeneral
 	End Type
 '#End Region
 

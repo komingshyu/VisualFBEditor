@@ -70,6 +70,7 @@ Declare Sub DebugPrint_(ByRef MSG As WString)
 #include once "Debug.bi"
 #include once "Designer.bi"
 #include once "frmAddProcedure.frm"
+#include once "frmAddType.frm"
 #include once "frmOptions.bi"
 #include once "frmGoto.bi"
 #include once "frmFind.bi"
@@ -192,6 +193,24 @@ Sub mClickWindow(ByRef Designer As My.Sys.Object, ByRef Sender As My.Sys.Object)
 	If tb <> 0 Then tb->SelectTab
 End Sub
 
+Sub SelectNextControl
+	Select Case frmMain.ActiveControl
+	Case @txtExplorer: tvExplorer.SetFocus
+	Case @tvExplorer: txtExplorer.SetFocus
+	Case @txtForm: tbToolBox.SetFocus
+	Case @tbToolBox: txtForm.SetFocus
+	Case @txtProperties: lvProperties.SetFocus
+	Case @lvProperties: txtProperties.SetFocus
+	Case @txtEvents: lvEvents.SetFocus
+	Case @lvEvents: txtEvents.SetFocus
+	End Select
+End Sub
+
+Sub ClearThreadsWindow
+	lvThreads.Nodes.Clear
+	tpThreads->Caption = ML("Threads")
+End Sub
+
 Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Select Case Sender.ToString
 	Case "NewProject":                          NewProject
@@ -232,20 +251,12 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		If (*CurrentTheme = "Default Theme" AndAlso DarkMode) OrElse (*CurrentTheme = "Dark (Visual Studio)" AndAlso Not DarkMode) Then
 			*CurrentTheme = IIf(DarkMode, "Dark (Visual Studio)", "Default Theme")
 			LoadTheme
-			Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-			If tb <> 0 Then
-				#ifdef __USE_GTK__
-					tb->txtCode.Update
-				#else
-					tb->txtCode.PaintControl True
-					'RedrawWindow tb->txtCode.Handle, NULL, NULL, RDW_INVALIDATE
-				#endif
-			End If
+			UpdateAllTabWindows
 		End If
 		#ifdef __USE_WINAPI__
 			If DarkMode Then
-				txtLabelProperty.BackColor = GetSysColor(COLOR_WINDOW)
-				txtLabelEvent.BackColor = GetSysColor(COLOR_WINDOW)
+				txtLabelProperty.BackColor = darkBkColor
+				txtLabelEvent.BackColor = darkBkColor
 				fAddIns.txtDescription.BackColor = GetSysColor(COLOR_WINDOW)
 			Else
 				txtLabelProperty.BackColor = clBtnFace
@@ -261,10 +272,10 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				End If
 			Next i
 		#endif
-	Case "ProjectExplorer":                     tpProject->SelectTab
-	Case "PropertiesWindow":                    tpProperties->SelectTab
-	Case "EventsWindow":                        tpEvents->SelectTab
-	Case "Toolbox":                             tpToolbox->SelectTab
+	Case "ProjectExplorer":                     tpProject->SelectTab: txtExplorer.SetFocus
+	Case "PropertiesWindow":                    tpProperties->SelectTab: txtProperties.SetFocus
+	Case "EventsWindow":                        tpEvents->SelectTab: txtEvents.SetFocus
+	Case "Toolbox":                             tpToolbox->SelectTab: txtForm.SetFocus
 	Case "OutputWindow":                        tpOutput->SelectTab
 	Case "ProblemsWindow":                      tpProblems->SelectTab
 	Case "SuggestionsWindow":                   tpSuggestions->SelectTab
@@ -319,11 +330,12 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "LocateProcedure":                     proc_loc
 	Case "EnableDisable":                       proc_enable
 	Case "StartWithCompile"
+		ClearThreadsWindow
 		If SaveAllBeforeCompile Then
 			ChangeEnabledDebug False, True, True
 			'SaveAll '
-			Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-			If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+			Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+			If CurrentDebugger = IntegratedGDBDebugger Then
 				#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 					If iFlagStartDebug = 0 Then
 						If UseDebugger Then
@@ -368,8 +380,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			End If
 		End If
 	Case "Start"
-		Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-		If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+		ClearThreadsWindow
+		Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+		If CurrentDebugger = IntegratedGDBDebugger Then
 			#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 				If iFlagStartDebug = 0 Then
 					If UseDebugger Then
@@ -422,8 +435,8 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			'SetFocus(richeditcur)
 		#endif
 	Case "End":
-		Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-		If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+		Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+		If CurrentDebugger = IntegratedGDBDebugger Then
 			#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 				If Running Then
 					kill_debug()
@@ -447,8 +460,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			'#endif
 		End If
 	Case "Restart"
-		Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-		If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+		ClearThreadsWindow
+		Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+		If CurrentDebugger = IntegratedGDBDebugger Then
 			#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 				command_debug("r")
 			#endif
@@ -466,9 +480,10 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			'#endif
 		End If
 	Case "StepInto":
+		ClearThreadsWindow
 		ptabBottom->TabIndex = 6 'David Changed
-		Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-		If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+		Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+		If CurrentDebugger = IntegratedGDBDebugger Then
 			#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 				If iFlagStartDebug = 0 Then
 					runtype = RTSTEP
@@ -507,8 +522,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			End If
 		End If
 	Case "StepOver":
-		Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-		If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+		ClearThreadsWindow
+		Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+		If CurrentDebugger = IntegratedGDBDebugger Then
 			#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 				If iFlagStartDebug = 0 Then
 					CurrentTimer = SetTimer(0, 0, 1, Cast(Any Ptr, @TimerProcGDB))
@@ -538,7 +554,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		End If
 	Case "SaveAs", "Close", "SyntaxCheck", "Compile", "CompileAndRun", "Run", "RunToCursor", "SplitHorizontally", "SplitVertically", _
 		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SortLines", "DeleteBlankLines", "FormatWithBasisWord", "ConvertToLowercase", "ConvertToUppercase", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
-		"AddWatch", "ShowVar", "NextBookmark", "PreviousBookmark", "ClearAllBookmarks", "Code", "Form", "CodeAndForm", "AddProcedure" '
+		"AddWatch", "ShowVar", "NextBookmark", "PreviousBookmark", "ClearAllBookmarks", "Code", "Form", "CodeAndForm", "GotoCodeForm", "AddProcedure", "AddType" '
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If tb = 0 Then Exit Sub
 		Select Case Sender.ToString
@@ -611,8 +627,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			ptabCode = @ptabPanelNew->tabCode
 			TabPanels.Add ptabPanelNew
 		Case "SetNextStatement":
-			Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-			If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+			ClearThreadsWindow
+			Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+			If CurrentDebugger = IntegratedGDBDebugger Then
 				#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 					Dim As Integer iStartLine, iEndLine, iStartChar, iEndChar
 					tb->txtCode.GetSelection iStartLine, iEndLine, iStartChar, iEndChar
@@ -628,8 +645,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				var_tip(1)
 			'#endif
 		Case "StepOut":
-			Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-			If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+			ClearThreadsWindow
+			Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+			If CurrentDebugger = IntegratedGDBDebugger Then
 				#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 					If iFlagStartDebug = 0 Then
 						ThreadCounter(ThreadCreate_(@StartDebugging))
@@ -652,8 +670,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				#endif
 			End If
 		Case "RunToCursor":
-			Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-			If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+			ClearThreadsWindow
+			Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+			If CurrentDebugger = IntegratedGDBDebugger Then
 				#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 					If iFlagStartDebug = 1 Then
 						ChangeEnabledDebug False, True, True
@@ -693,7 +712,19 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		Case "Code":                        tb->tbrTop.Buttons.Item("Code")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Code")
 		Case "Form":                        tb->tbrTop.Buttons.Item("Form")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Form")
 		Case "CodeAndForm":                 tb->tbrTop.Buttons.Item("CodeAndForm")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("CodeAndForm")
+		Case "GotoCodeForm":                
+			If tb->txtCode.Focused Then
+				If tb->tbrTop.Buttons.Item("Code")->Checked Then tb->tbrTop.Buttons.Item(tb->LastButton)->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item(tb->LastButton)
+				If tb->Des Then DesignerChangeSelection(*tb->Des, tb->Des->SelectedControl)
+			Else
+				If tb->tbrTop.Buttons.Item("Form")->Checked Then tb->tbrTop.Buttons.Item("Code")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Code")
+				Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+				tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+				tb->txtCode.SetFocus
+				OnLineChangeEdit *tb->txtCode.Designer, tb->txtCode, iSelEndLine, iSelEndLine
+			End If
 		Case "AddProcedure":                frmAddProcedure.ShowModal frmMain
+		Case "AddType":                     frmAddType.ShowModal frmMain
 		End Select
 	Case "SaveAll":                         SaveAll
 	Case "CloseAll":                        CloseAllTabs
@@ -774,10 +805,15 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				Case "Delete":                  des->DeleteControl
 				Case "Duplicate":               des->DuplicateControl
 				Case "SelectAll":               des->SelectAllControls
+				Case "Indent":                  des->SelectNextControl
+				Case "Outdent":                 des->SelectNextControl - 1
 				End Select
 			End If
 			Exit Sub
 		End If
+		Select Case Sender.ToString
+		Case "Indent", "Outdent":           SelectNextControl
+		End Select
 		If ActiveForm->ActiveControl->ClassName <> "EditControl" AndAlso ActiveForm->ActiveControl->ClassName <> "TextBox" AndAlso ActiveForm->ActiveControl->ClassName <> "Panel" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEdit" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEx" Then Exit Sub
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If ActiveForm->ActiveControl->ClassName = "TextBox" Then
@@ -809,6 +845,8 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				Case "Delete":                  des->DeleteControl
 				Case "Duplicate":               des->DuplicateControl
 				Case "SelectAll":               des->SelectAllControls
+				Case "Indent":                  des->SelectNextControl
+				Case "Outdent":                 des->SelectNextControl - 1
 				End Select
 			ElseIf ActiveForm->ActiveControl->ClassName = "EditControl" OrElse ActiveForm->ActiveControl->ClassName = "Panel" Then
 				Dim ec As EditControl Ptr = @tb->txtCode
@@ -830,8 +868,8 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				Case "Unformat":                ec->UnformatCode
 				Case "AddSpaces":               tb->AddSpaces
 				Case "Breakpoint":
-					Dim As WString Ptr CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebugger32, CurrentDebugger64)
-					If *CurrentDebugger = ML("Integrated GDB Debugger") Then
+					Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
+					If CurrentDebugger = IntegratedGDBDebugger Then
 						#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 							If iFlagStartDebug = 1 Then
 								set_bp

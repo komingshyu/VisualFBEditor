@@ -37,160 +37,191 @@ pfOptions = @fOptions
 		'This.DefaultButton = @cmdOK
 		This.Designer = @This
 		This.BorderStyle = FormBorderStyle.FixedDialog
+		' pplGeneral
+		pplGeneral.Name = "pplGeneral"
+		pplGeneral.Text = ""
+		pplGeneral.Align = DockStyle.alClient
+		pplGeneral.ExtraMargins.Bottom = 9
+		pplGeneral.ExtraMargins.Top = 4
+		pplGeneral.ExtraMargins.Right = 10
+		pplGeneral.Margins.Left = 10
+		pplGeneral.TabIndex = 67
+		pplGeneral.SelectedPanelIndex = 0
+		pplGeneral.SelectedPanel = @pnlCompiler
+		pplGeneral.SetBounds 188, 4, 427, 400
+		pplGeneral.Parent = @This
+		' pnlGeneral
+		pnlGeneral.Name = "pnlGeneral"
+		pnlGeneral.Text = ""
+		pnlGeneral.Align = DockStyle.alClient
+		pnlGeneral.TabIndex = 1
+		pnlGeneral.SetBounds 10, 0, 417, 400
+		pnlGeneral.ControlIndex = 0
+		pnlGeneral.Parent = @pplGeneral
+		' pnlLocalization
+		pnlLocalization.Name = "pnlLocalization"
+		pnlLocalization.Text = ""
+		pnlLocalization.Align = DockStyle.alClient
+		pnlLocalization.TabIndex = 72
+		pnlLocalization.SetBounds 10, 0, 417, 400
+		pnlLocalization.ControlIndex = 1
+		pnlLocalization.Parent = @pplGeneral
+		' pnlShortcuts
+		pnlShortcuts.Name = "pnlShortcuts"
+		pnlShortcuts.Text = ""
+		pnlShortcuts.Align = DockStyle.alClient
+		pnlShortcuts.TabIndex = 74
+		pnlShortcuts.SetBounds 10, 0, 417, 400
+		pnlShortcuts.ControlIndex = 2
+		pnlShortcuts.Parent = @pplGeneral
+		' pnlThemes
+		pnlThemes.Name = "pnlThemes"
+		pnlThemes.Text = ""
+		pnlThemes.Align = DockStyle.alClient
+		pnlThemes.TabIndex = 73
+		pnlThemes.SetBounds 10, 0, 417, 400
+		pnlThemes.ControlIndex = 3
+		pnlThemes.Parent = @pplGeneral
+		' pnlCodeEditor
+		pnlCodeEditor.Name = "pnlCodeEditor"
+		pnlCodeEditor.Text = ""
+		pnlCodeEditor.Align = DockStyle.alClient
+		pnlCodeEditor.TabIndex = 78
+		pnlCodeEditor.SetBounds 10, 0, 417, 400
+		pnlCodeEditor.ControlIndex = 4
+		pnlCodeEditor.Parent = @pplGeneral
+		' pnlColorsAndFonts
+		pnlColorsAndFonts.Name = "pnlColorsAndFonts"
+		pnlColorsAndFonts.Text = ""
+		pnlColorsAndFonts.Align = DockStyle.alClient
+		pnlColorsAndFonts.TabIndex = 79
+		pnlColorsAndFonts.SetBounds 10, 0, 417, 400
+		pnlColorsAndFonts.ControlIndex = 5
+		pnlColorsAndFonts.Parent = @pplGeneral
+		' pnlOtherEditors
+		pnlOtherEditors.Name = "pnlOtherEditors"
+		pnlOtherEditors.Text = ""
+		pnlOtherEditors.Align = DockStyle.alClient
+		pnlOtherEditors.TabIndex = 76
+		pnlOtherEditors.SetBounds 10, 0, 417, 400
+		pnlOtherEditors.ControlIndex = 6
+		pnlOtherEditors.Parent = @pplGeneral
 		' pnlCompiler
 		pnlCompiler.Name = "pnlCompiler"
 		pnlCompiler.Text = ""
 		pnlCompiler.Align = DockStyle.alClient
-		pnlCompiler.ExtraMargins.Bottom = 9
-		pnlCompiler.ExtraMargins.Top = 4
-		pnlCompiler.ExtraMargins.Right = 10
-		pnlCompiler.Margins.Left = 10
+		'pnlCompiler.ExtraMargins.Bottom = 9
+		'pnlCompiler.ExtraMargins.Top = 4
+		'pnlCompiler.ExtraMargins.Right = 10
+		'pnlCompiler.Margins.Left = 10
 		pnlCompiler.TabIndex = 67
 		pnlCompiler.SetBounds 188, 4, 427, 400
-		pnlCompiler.Parent = @This
+		pnlCompiler.Parent = @pplGeneral
+		' pnlBuildConfigurations
+		With pnlBuildConfigurations
+			.Name = "pnlBuildConfigurations"
+			.TabIndex = 234
+			.Align = DockStyle.alClient
+			.ControlIndex = 8
+			.SetBounds 10, 0, 417, 400
+			.Designer = @This
+			.Parent = @pplGeneral
+		End With
+		' pnlIncludes
+		pnlIncludes.Name = "pnlIncludes"
+		pnlIncludes.Align = DockStyle.alClient
+		pnlIncludes.TabIndex = 77
+		pnlIncludes.SetBounds 10, 0, 417, 400
+		pnlIncludes.Text = ""
+		pnlIncludes.ControlIndex = 9
+		pnlIncludes.Parent = @pplGeneral
 		' pnlMake
 		pnlMake.Name = "pnlMake"
 		pnlMake.Text = ""
-		pnlMake.ExtraMargins.Top = 4
-		pnlMake.ExtraMargins.Bottom = 9
-		pnlMake.ExtraMargins.Right = 10
-		pnlMake.Margins.Left = 10
+		'pnlMake.ExtraMargins.Top = 4
+		'pnlMake.ExtraMargins.Bottom = 9
+		'pnlMake.ExtraMargins.Right = 10
+		'pnlMake.Margins.Left = 10
 		pnlMake.Align = DockStyle.alClient
 		pnlMake.TabIndex = 68
 		pnlMake.SetBounds 188, 4, 427, 400
-		pnlMake.Parent = @This
+		pnlMake.Parent = @pplGeneral
 		' pnlDebugger
 		pnlDebugger.Name = "pnlDebugger"
 		pnlDebugger.Text = ""
-		pnlDebugger.ExtraMargins.Top = 4
-		pnlDebugger.ExtraMargins.Bottom = 9
-		pnlDebugger.ExtraMargins.Right = 10
-		pnlDebugger.Margins.Left = 10
+		'pnlDebugger.ExtraMargins.Top = 4
+		'pnlDebugger.ExtraMargins.Bottom = 9
+		'pnlDebugger.ExtraMargins.Right = 10
+		'pnlDebugger.Margins.Left = 10
 		pnlDebugger.Align = DockStyle.alClient
 		pnlDebugger.TabIndex = 69
 		pnlDebugger.SetBounds 188, 4, 427, 400
-		pnlDebugger.Parent = @This
+		pnlDebugger.Parent = @pplGeneral
 		' pnlTerminal
 		pnlTerminal.Name = "pnlTerminal"
 		pnlTerminal.Text = ""
-		pnlTerminal.Margins.Left = 10
-		pnlTerminal.ExtraMargins.Top = 4
-		pnlTerminal.ExtraMargins.Right = 10
-		pnlTerminal.ExtraMargins.Bottom = 9
+		'pnlTerminal.Margins.Left = 10
+		'pnlTerminal.ExtraMargins.Top = 4
+		'pnlTerminal.ExtraMargins.Right = 10
+		'pnlTerminal.ExtraMargins.Bottom = 9
 		pnlTerminal.Align = DockStyle.alClient
 		pnlTerminal.TabIndex = 70
 		pnlTerminal.SetBounds 188, 4, 427, 400
-		pnlTerminal.Parent = @This
+		pnlTerminal.Parent = @pplGeneral
 		' pnlDesigner
 		pnlDesigner.Name = "pnlDesigner"
 		pnlDesigner.Text = ""
-		pnlDesigner.ExtraMargins.Top = 4
-		pnlDesigner.ExtraMargins.Right = 10
-		pnlDesigner.ExtraMargins.Bottom = 9
+		'pnlDesigner.ExtraMargins.Top = 4
+		'pnlDesigner.ExtraMargins.Right = 10
+		'pnlDesigner.ExtraMargins.Bottom = 9
 		pnlDesigner.Align = DockStyle.alClient
-		pnlDesigner.Margins.Left = 10
+		'pnlDesigner.Margins.Left = 10
 		pnlDesigner.TabIndex = 71
 		pnlDesigner.SetBounds -162, 4, 427, 400
-		pnlDesigner.Parent = @This
-		' pnlLocalization
-		pnlLocalization.Name = "pnlLocalization"
-		pnlLocalization.Text = ""
-		pnlLocalization.ExtraMargins.Top = 4
-		pnlLocalization.ExtraMargins.Bottom = 9
-		pnlLocalization.ExtraMargins.Right = 10
-		pnlLocalization.Align = DockStyle.alClient
-		pnlLocalization.Margins.Left = 10
-		pnlLocalization.TabIndex = 72
-		pnlLocalization.SetBounds 188, 4, 427, 400
-		pnlLocalization.Parent = @This
-		' pnlThemes
-		pnlThemes.Name = "pnlThemes"
-		pnlThemes.Text = ""
-		pnlThemes.ExtraMargins.Top = 4
-		pnlThemes.ExtraMargins.Bottom = 9
-		pnlThemes.ExtraMargins.Right = 10
-		pnlThemes.Margins.Left = 10
-		pnlThemes.Align = DockStyle.alClient
-		pnlThemes.TabIndex = 73
-		pnlThemes.SetBounds 188, 4, 427, 400
-		pnlThemes.Parent = @This
-		' pnlShortcuts
-		pnlShortcuts.Name = "pnlShortcuts"
-		pnlShortcuts.Text = ""
-		pnlShortcuts.Margins.Left = 10
-		pnlShortcuts.Margins.Right = 0
-		pnlShortcuts.ExtraMargins.Bottom = 9
-		pnlShortcuts.ExtraMargins.Top = 4
-		pnlShortcuts.ExtraMargins.Right = 10
-		pnlShortcuts.Align = DockStyle.alClient
-		pnlShortcuts.TabIndex = 74
-		pnlShortcuts.SetBounds 188, 4, 427, 400
-		pnlShortcuts.Parent = @This
+		pnlDesigner.Parent = @pplGeneral
+		'pnlLocalization.ExtraMargins.Top = 4
+		'pnlLocalization.ExtraMargins.Bottom = 9
+		'pnlLocalization.ExtraMargins.Right = 10
+		'pnlLocalization.Margins.Left = 10
+		'pnlThemes.ExtraMargins.Top = 4
+		'pnlThemes.ExtraMargins.Bottom = 9
+		'pnlThemes.ExtraMargins.Right = 10
+		'pnlThemes.Margins.Left = 10
+		'pnlShortcuts.Margins.Left = 10
+		'pnlShortcuts.Margins.Right = 0
+		'pnlShortcuts.ExtraMargins.Bottom = 9
+		'pnlShortcuts.ExtraMargins.Top = 4
+		'pnlShortcuts.ExtraMargins.Right = 10
 		' pnlHelp
 		pnlHelp.Name = "pnlHelp"
 		pnlHelp.Text = ""
-		pnlHelp.ExtraMargins.Top = 4
-		pnlHelp.ExtraMargins.Right = 10
-		pnlHelp.ExtraMargins.Bottom = 9
-		pnlHelp.Margins.Left = 10
+		'pnlHelp.ExtraMargins.Top = 4
+		'pnlHelp.ExtraMargins.Right = 10
+		'pnlHelp.ExtraMargins.Bottom = 9
+		'pnlHelp.Margins.Left = 10
 		pnlHelp.Align = DockStyle.alClient
 		pnlHelp.TabIndex = 75
 		pnlHelp.SetBounds 188, 4, 427, 400
-		pnlHelp.Parent = @This
-		' pnlOtherEditors
-		pnlOtherEditors.Name = "pnlOtherEditors"
-		pnlOtherEditors.Text = ""
-		pnlOtherEditors.ExtraMargins.Right = 10
-		pnlOtherEditors.Align = DockStyle.alClient
-		pnlOtherEditors.ExtraMargins.Bottom = 9
-		pnlOtherEditors.ExtraMargins.Top = 4
-		pnlOtherEditors.TabIndex = 76
-		pnlOtherEditors.SetBounds 188, 4, 427, 400
-		pnlOtherEditors.Parent = @This
-		' pnlIncludes
-		pnlIncludes.Name = "pnlIncludes"
-		pnlIncludes.ExtraMargins.Bottom = 9
-		pnlIncludes.ExtraMargins.Right = 10
-		pnlIncludes.Align = DockStyle.alClient
-		pnlIncludes.ExtraMargins.Top = 4
-		pnlIncludes.TabIndex = 77
-		pnlIncludes.SetBounds 188, 4, 427, 400
-		pnlIncludes.Text = ""
-		pnlIncludes.Parent = @This
-		' pnlCodeEditor
-		pnlCodeEditor.Name = "pnlCodeEditor"
-		pnlCodeEditor.Text = ""
-		pnlCodeEditor.ExtraMargins.Top = 4
-		pnlCodeEditor.ExtraMargins.Bottom = 9
-		pnlCodeEditor.ExtraMargins.Right = 10
-		pnlCodeEditor.Margins.Left = 10
-		pnlCodeEditor.Align = DockStyle.alClient
-		pnlCodeEditor.TabIndex = 78
-		pnlCodeEditor.SetBounds 188, 4, 427, 400
-		pnlCodeEditor.Parent = @This
-		' pnlColorsAndFonts
-		pnlColorsAndFonts.Name = "pnlColorsAndFonts"
-		pnlColorsAndFonts.Text = ""
-		pnlColorsAndFonts.ExtraMargins.Top = 4
-		pnlColorsAndFonts.ExtraMargins.Right = 10
-		pnlColorsAndFonts.ExtraMargins.Bottom = 9
-		pnlColorsAndFonts.Margins.Left = 10
-		pnlColorsAndFonts.Align = DockStyle.alClient
-		pnlColorsAndFonts.TabIndex = 79
-		pnlColorsAndFonts.SetBounds 188, 4, 427, 400
-		pnlColorsAndFonts.Parent = @This
-		' pnlGeneral
-		pnlGeneral.Name = "pnlGeneral"
-		pnlGeneral.Text = ""
-		pnlGeneral.Margins.Left = 10
-		pnlGeneral.ExtraMargins.Top = 0
-		pnlGeneral.ExtraMargins.Bottom = 9
-		pnlGeneral.ExtraMargins.Right = 10
-		pnlGeneral.Align = DockStyle.alClient
-		pnlGeneral.Margins.Top = 0
-		pnlGeneral.TabIndex = 1
-		pnlGeneral.SetBounds 188, 0, 427, 404
-		pnlGeneral.Parent = @This
+		pnlHelp.Parent = @pplGeneral
+		'pnlOtherEditors.ExtraMargins.Right = 10
+		'pnlOtherEditors.ExtraMargins.Bottom = 9
+		'pnlOtherEditors.ExtraMargins.Top = 4
+		'pnlIncludes.ExtraMargins.Bottom = 9
+		'pnlIncludes.ExtraMargins.Right = 10
+		'pnlIncludes.ExtraMargins.Top = 4
+		'pnlCodeEditor.ExtraMargins.Top = 4
+		'pnlCodeEditor.ExtraMargins.Bottom = 9
+		'pnlCodeEditor.ExtraMargins.Right = 10
+		'pnlCodeEditor.Margins.Left = 10
+		'pnlColorsAndFonts.ExtraMargins.Top = 4
+		'pnlColorsAndFonts.ExtraMargins.Right = 10
+		'pnlColorsAndFonts.ExtraMargins.Bottom = 9
+		'pnlColorsAndFonts.Margins.Left = 10
+		'pnlGeneral.Margins.Left = 10
+		'pnlGeneral.ExtraMargins.Top = 0
+		'pnlGeneral.ExtraMargins.Bottom = 9
+		'pnlGeneral.ExtraMargins.Right = 10
+		'pnlGeneral.Margins.Top = 0
 		' pnlCommands
 		With pnlCommands
 			.Name = "pnlCommands"
@@ -584,7 +615,7 @@ pfOptions = @fOptions
 		With chkAutoCreateBakFiles
 			.Name = "chkAutoCreateBakFiles"
 			.Text = ML("Auto create bak files before saving")
-			.ExtraMargins.Top = 5
+			.ExtraMargins.Top = 0
 			.Align = DockStyle.alTop
 			.TabIndex = 100
 			.Constraints.Height = 21
@@ -593,36 +624,50 @@ pfOptions = @fOptions
 			.ID = 1009
 			.Parent = @vbxGeneral
 		End With
+		' chkAutoSaveSession
+		With chkAutoSaveSession
+			.Name = "chkAutoSaveSession"
+			.Text = ML("Auto save session (if session opened)")
+			.TabIndex = 246
+			.Align = DockStyle.alTop
+			.AutoSize = True
+			.ControlIndex = 2
+			.Constraints.Height = 21
+			.SetBounds 0, 0, 142, 21
+			.Designer = @This
+			.Parent = @vbxGeneral
+		End With
 		' chkAutoCreateRC
 		chkAutoCreateRC.Name = "chkAutoCreateRC"
 		chkAutoCreateRC.Text = ML("Auto create resource and manifest files (.rc, .xml)")
-		chkAutoCreateRC.ExtraMargins.Top = 5
+		chkAutoCreateRC.ExtraMargins.Top = 0
 		chkAutoCreateRC.Align = DockStyle.alTop
 		chkAutoCreateRC.TabIndex = 101
 		chkAutoCreateRC.Constraints.Height = 21
 		chkAutoCreateRC.AutoSize = True
-		chkAutoCreateRC.SetBounds 0, 28, 295, 21
+		chkAutoCreateRC.SetBounds 0, 26, 295, 21
 		chkAutoCreateRC.Parent = @vbxGeneral
+		chkAutoCreateRC.ControlIndex = 1
 		' CheckBox1
 		CheckBox1.Name = "CheckBox1"
 		CheckBox1.Text = ML("Auto increment version")
 		CheckBox1.Align = DockStyle.alTop
-		CheckBox1.ExtraMargins.Top = 5
+		CheckBox1.ExtraMargins.Top = 0
 		CheckBox1.TabIndex = 102
 		CheckBox1.Constraints.Height = 21
 		CheckBox1.AutoSize = True
-		CheckBox1.SetBounds 0, 51, 166, 21
+		CheckBox1.SetBounds 0, 72, 166, 21
 		CheckBox1.Parent = @vbxGeneral
 		' chkAddRelativePathsToRecent
 		With chkAddRelativePathsToRecent
 			.Name = "chkAddRelativePathsToRecent"
 			.Text = ML("Add relative paths to recent")
 			.TabIndex = 103
-			.ExtraMargins.Top = 5
+			.ExtraMargins.Top = 0
 			.Align = DockStyle.alTop
 			.Constraints.Height = 21
 			.AutoSize = True
-			.SetBounds 0, 74, 190, 21
+			.SetBounds 0, 98, 190, 21
 			.Parent = @vbxGeneral
 		End With
 		' grbIncludePaths
@@ -630,13 +675,13 @@ pfOptions = @fOptions
 			.Name = "grbIncludePaths"
 			.Text = ML("Include Paths")
 			.Align = DockStyle.alClient
-			.ExtraMargins.Left = 10
+			.ExtraMargins.Left = 0
 			.Margins.Top = 23
 			.Margins.Right = 15
 			.Margins.Left = 15
 			.Margins.Bottom = 15
 			.TabIndex = 104
-			.SetBounds 10, 0, 417, 214
+			.SetBounds 10, 0, 407, 214
 			.Parent = @pnlIncludes
 		End With
 		' grbLibraryPaths
@@ -644,14 +689,14 @@ pfOptions = @fOptions
 			.Name = "grbLibraryPaths"
 			.Text = ML("Library Paths")
 			.Align = DockStyle.alBottom
-			.ExtraMargins.Left = 10
+			.ExtraMargins.Left = 0
 			.ExtraMargins.Top = 8
 			.Margins.Top = 20
 			.Margins.Right = 15
 			.Margins.Left = 15
 			.Margins.Bottom = 15
 			.TabIndex = 105
-			.SetBounds 10, 222, 417, 178
+			.SetBounds 10, 222, 407, 178
 			.Parent = @pnlIncludes
 		End With
 		' pnlIncludeMFFPath
@@ -1895,13 +1940,13 @@ pfOptions = @fOptions
 			.Text = ML("Other Editors")
 			.Align = DockStyle.alClient
 			.ExtraMargins.Top = 0
-			.ExtraMargins.Left = 10
+			.ExtraMargins.Left = 0
 			.Margins.Top = 21
 			.Margins.Right = 15
 			.Margins.Left = 15
 			.Margins.Bottom = 15
 			.TabIndex = 166
-			.SetBounds 10, 0, 417, 400
+			.SetBounds 10, 0, 407, 400
 			.Parent = @pnlOtherEditors
 		End With
 		' lvOtherEditors
@@ -2653,25 +2698,14 @@ pfOptions = @fOptions
 			.Text = ML("Create event handlers without static event handler if event allows it")
 			.TabIndex = 233
 			.ControlIndex = 4
-			.Caption = ML("Create event handlers without static event handler if event allows it")
 			.SetBounds 32, 219, 380, 24
 			.Designer = @This
 			.Parent = @pnlDesigner
 		End With
-		' pnlBuildConfigurations
-		With pnlBuildConfigurations
-			.Name = "pnlBuildConfigurations"
-			.TabIndex = 234
-			.Align = DockStyle.alClient
-			.ControlIndex = 8
-			.ExtraMargins.Top = 4
-			.ExtraMargins.Right = 10
-			.ExtraMargins.Bottom = 9
-			.Margins.Left = 10
-			.SetBounds 188, 4, 427, 400
-			.Designer = @This
-			.Parent = @This
-		End With
+			'.ExtraMargins.Top = 4
+			'.ExtraMargins.Right = 10
+			'.ExtraMargins.Bottom = 9
+			'.Margins.Left = 10
 		' grbDefaultConfiguration
 		With grbDefaultConfiguration
 			.Name = "grbDefaultConfiguration"
@@ -2683,7 +2717,7 @@ pfOptions = @fOptions
 			.Margins.Right = 15
 			.AutoSize = True
 			.TabIndex = 155
-			.Caption = ML("Default Configuration")
+			'.Caption = ML("Default Configuration")
 			.SetBounds 10, 0, 417, 61
 			.Parent = @pnlBuildConfigurations
 		End With
@@ -2709,7 +2743,7 @@ pfOptions = @fOptions
 			.Margins.Right = 15
 			.Margins.Left = 15
 			.Margins.Bottom = 15
-			.Caption = ML("Configurations")
+			'.Caption = ML("Configurations")
 			.SetBounds 10, 66, 417, 334
 			.Designer = @This
 			.Parent = @pnlBuildConfigurations
@@ -2875,6 +2909,7 @@ Sub frmOptions.LoadSettings()
 		.chkAutoIndentation.Checked = AutoIndentation
 		.chkAutoCreateRC.Checked = AutoCreateRC
 		.chkAutoCreateBakFiles.Checked = AutoCreateBakFiles
+		.chkAutoSaveSession.Checked = AutoSaveSession
 		.chkAddRelativePathsToRecent.Checked = AddRelativePathsToRecent
 		.chkCreateNonStaticEventHandlers.Checked = CreateNonStaticEventHandlers
 		.chkPlaceStaticEventHandlersAfterTheConstructor.Checked = PlaceStaticEventHandlersAfterTheConstructor
@@ -2966,7 +3001,7 @@ Sub frmOptions.LoadSettings()
 		.cboTheme.Clear
 		f = Dir(ExePath & "/Settings/Themes/*.ini")
 		While f <> ""
-			.cboTheme.AddItem ..Left(f, Len(f) - 4)
+			If ..Left(f, Len(f) - 4) <> "" Then .cboTheme.AddItem ..Left(f, Len(f) - 4)
 			f = Dir()
 		Wend
 		.cboTheme.ItemIndex = .cboTheme.IndexOf(*CurrentTheme)
@@ -3012,8 +3047,8 @@ Sub frmOptions.LoadSettings()
 			.cboGDBDebugger32.AddItem pDebuggers->Item(i)->Key
 			.cboGDBDebugger64.AddItem pDebuggers->Item(i)->Key
 		Next
-		.cboDebugger32.ItemIndex = Max(0, .cboDebugger32.IndexOf(*DefaultDebugger32))
-		.cboDebugger64.ItemIndex = Max(0, .cboDebugger64.IndexOf(*DefaultDebugger64))
+		.cboDebugger32.ItemIndex = IIf(DefaultDebuggerType32 = DebuggerTypes.CustomDebugger, Max(0, .cboDebugger32.IndexOf(ML(*DefaultDebugger32))), DefaultDebuggerType32)
+		.cboDebugger64.ItemIndex = IIf(DefaultDebuggerType32 = DebuggerTypes.CustomDebugger, Max(0, .cboDebugger64.IndexOf(ML(*DefaultDebugger64))), DefaultDebuggerType64)
 		.cboGDBDebugger32.ItemIndex = Max(0, .cboGDBDebugger32.IndexOf(*GDBDebugger32))
 		.cboGDBDebugger64.ItemIndex = Max(0, .cboGDBDebugger64.IndexOf(*GDBDebugger64))
 		.cboTerminal.Clear
@@ -3418,13 +3453,17 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 			Tool->Parameters = .lvDebuggerPaths.ListItems.Item(i)->Text(2)
 			pDebuggers->Add tempStr, .lvDebuggerPaths.ListItems.Item(i)->Text(1), Tool
 		Next
-		If *DefaultDebugger32 <> IIf(.cboDebugger32.ItemIndex = 0, "", .cboDebugger32.Text) OrElse Not pDebuggers->ContainsKey(*CurrentDebugger32) Then
-			WLet(DefaultDebugger32, IIf(.cboDebugger32.ItemIndex = 0, "", .cboDebugger32.Text))
+		If *DefaultDebugger32 <> IIf(.cboDebugger64.ItemIndex = 0, "Integrated IDE Debugger", IIf(.cboDebugger32.ItemIndex = 1, "Integrated GDB Debugger", .cboDebugger32.Text)) OrElse Not pDebuggers->ContainsKey(*CurrentDebugger32) Then
+			WLet(DefaultDebugger32, IIf(.cboDebugger32.ItemIndex = 0, "Integrated IDE Debugger", IIf(.cboDebugger32.ItemIndex = 1, "Integrated GDB Debugger", .cboDebugger32.Text)))
 			WLet(CurrentDebugger32, *DefaultDebugger32)
+			DefaultDebuggerType32 = IIf(.cboDebugger32.ItemIndex = 0, IntegratedIDEDebugger, IIf(.cboDebugger32.ItemIndex = 1, IntegratedGDBDebugger, CustomDebugger))
+			CurrentDebuggerType32 = DefaultDebuggerType32
 		End If
-		If *DefaultDebugger64 <> IIf(.cboDebugger64.ItemIndex = 0, "", .cboDebugger64.Text) OrElse Not pDebuggers->ContainsKey(*CurrentDebugger64) Then
-			WLet(DefaultDebugger64, IIf(.cboDebugger64.ItemIndex = 0, "", .cboDebugger64.Text))
+		If *DefaultDebugger64 <> IIf(.cboDebugger64.ItemIndex = 0, "Integrated IDE Debugger", IIf(.cboDebugger64.ItemIndex = 1, "Integrated GDB Debugger", .cboDebugger64.Text)) OrElse Not pDebuggers->ContainsKey(*CurrentDebugger64) Then
+			WLet(DefaultDebugger64, IIf(.cboDebugger64.ItemIndex = 0, "Integrated IDE Debugger", IIf(.cboDebugger64.ItemIndex = 1, "Integrated GDB Debugger", .cboDebugger64.Text)))
 			WLet(CurrentDebugger64, *DefaultDebugger64)
+			DefaultDebuggerType64 = IIf(.cboDebugger64.ItemIndex = 0, IntegratedIDEDebugger, IIf(.cboDebugger64.ItemIndex = 1, IntegratedGDBDebugger, CustomDebugger))
+			CurrentDebuggerType64 = DefaultDebuggerType64
 		End If
 		WLet(Debugger32Path, pDebuggers->Get(*CurrentDebugger32))
 		WLet(Debugger64Path, pDebuggers->Get(*CurrentDebugger64))
@@ -3518,6 +3557,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		AutoSuggestions = .chkEnableAutoSuggestions.Checked
 		AutoCreateRC = .chkAutoCreateRC.Checked
 		AutoCreateBakFiles = .chkAutoCreateBakFiles.Checked
+		AutoSaveSession = .chkAutoSaveSession.Checked
 		AddRelativePathsToRecent = .chkAddRelativePathsToRecent.Checked
 		CreateNonStaticEventHandlers = .chkCreateNonStaticEventHandlers.Checked
 		PlaceStaticEventHandlersAfterTheConstructor = .chkPlaceStaticEventHandlersAfterTheConstructor.Checked
@@ -3710,6 +3750,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		piniSettings->WriteBool "Options", "AutoSuggestions", AutoSuggestions
 		piniSettings->WriteBool "Options", "AutoCreateRC", AutoCreateRC
 		piniSettings->WriteBool "Options", "AutoCreateBakFiles", AutoCreateBakFiles
+		piniSettings->WriteBool "Options", "AutoSaveSession", AutoSaveSession
 		piniSettings->WriteBool "Options", "AddRelativePathsToRecent", AddRelativePathsToRecent
 		piniSettings->WriteString "Options", "DefaultProjectFile", WGet(DefaultProjectFile)
 		piniSettings->WriteInteger "Options", "LastOpenedFileType", LastOpenedFileType
@@ -3758,8 +3799,8 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		SetDarkMode DarkMode, False
 		#ifdef __USE_WINAPI__
 			If DarkMode Then
-				txtLabelProperty.BackColor = GetSysColor(COLOR_WINDOW)
-				txtLabelEvent.BackColor = GetSysColor(COLOR_WINDOW)
+				txtLabelProperty.BackColor = darkBkColor
+				txtLabelEvent.BackColor = darkBkColor
 				fAddIns.txtDescription.BackColor = GetSysColor(COLOR_WINDOW)
 			Else
 				txtLabelProperty.BackColor = clBtnFace
@@ -4420,15 +4461,7 @@ Private Sub frmOptions.cboTheme_Change(ByRef Designer As My.Sys.Object, ByRef Se
 		.Colors(36 + k, 6) = piniTheme->ReadInteger("FontStyles", "StringsUnderline", 0)
 		.lstColorKeys_Change(*.lstColorKeys.Designer, .lstColorKeys)
 		SetColors
-		Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-		If tb <> 0 Then
-			#ifdef __USE_GTK__
-				tb->txtCode.Update
-			#else
-				tb->txtCode.PaintControl True
-				'RedrawWindow tb->txtCode.Handle, NULL, NULL, RDW_INVALIDATE
-			#endif
-		End If
+		UpdateAllTabWindows
 	End With
 End Sub
 
@@ -4489,7 +4522,7 @@ Private Sub frmOptions.chkUnderline_Click(ByRef Designer As My.Sys.Object, ByRef
 End Sub
 
 Private Sub frmOptions.cmdAdd_Click(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
-	If pfTheme->ShowModal() = ModalResults.OK Then
+	If pfTheme->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			.cboTheme.AddItem pfTheme->txtThemeName.Text
 			.cboTheme.ItemIndex = .cboTheme.IndexOf(pfTheme->txtThemeName.Text)
@@ -4511,7 +4544,7 @@ Private Sub frmOptions.cmdAddCompiler_Click(ByRef Designer As My.Sys.Object, ByR
 	pfPath->txtVersion.Text = ""
 	pfPath->txtPath.Text = ""
 	pfPath->txtCommandLine.Text = ""
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If .cboCompiler32.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				.lvCompilerPaths.ListItems.Add pfPath->txtVersion.Text, IIf(FileExists(pfPath->txtPath.Text), "", "FileError")
@@ -4532,7 +4565,7 @@ Private Sub frmOptions.cmdChangeCompiler_Click(ByRef Designer As My.Sys.Object, 
 		pfPath->txtVersion.Text = .lvCompilerPaths.SelectedItem->Text(0)
 		pfPath->txtPath.Text = .lvCompilerPaths.SelectedItem->Text(1)
 		pfPath->txtCommandLine.Text = .lvCompilerPaths.SelectedItem->Text(2)
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 			If .lvCompilerPaths.SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .cboCompiler32.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .cboCompiler32.IndexOf(.lvCompilerPaths.SelectedItem->Text(0))
 				.cboCompiler32.Item(i) = pfPath->txtVersion.Text
@@ -4578,7 +4611,7 @@ Private Sub frmOptions.cmdAddMakeTool_Click(ByRef Designer As My.Sys.Object, ByR
 	pfPath->txtVersion.Text = ""
 	pfPath->txtPath.Text = ""
 	pfPath->txtCommandLine.Text = ""
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If .cboMakeTool.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				.lvMakeToolPaths.ListItems.Add pfPath->txtVersion.Text
@@ -4598,7 +4631,7 @@ Private Sub frmOptions.cmdChangeMakeTool_Click(ByRef Designer As My.Sys.Object, 
 		pfPath->txtVersion.Text = .lvMakeToolPaths.SelectedItem->Text(0)
 		pfPath->txtPath.Text = .lvMakeToolPaths.SelectedItem->Text(1)
 		pfPath->txtCommandLine.Text = .lvMakeToolPaths.SelectedItem->Text(2)
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 			If .lvMakeToolPaths.SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .cboMakeTool.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .cboTerminal.IndexOf(.lvMakeToolPaths.SelectedItem->Text(0))
 				.cboMakeTool.Item(i) = pfPath->txtVersion.Text
@@ -4635,7 +4668,7 @@ Private Sub frmOptions.cmdAddDebugger_Click(ByRef Designer As My.Sys.Object, ByR
 	pfPath->txtVersion.Text = ""
 	pfPath->txtPath.Text = ""
 	pfPath->txtCommandLine.Text = ""
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If .cboDebugger32.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				.lvDebuggerPaths.ListItems.Add pfPath->txtVersion.Text
@@ -4656,7 +4689,7 @@ Private Sub frmOptions.cmdChangeDebugger_Click(ByRef Designer As My.Sys.Object, 
 		pfPath->txtVersion.Text = .lvDebuggerPaths.SelectedItem->Text(0)
 		pfPath->txtPath.Text = .lvDebuggerPaths.SelectedItem->Text(1)
 		pfPath->txtCommandLine.Text = .lvDebuggerPaths.SelectedItem->Text(2)
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 			If .lvDebuggerPaths.SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .cboDebugger32.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .cboDebugger32.IndexOf(.lvDebuggerPaths.SelectedItem->Text(0))
 				.cboDebugger32.Item(i) = pfPath->txtVersion.Text
@@ -4702,7 +4735,7 @@ Private Sub frmOptions.cmdAddTerminal_Click(ByRef Designer As My.Sys.Object, ByR
 	pfPath->txtVersion.Text = ""
 	pfPath->txtPath.Text = ""
 	pfPath->txtCommandLine.Text = ""
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If .cboTerminal.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				.lvTerminalPaths.ListItems.Add pfPath->txtVersion.Text
@@ -4722,7 +4755,7 @@ Private Sub frmOptions.cmdChangeTerminal_Click(ByRef Designer As My.Sys.Object, 
 		pfPath->txtVersion.Text = .lvTerminalPaths.SelectedItem->Text(0)
 		pfPath->txtPath.Text = .lvTerminalPaths.SelectedItem->Text(1)
 		pfPath->txtCommandLine.Text = .lvTerminalPaths.SelectedItem->Text(2)
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 			If .lvTerminalPaths.SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .cboTerminal.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .cboTerminal.IndexOf(.lvTerminalPaths.SelectedItem->Text(0))
 				.cboTerminal.Item(i) = pfPath->txtVersion.Text
@@ -4759,7 +4792,7 @@ Private Sub frmOptions.cmdAddHelp_Click(ByRef Designer As My.Sys.Object, ByRef S
 	pfPath->txtVersion.Text = ""
 	pfPath->txtPath.Text = ""
 	pfPath->WithoutCommandLine = True
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If .cboHelp.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				.lvHelpPaths.ListItems.Add pfPath->txtVersion.Text
@@ -4778,7 +4811,7 @@ Private Sub frmOptions.cmdChangeHelp_Click(ByRef Designer As My.Sys.Object, ByRe
 		pfPath->txtVersion.Text = .lvHelpPaths.SelectedItem->Text(0)
 		pfPath->txtPath.Text = .lvHelpPaths.SelectedItem->Text(1)
 		pfPath->WithoutCommandLine = True
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 			If .lvHelpPaths.SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .cboHelp.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .cboHelp.IndexOf(.lvHelpPaths.SelectedItem->Text(0))
 				.cboHelp.Item(i) = pfPath->txtVersion.Text
@@ -4826,7 +4859,7 @@ End Sub
 Private Sub frmOptions.cmdAddInclude_Click(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	pfPath->txtPath.Text = ""
 	pfPath->ChooseFolder = True
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If Not .lstIncludePaths.Items.Contains(pfPath->txtPath.Text) Then
 				'.lstIncludePaths.Items.Add pfPath->txtPath.Text
@@ -4841,7 +4874,7 @@ End Sub
 Private Sub frmOptions.cmdAddLibrary_Click(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	pfPath->txtPath.Text = ""
 	pfPath->ChooseFolder = True
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(fOptions) = ModalResults.OK Then
 		With fOptions
 			If Not .lstLibraryPaths.Items.Contains(pfPath->txtPath.Text) Then
 				'.lstLibraryPaths.Items.Add pfPath->txtPath.Text
@@ -4900,7 +4933,7 @@ Private Sub frmOptions.cmdAddEditor_Click(ByRef Sender As Control)
 	pfPath->txtPath.Text = ""
 	pfPath->txtCommandLine.Text = ""
 	pfPath->WithExtensions = True
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(Me) = ModalResults.OK Then
 		With lvOtherEditors.ListItems
 			Var ItemsCount = .Count
 			If .IndexOf(pfPath->txtVersion.Text) = -1 Then
@@ -4926,7 +4959,7 @@ Private Sub frmOptions.cmdChangeEditor_Click(ByRef Sender As Control)
 		pfPath->txtPath.Text = .SelectedItem->Text(2)
 		pfPath->txtCommandLine.Text = .SelectedItem->Text(3)
 		pfPath->WithExtensions = True
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(Me) = ModalResults.OK Then
 			If .SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .ListItems.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .ListItems.IndexOf(.SelectedItem->Text(0))
 				.SelectedItem->Text(0) = pfPath->txtVersion.Text
@@ -5388,8 +5421,12 @@ Private Sub frmOptions.cmdUpdateLng_Click(ByRef Sender As Control)
 					FileNameSrc = ExePath & "/" & Buff
 				End If
 				Fn2 = FreeFile_
-				If Open(FileNameSrc For Input Encoding "utf-8" As #Fn2) = 0 Then
-					Print "FileNameSrc: " & FileNameSrc
+				Result = Open(FileNameSrc For Input Encoding "utf-8" As #Fn2)
+				If Result <> 0 Then Result = Open(FileNameSrc For Input Encoding "utf-16" As #Fn2)
+				If Result <> 0 Then Result = Open(FileNameSrc For Input Encoding "utf-32" As #Fn2)
+				If Result <> 0 Then Result = Open(FileNameSrc For Input As #Fn2)
+				If Result = 0 Then
+					Print "Source file name: " & FileNameSrc
 					lblShowMsg.Text = ML("Open") & "...  " & FileNameSrc
 					Do Until EOF(Fn2)
 						Line Input #Fn2, Buff
@@ -5738,7 +5775,7 @@ Private Sub frmOptions.cmdUpdateLng_Click(ByRef Sender As Control)
 		Next
 		For i As Integer = 0 To mlKeysCompilerEnglish.Count - 1
 			tKey = mlKeysCompilerEnglish.Item(i)->Key
-			'If InStr(tKey, "=") Then tKey = Replace(tKey, "=", "~")
+			If InStr(tKey, "=") Then tKey = Replace(tKey, "=", "~")
 			If tKey <> "" Then
 				If Not mlKeysCompiler.ContainsKey(tKey) Then 
 					mlKeysCompiler.Add tKey, , CPtr(Any Ptr, 1)
@@ -5978,7 +6015,7 @@ Private Sub frmOptions.cmdAddConfiguration_Click(ByRef Sender As Control)
 	pfPath->txtPath.Text = ""
 	pfPath->ForConfiguration = True
 	pfPath->WithoutCommandLine = True
-	If pfPath->ShowModal() = ModalResults.OK Then
+	If pfPath->ShowModal(Me) = ModalResults.OK Then
 		With fOptions
 			If .cboConfiguration.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				.lvConfigurations.ListItems.Add pfPath->txtVersion.Text
@@ -5998,7 +6035,7 @@ Private Sub frmOptions.cmdChangeConfiguration_Click(ByRef Sender As Control)
 		pfPath->txtPath.Text = .lvConfigurations.SelectedItem->Text(1)
 		pfPath->ForConfiguration = True
 		pfPath->WithoutCommandLine = True
-		If pfPath->ShowModal() = ModalResults.OK Then
+		If pfPath->ShowModal(Me) = ModalResults.OK Then
 			If .lvConfigurations.SelectedItem->Text(0) = pfPath->txtVersion.Text OrElse .cboConfiguration.IndexOf(pfPath->txtVersion.Text) = -1 Then
 				Var i = .cboConfiguration.IndexOf(.lvConfigurations.SelectedItem->Text(0))
 				.cboConfiguration.Item(i) = pfPath->txtVersion.Text

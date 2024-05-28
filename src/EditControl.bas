@@ -60,8 +60,8 @@ Constructions(C_Scope)              = Type<Construction>("Scope",         "",   
 Constructions(C_P_Region)           = Type<Construction>("'#Region",      "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "'#End Region",    "",      True,  False)
 Constructions(C_Namespace)          = Type<Construction>("Namespace",     "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Namespace",   "",      True,  False)
 Constructions(C_Enum)               = Type<Construction>("Enum",          "Public Enum",        "Private Enum",        "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Enum",        "",      True,  True)
-Constructions(C_Class)              = Type<Construction>("Class",         "Public Class",       "Private Class",       "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Class",       "As ",   True,  True)
-Constructions(C_Type)               = Type<Construction>("Type",          "Public Type",        "Private Type",        "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Type",        "As ",   True,  True)
+Constructions(C_Class)              = Type<Construction>("Class",         "Public Class",       "Private Class",       "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Class",       " As ",  True,  True)
+Constructions(C_Type)               = Type<Construction>("Type",          "Public Type",        "Private Type",        "",                   "",                          "",                           "",                "",                       "",                        "Private:", "Protected:", "Public:", "End Type",        " As ",  True,  True)
 Constructions(C_Union)              = Type<Construction>("Union",         "Public Union",       "Private Union",       "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Union",       "",      True,  True)
 Constructions(C_Sub)                = Type<Construction>("Sub",           "Public Sub",         "Private Sub",         "Virtual Sub",        "Public Virtual Sub",        "Private Virtual Sub",        "Static Sub",      "Public Static Sub",      "Private Static Sub",      "",         "",           "",        "End Sub",         "",      True,  True)
 Constructions(C_Function)           = Type<Construction>("Function",      "Public Function",    "Private Function",    "Virtual Function",   "Public Virtual Function",   "Private Virtual Function",   "Static Function", "Public Static Function", "Private Static Function", "",         "",           "",        "End Function",    "",      True,  True)
@@ -2407,11 +2407,11 @@ Namespace My.Sys.Forms
 		End If
 		If OldLine <> FSelEndLine Then
 			If ToolTipShowed Then CloseToolTip()
+			If DropDownToolTipShowed Then CloseDropDownToolTip
 			If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
 			If Not bOldCommented Then Changing "Matn kiritildi"
 			If This.OnLineChange Then This.OnLineChange(*Designer, This, FSelEndLine, OldLine)
 		End If
-		
 		If CInt(FSelStartLine > -1) AndAlso CInt(FSelStartLine < Content.Lines.Count) AndAlso CInt(Not Cast(EditControlLine Ptr, Content.Lines.Items[FSelStartLine])->Visible) Then
 			ShowLine FSelStartLine
 		End If
@@ -3044,12 +3044,11 @@ Namespace My.Sys.Forms
 			dwCharX = UnScaleX(extend.width)
 			dwCharY = UnScaleY(extend.height)
 		#else
-			'hd = GetDc(FHandle)
+			Dim As HDC hd = GetDC(FHandle)
 			SelectObject(hd, This.Font.Handle)
 			GetTextMetrics(hd, @tm)
-			'ReleaseDC(FHandle, hd)
+			ReleaseDC(FHandle, hd)
 			If bufDC <> 0 Then SelectObject(bufDC, This.Font.Handle)
-			
 			dwCharX = UnScaleX(tm.tmAveCharWidth)
 			dwCharY = UnScaleY(tm.tmHeight)
 			CreateCaret(FHandle, 0, 0, ScaleY(dwCharY))
@@ -3843,7 +3842,7 @@ Namespace My.Sys.Forms
 				End If
 			End If
 			iC = 0
-			vlc = Min(LinesCount, VScrollPos + VisibleLinesCount(zz) + 2)
+			vlc = min(LinesCount, VScrollPos + VisibleLinesCount(zz) + 2)
 			vlc1 = VisibleLinesCount(zz)
 			IzohBoshi = 0
 			QavsBoshi = 0
@@ -4602,7 +4601,7 @@ Namespace My.Sys.Forms
 															Mid(*FECLine->Text, MatnBoshi + IIf(WithOldSymbol, 1, 0), j - MatnBoshi + 1) = OriginalCaseWord
 														End If
 													ElseIf tIndex = -1 Then
-														If isNumeric(Matn) OrElse isNumeric(MatnWithoutOldSymbol) Then
+														If IsNumeric(Matn) OrElse IsNumeric(MatnWithoutOldSymbol) Then
 															If InStr(Matn, ".") Then
 																sc = @RealNumbers
 															Else
@@ -5467,7 +5466,6 @@ Namespace My.Sys.Forms
 		#else
 			DropDownToolTipItemIndex = cboIntellisense.ItemIndex
 		#endif
-		DropDownToolTipShowed = True
 		If *FHintDropDown = "" Then WLet(FHintDropDown, " ")
 		#ifdef __USE_GTK__
 			gtk_label_set_markup(GTK_LABEL(lblDropDownTooltip), ToUtf8(Replace(*FHintDropDown, "<=", "\u003c=")))
@@ -5511,10 +5509,11 @@ Namespace My.Sys.Forms
 			SendMessage(hwndTTDropDown, TTM_TRACKPOSITION, 0, MAKELPARAM(rc.Left + ScaleX(X), rc.Top + ScaleY(Y)))
 		#endif
 		This.SetFocus
+		DropDownToolTipShowed = True
 	End Sub
 	
 	Sub EditControl.ShowMouseHoverToolTipAt(X As Integer, Y As Integer)
-		MouseHoverToolTipShowed = True
+		Dim As Boolean IsFocused = Focused
 		If *FHintMouseHover = "" Then WLet(FHintMouseHover, " ")
 		#ifdef __USE_GTK__
 			gtk_label_set_markup(GTK_LABEL(lblMouseHoverTooltip), ToUtf8(Replace(*FHintMouseHover, "<=", "\u003c=")))
@@ -5557,7 +5556,8 @@ Namespace My.Sys.Forms
 			GetWindowRect(FHandle, @rc)
 			SendMessage(hwndTTMouseHover, TTM_TRACKPOSITION, 0, MAKELPARAM(rc.Left + ScaleX(X), rc.Top + ScaleY(Y)))
 		#endif
-		This.SetFocus
+		If IsFocused Then This.SetFocus
+		MouseHoverToolTipShowed = True
 	End Sub
 	
 	Sub EditControl.ShowToolTipAt(iSelEndLine As Integer, iSelEndChar As Integer)
@@ -5566,7 +5566,6 @@ Namespace My.Sys.Forms
 		Var HCaretPos = LeftMargin + nCaretPosX - IIf(bDividedX AndAlso ActiveCodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso ActiveCodePane = 1, iDividedX + 7, 0)
 		Var VCaretPos = (nCaretPosY - IIf(ActiveCodePane = 0, VScrollPosTop, VScrollPosBottom) + 1) * dwCharY + IIf(bDividedY AndAlso ActiveCodePane = 1, iDividedY + 7, 0)
 		ToolTipChar = iSelEndChar
-		ToolTipShowed = True
 		#ifdef __USE_GTK__
 			Dim As gint x, y
 			gtk_label_set_markup(GTK_LABEL(lblTooltip), ToUtf8(Replace(*FHint, "<=", "\u003c=")))
@@ -5610,6 +5609,7 @@ Namespace My.Sys.Forms
 			GetWindowRect(FHandle, @rc)
 			SendMessage(hwndTT, TTM_TRACKPOSITION, 0, MAKELPARAM(rc.Left + ScaleX(HCaretPos), rc.Top + IIf(ShowTooltipsAtTheTop, ScaleY(VCaretPos - dwCharY) - HiWord(Result), ScaleY(VCaretPos + 5))))
 		#endif
+		ToolTipShowed = True
 	End Sub
 	
 	Sub EditControl.UpdateDropDownToolTip()
@@ -5832,6 +5832,11 @@ Namespace My.Sys.Forms
 			Case WM_MOUSEWHEEL
 			#endif
 			If ToolTipShowed Then CloseToolTip
+			#ifdef __USE_WINAPI__
+				If DropDownToolTipShowed AndAlso GetFocus = FHandle Then CloseDropDownToolTip
+			#else
+				If DropDownToolTipShowed Then CloseDropDownToolTip
+			#endif
 			If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
 			If DropDownShowed Then
 				#ifdef __USE_WINAPI__
@@ -5923,7 +5928,7 @@ Namespace My.Sys.Forms
 					If bShifted Then
 						#ifdef __USE_GTK__
 							If scrDirection = 1 Then
-								gtk_adjustment_set_value(adjustmenth, Min(OldPos + 3, gtk_adjustment_get_upper(adjustmenth)))
+								gtk_adjustment_set_value(adjustmenth, min(OldPos + 3, gtk_adjustment_get_upper(adjustmenth)))
 							ElseIf scrDirection = -1 Then
 								gtk_adjustment_set_value(adjustmenth, Max(OldPos - 3, gtk_adjustment_get_lower(adjustmenth)))
 							End If
@@ -5935,7 +5940,7 @@ Namespace My.Sys.Forms
 							'End If
 						#else
 							If scrDirection = -1 Then
-								si.nPos = Min(si.nPos + 3, si.nMax)
+								si.nPos = min(si.nPos + 3, si.nMax)
 							Else
 								si.nPos = Max(si.nPos - 3, si.nMin)
 							End If
@@ -5970,7 +5975,7 @@ Namespace My.Sys.Forms
 					Else
 						#ifdef __USE_GTK__
 							If scrDirection = 1 Then
-								gtk_adjustment_set_value(adjustmentv, Min(OldPos + 3, gtk_adjustment_get_upper(adjustmentv)))
+								gtk_adjustment_set_value(adjustmentv, min(OldPos + 3, gtk_adjustment_get_upper(adjustmentv)))
 							ElseIf scrDirection = -1 Then
 								gtk_adjustment_set_value(adjustmentv, Max(OldPos - 3, gtk_adjustment_get_lower(adjustmentv)))
 							End If
@@ -5982,7 +5987,7 @@ Namespace My.Sys.Forms
 							'End If
 						#else
 							If scrDirection = -1 Then
-								si.nPos = Min(si.nPos + 3, si.nMax)
+								si.nPos = min(si.nPos + 3, si.nMax)
 							Else
 								si.nPos = Max(si.nPos - 3, si.nMin)
 							End If
@@ -6033,6 +6038,13 @@ Namespace My.Sys.Forms
 					Dim As LITEM item = pNMLink1->item
 					If OnToolTipLinkClicked Then OnToolTipLinkClicked(*Designer, This, item.szUrl)
 				End Select
+			Case WM_DPICHANGED
+				Canvas.xdpi = xdpi
+				Canvas.ydpi = ydpi
+				Font.xdpi = xdpi
+				Font.ydpi = ydpi
+				Font.Size = Font.Size
+				FontSettings
 			#endif
 			#ifndef __USE_GTK__
 			Case WM_SETCURSOR
@@ -6123,6 +6135,7 @@ Namespace My.Sys.Forms
 					End If
 				Else
 					If ToolTipShowed Then CloseToolTip()
+					If DropDownToolTipShowed Then CloseDropDownToolTip
 					If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
 					scrStyle = SB_VERT
 					If bDividedY OrElse bDividedX Then
@@ -6167,7 +6180,7 @@ Namespace My.Sys.Forms
 					si.nPos = si.nTrackPos
 				End Select
 				si.fMask = SIF_POS Or SIF_TRACKPOS
-				si.nPos = Min(Max(si.nPos, si.nMin), si.nMax)
+				si.nPos = min(Max(si.nPos, si.nMin), si.nMax)
 				'si.nTrackPos = si.nTrackPos
 				'If msg.wParamLo <> SB_THUMBTRACK Then
 				'?msg.wParamLo
@@ -6200,11 +6213,16 @@ Namespace My.Sys.Forms
 			#else
 			Case WM_SETFOCUS
 				CreateCaret(FHandle, 0, 0, ScaleY(dwCharY))
-				ScrollToCaret
+				'ScrollToCaret
 				ShowCaret(FHandle)
 			Case WM_KILLFOCUS
 				HideCaret(FHandle)
 				DestroyCaret()
+				If LCase(GetClassNameOf(Cast(HWND, msg.wParam))) <> "tooltips" Then
+					If ToolTipShowed Then CloseToolTip
+					If DropDownToolTipShowed Then CloseDropDownToolTip
+					If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
+				End If
 			Case WM_UNDO
 				Undo
 				'Case WM_REDO
@@ -7238,10 +7256,10 @@ Namespace My.Sys.Forms
 		If Sender.Child Then
 			With QEditControl(Sender.Child)
 				#ifdef __USE_WINAPI__
-					.sbScrollBarvTop = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_VERT, 0, 0, ScaleX(17), ScaleY(Sender.Height - 5), Sender.Handle, 0, Instance, 0)
-					.sbScrollBarvBottom = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_VERT, ScaleX(Sender.ClientWidth - 17), 5, ScaleX(17), ScaleY(Sender.Height - 5), Sender.Handle, 0, Instance, 0)
-					.sbScrollBarhLeft = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_HORZ, 0, ScaleY(Sender.ClientHeight - 17), ScaleX(Sender.ClientWidth - 17), ScaleY(17), Sender.Handle, 0, Instance, 0)
-					.sbScrollBarhRight = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_HORZ, 0, ScaleY(Sender.ClientHeight - 17), ScaleX(Sender.ClientWidth - 17), ScaleY(17), Sender.Handle, 0, Instance, 0)
+					.sbScrollBarvTop = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_VERT, 0, 0, .ScaleX(17), .ScaleY(Sender.Height - 5), Sender.Handle, 0, Instance, 0)
+					.sbScrollBarvBottom = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_VERT, .ScaleX(Sender.ClientWidth - 17), 5, .ScaleX(17), .ScaleY(Sender.Height - 5), Sender.Handle, 0, Instance, 0)
+					.sbScrollBarhLeft = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_HORZ, 0, .ScaleY(Sender.ClientHeight - 17), .ScaleX(Sender.ClientWidth - 17), .ScaleY(17), Sender.Handle, 0, Instance, 0)
+					.sbScrollBarhRight = CreateWindowEx(0, "ScrollBar", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN Or SB_HORZ, 0, .ScaleY(Sender.ClientHeight - 17), .ScaleX(Sender.ClientWidth - 17), .ScaleY(17), Sender.Handle, 0, Instance, 0)
 					ShowWindow .sbScrollBarvTop, SW_HIDE
 					ShowWindow .sbScrollBarvBottom, SW_SHOW
 					ShowWindow .sbScrollBarhLeft, SW_HIDE
@@ -7286,8 +7304,8 @@ Namespace My.Sys.Forms
 					Dim As PangoLayoutLine Ptr pl = pango_layout_get_line(ec->layout, 0)
 				#endif
 				pango_layout_line_get_pixel_extents(pl, NULL, @extend)
-				ec->dwCharX = UnScaleX(extend.width)
-				ec->dwCharY = UnScaleY(extend.height)
+				ec->dwCharX = ec->UnScaleX(extend.width)
+				ec->dwCharY = ec->UnScaleY(extend.height)
 				
 				'Dim extend As cairo_text_extents_t
 				'cairo_text_extents (cr, "|", @extend)

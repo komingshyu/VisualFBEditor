@@ -897,6 +897,7 @@ Private Sub frmFind.btnReplaceAll_Click(ByRef Sender As Control)
 				WLet(ECLine->Text, ..Left(*buff, Pos1 - 1) & *tReplace & Mid(*buff, Pos1 + Len(*Search)))
 				ECLine->Ends.Clear
 				ECLine->EndsCompleted = False
+				tb->txtCode.ChangeCollapsibility i
 				buff = @tb->txtCode.Lines(i)
 				If bMatchCase Then
 					Pos1 = InStr(Pos1 + Len(*tReplace), *buff, *Search)
@@ -905,6 +906,7 @@ Private Sub frmFind.btnReplaceAll_Click(ByRef Sender As Control)
 				End If
 			Wend
 		Next i
+		tb->FormDesign
 		tb->txtCode.Changed "ReplaceAll"
 		tb->txtCode.PaintControl(True)
 		tpFind->SelectTab

@@ -69,9 +69,9 @@ Public Sub TabCtl.MoveCloseButtons(ptabCode As TabControl Ptr)
 		#ifndef __USE_GTK__
 			SendMessage(ptabCode->Handle, TCM_GETITEMRECT, tb->Index, CInt(@RR))
 			bVisible = True
-			If ptabCode->UpDownControl.Handle AndAlso CInt(ptabCode->UpDownControl.Visible) AndAlso RR.Right - ScaleX(18) + ScaleX(14) > ScaleX(ptabCode->UpDownControl.Left) Then bVisible = False
+			If ptabCode->UpDownControl.Handle AndAlso CInt(ptabCode->UpDownControl.Visible) AndAlso RR.Right - ptabCode->ScaleX(18) + ptabCode->ScaleX(14) > ptabCode->ScaleX(ptabCode->UpDownControl.Left) Then bVisible = False
 			tb->btnClose.Visible = bVisible
-			MoveWindow tb->btnClose.Handle, RR.Right - ScaleX(18), ScaleY(4), ScaleX(14), ScaleY(14), True
+			MoveWindow tb->btnClose.Handle, RR.Right - ptabCode->ScaleX(14) - (RR.Bottom - ptabCode->ScaleY(14)) / 2, (RR.Bottom - ptabCode->ScaleY(14)) / 2, ptabCode->ScaleX(14), ptabCode->ScaleY(14), True
 			'If g_darkModeSupported AndAlso g_darkModeEnabled Then
 			'	UpdateWindow ptabCode->Handle
 			'End If
@@ -326,6 +326,7 @@ Sub ChangeMenuItemsEnabled
 	miGoto->Enabled = bEnabledTab
 	miDefine->Enabled = bEnabledTab
 	miAddProcedure->Enabled = bEnabledTab
+	miAddType->Enabled = bEnabledTab
 	mnuSplitHorizontally->Enabled = bEnabledTab
 	mnuSplitVertically->Enabled = bEnabledTab
 	miSave->Enabled = bEnabled
@@ -554,17 +555,20 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 		If tb->cboClass.Items.Count < 2 Then
 			miForm->Enabled = False
 			miCodeAndForm->Enabled = False
+			miGotoCodeForm->Enabled = False
 			tb->tbrTop.Buttons.Item("Form")->Enabled = False
 			tb->tbrTop.Buttons.Item("CodeAndForm")->Enabled = False
 			tb->tbrTop.Buttons.Item("Code")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Code")
-			SetRightClosedStyle True, True
+			'SetRightClosedStyle True, True
 		Else
-			SetRightClosedStyle False, False
+			'SetRightClosedStyle False, False
 			miForm->Enabled = True
 			miCodeAndForm->Enabled = True
+			miGotoCodeForm->Enabled = True
 			tb->tbrTop.Buttons.Item("Form")->Enabled = True
 			tb->tbrTop.Buttons.Item("CodeAndForm")->Enabled = True
-			tpProperties->SelectTab
+			tb->tbrTop.Buttons.Item("CodeAndForm")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("CodeAndForm")
+			'tpProperties->SelectTab
 		End If
 		TabCtl.MoveCloseButtons ptabCode
 	End If
@@ -630,7 +634,7 @@ Sub OnMouseHoverEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, M
 	'If tb->txtCode.DropDownShowed Then Exit Sub
 	If tb->txtCode.MouseHoverToolTipShowed Then
 		If CBool((Abs(OldY - y) > 0 OrElse Abs(OldX - x) > 0)) Then
-			'tb->txtCode.CloseToolTip
+			tb->txtCode.CloseMouseHoverToolTip
 		Else
 			Exit Sub
 		End If
@@ -1756,13 +1760,15 @@ Sub TabWindow.FillAllProperties()
 	If Des = 0 OrElse Des->SelectedControl = 0 Then Exit Sub
 	ptabRight->Tag = @This
 	ptabRight->UpdateLock
-	cboFunction.Items.Clear
-	If cboClass.ItemIndex = 0 Then
-		cboFunction.Items.Add WStr("(") & ML("Declarations") & ")" & WChr(0), , "Sub", "Sub"
-	Else
-		cboFunction.Items.Add "(" & ML("Events") & ")", , "Event", "Event"
+	If Not txtCode.Focused Then
+		cboFunction.Items.Clear
+		If cboClass.ItemIndex = 0 Then
+			cboFunction.Items.Add WStr("(") & ML("Declarations") & ")" & WChr(0), , "Sub", "Sub"
+		Else
+			cboFunction.Items.Add "(" & ML("Events") & ")", , "Event", "Event"
+		End If
+		cboFunction.ItemIndex = 0
 	End If
-	cboFunction.ItemIndex = 0
 	plvProperties->Nodes.Clear
 	plvEvents->Nodes.Clear
 	Dim SelCount As Integer = Des->SelectedControls.Count
@@ -1817,7 +1823,9 @@ Sub TabWindow.FillAllProperties()
 				End If
 				lvItem->Text(1) = ItemText 'ReadObjProperty(Des->SelectedControl, FPropertyItems.Item(lvPropertyCount))
 			ElseIf .ElementType = E_Event Then
-				cboFunction.Items.Add .Name, , "Event", "Event"
+				If Not txtCode.Focused Then
+					cboFunction.Items.Add .Name, , "Event", "Event"
+				End If
 				lvItem = plvEvents->Nodes.Add(.Name, 3)
 				lvItem->Text(1) = ReadObjProperty(Des->SelectedControl, .Name)
 				'If *Ctrl Is Control Then
@@ -1855,13 +1863,13 @@ Sub DesignerChangeSelection(ByRef Sender As Designer, Ctrl As Any Ptr, iLeft As 
 		tbProperties.Buttons.Item("SelControlName")->Caption = SelControlNames
 		tbEvents.Buttons.Item("SelControlName")->Caption = SelControlNames
 		#ifdef __USE_WINAPI__
-			Dim As ..Size sz
-			SendMessage(tbProperties.Handle, TB_GETIDEALSIZE, 0, Cast(LPARAM, @sz))
-			tbProperties.Width = UnScaleX(sz.cx)
-			hbxProperties.RequestAlign
-			SendMessage(tbEvents.Handle, TB_GETIDEALSIZE, 0, Cast(LPARAM, @sz))
-			tbEvents.Width = UnScaleX(sz.cx)
-			hbxEvents.RequestAlign
+			SendMessage(tbProperties.Handle, WM_SIZE, 0, 0)
+			SendMessage(tbEvents.Handle, WM_SIZE, 0, 0)
+		'	Dim As ..Size sz
+		'	SendMessage(tbProperties.Handle, TB_GETIDEALSIZE, 0, Cast(LPARAM, @sz))
+		'	tbProperties.Width = tb->UnScaleX(sz.cx)
+		'	SendMessage(tbEvents.Handle, TB_GETIDEALSIZE, 0, Cast(LPARAM, @sz))
+		'	tbEvents.Width = tb->UnScaleX(sz.cx)
 		#endif
 	End If
 	tb->FillAllProperties
@@ -2905,8 +2913,9 @@ Sub DesignerInsertingControl(ByRef Sender As Designer, ByRef ClassName As String
 End Sub
 
 Sub cboClass_Change(ByRef Designer As My.Sys.Object, ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
-	If Sender.Parent = 0 Then Exit Sub
-	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, Sender.Parent->Parent->Parent)
+	'If Sender.Parent = 0 Then Exit Sub
+	'Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, Sender.Parent->Parent->Parent)
+	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, Sender.Tag)
 	If tb = 0 Then Exit Sub
 	Var ii = Sender.ItemIndex
 	If ii = -1 Then Exit Sub
@@ -2929,18 +2938,20 @@ Sub cboClass_Change(ByRef Designer As My.Sys.Object, ByRef Sender As ComboBoxEdi
 		If tb->Des = 0 Then Exit Sub
 		Dim As SymbolsType Ptr st = tb->Des->Symbols(Ctrl)
 		If st AndAlso st->ReadPropertyFunc <> 0 Then
-			#ifdef __USE_GTK__
-				'tb->Des->SelectedControl = Ctrl
-				'tb->Des->MoveDots(tb->Des->ReadPropertyFunc(Ctrl, "Widget"))
-			#else
+			'#ifdef __USE_GTK__
+			'	'tb->Des->SelectedControl = Ctrl
+			'	'tb->Des->MoveDots(tb->Des->ReadPropertyFunc(Ctrl, "Widget"))
+			'#else
 				Dim iParentCtrl As Any Ptr = tb->Des->GetParentControl(Ctrl)
-				If iParentCtrl <> 0 Then tb->Des->BringToFront iParentCtrl
+				#ifdef __USE_WINAPI__
+					If iParentCtrl <> 0 Then tb->Des->BringToFront iParentCtrl
+				#endif
 				tb->Des->SelectedControls.Clear
 				tb->Des->SelectedControl = Ctrl
-				Dim As HWND Ptr hw = st->ReadPropertyFunc(Ctrl, "Handle")
+				Dim As Any Ptr hw = st->ReadPropertyFunc(Ctrl, "Handle")
 				If hw <> 0 Then tb->Des->MoveDots(Ctrl, False) Else tb->Des->MoveDots(0, False)
 				DesignerChangeSelection *tb->Des, Ctrl
-			#endif
+			'#endif
 		End If
 	End If
 End Sub
@@ -3368,8 +3379,9 @@ End Sub
 
 Sub cboFunction_Change(ByRef Designer As My.Sys.Object, ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
 	If bNotFunctionChange Then Exit Sub
-	If Sender.Parent = 0 Then Exit Sub
-	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, Sender.Parent->Parent->Parent)
+	'If Sender.Parent = 0 Then Exit Sub
+	'Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, Sender.Parent->Parent->Parent)
+	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, Sender.Tag)
 	If tb = 0 Then Exit Sub
 	'If frmMain.ActiveControl AndAlso frmMain.ActiveControl->ClassName = "EditControl" Then Exit Sub
 	Dim frmName As String
@@ -3427,7 +3439,8 @@ Sub DesignerDblClickControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 	frmMain.UpdateLock
 	Dim As SymbolsType Ptr st = tb->Des->Symbols(Ctrl)
 	If st = 0 OrElse st->ReadPropertyFunc = 0 Then Exit Sub
-	Select Case QWString(st->ReadPropertyFunc(Ctrl, "ClassName"))
+	Dim As WString * 255 tClassName = QWString(st->ReadPropertyFunc(Ctrl, "ClassName"))
+	Select Case tClassName
 	Case "MainMenu", "PopupMenu"
 		pfMenuEditor->UpdateLock
 		pfMenuEditor->ActiveCtrl = 0
@@ -3481,11 +3494,16 @@ Sub DesignerDblClickControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 		pfImageListEditor->Show *pfrmMain
 	Case Else
 		If tb->cboFunction.Items.Count > 1 Then
-			If QWString(st->ReadPropertyFunc(Ctrl, "ClassName")) = "TimerComponent" Then
+			Select Case tClassName
+			Case "TimerComponent"
 				FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnTimer"
-			Else
+			Case "HTTPServer", "HTTPConnection"
+				FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnReceive"
+			Case "PrintDocument"
+				FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnPrintPage"
+			Case Else
 				FindEvent tb, tb->cboClass.Items.Item(tb->cboClass.ItemIndex)->Object, "OnClick"
-			End If
+			End Select
 			If tb->tbrTop.Buttons.Item("CodeAndForm")->Checked Then
 				tb->tbrTop.Buttons.Item("Code")->Checked = True
 				tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Code")
@@ -4607,10 +4625,10 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 						Parameter = te->Parameters
 						iPos = InStr(LCase(Parameter), LCase(sWord))
 						FuncName = Mid(Parameter, iPos, Len(sWord))
-						Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
+						Link1 = te->FileName & "~" & WStr(te->StartLine) & "~" & FuncName & "~" & FuncName
 						ParametersList.Add te->Parameters
 						Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-						If te->Comment <> "" Then Comments &= "" & te->Comment
+						If te->Comment <> "" Then Comments &= "" & IIf(te->ElementType = E_Keyword  OrElse te->ElementType = E_KeywordFunction OrElse te->ElementType = E_KeywordOperator OrElse te->ElementType = E_KeywordSub, te->Comment, MC(te->Name))
 					End If
 				Next
 			End If
@@ -4625,7 +4643,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 						Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
 						ParametersList.Add te->Parameters
 						Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-						If te->Comment <> "" Then Comments &= "" & te->Comment
+						If te->Comment <> "" Then Comments &= "" & MC(FuncName) 'te->Comment
 					End If
 				End If
 			Next
@@ -4640,7 +4658,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 						Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
 						ParametersList.Add te->Parameters
 						Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-						If te->Comment <> "" Then Comments &= "" & te->Comment
+						If te->Comment <> "" Then Comments &= "" & MC(FuncName) 'te->Comment
 					End If
 				End If
 			Next
@@ -4715,7 +4733,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 									Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
 									ParametersList.Add te->Parameters
 									Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-									If te->Comment <> "" Then Comments &= "" & te->Comment
+									If te->Comment <> "" Then Comments &= "" & MC(FuncName) 'te->Comment
 								End If
 							Next
 						End If
@@ -4731,7 +4749,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 									Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
 									ParametersList.Add te->Parameters
 									Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-									If te->Comment <> "" Then Comments &= "" & te->Comment
+									If te->Comment <> "" Then Comments &= "" & MC(FuncName) 'te->Comment
 								End If
 							End If
 						Next
@@ -4746,7 +4764,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 									Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
 									ParametersList.Add te->Parameters
 									Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
-									If te->Comment <> "" Then Comments &= "" & te->Comment
+									If te->Comment <> "" Then Comments &= "" & MC(FuncName) 'te->Comment
 								End If
 							End If
 						Next
@@ -4758,23 +4776,25 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 			If Not ShowKeywordsToolTip Then
 				If te->ElementType = E_Keyword Then Return ""
 			End If
-			Dim As UString res(Any)
+			Dim As WString Ptr res(Any)
 			Split te->Parameters, !"\r", res()
 			For n As Integer = 0 To UBound(res)
-				Parameter = res(n) 'te->Parameters
+				Parameter = *res(n) 'te->Parameters
 				Parameters &= IIf(Parameters = "", "", !"\r")
 				iPos = InStr(LCase(Parameter), LCase(sWord))
 				'If StartsWith(Trim(LCase(Parameter)), LCase(sWord)) Then
 				If iPos > 0 Then
 					FuncName = Mid(Parameter, iPos, Len(sWord))
-					Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
+					Link1 = te->FileName & "~" & WStr(te->StartLine) & "~" & FuncName & "~" & FuncName
 					Parameters &= ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
 				Else
 					Parameters &= Parameter
 				End If
+				Deallocate res(n)
 			Next n
+			Erase res
 			ParametersList.Add te->Parameters
-			If te->Comment <> "" Then Comments &= "" & te->Comment
+			If te->Comment <> "" Then Comments &= "" & IIf(te->ElementType = E_Keyword  OrElse te->ElementType = E_KeywordFunction OrElse te->ElementType = E_KeywordOperator OrElse te->ElementType = E_KeywordSub, te->Comment, MC(te->Name))
 		End If
 		If (FECLine > 0) AndAlso FECLine->InAsm Then
 			Index = GlobalAsmFunctionsHelp.IndexOf(sWord)
@@ -4813,7 +4833,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 							Link1 = te->FileName & "~" & Str(te->StartLine) & "~" & FuncName & "~" & FuncName
 							Parameters &= IIf(Parameters = "", "", !"\r") & ..Left(Parameter, iPos - 1) & "<a href=""" & Link1 & """>" & FuncName & "</a>" & Mid(Parameter, iPos + Len(sWord))
 							ParametersList.Add te->Parameters
-							If te->Comment <> "" Then Comments &= "" & te->Comment
+							If te->Comment <> "" Then Comments &= "" & IIf(te->ElementType = E_Keyword  OrElse te->ElementType = E_KeywordFunction OrElse te->ElementType = E_KeywordOperator OrElse te->ElementType = E_KeywordSub, te->Comment, MC(te->Name))
 						End If
 					Else
 						Exit For
@@ -4826,10 +4846,10 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 					te = pGlobalFunctions->Object(i)
 					If CBool(te <> 0) AndAlso CBool(LCase(te->Name) = LCase(sWord)) Then 'AndAlso CBool(Not te->TypeProcedure)
 						If CInt(Not ParametersList.Contains(te->Parameters)) Then
-							Dim As UString res(Any)
+							Dim As WString Ptr res(Any)
 							Split te->Parameters, !"\r", res()
 							For n As Integer = 0 To UBound(res)
-								Parameter = res(n) 'te->Parameters
+								Parameter = *res(n) 'te->Parameters
 								Parameters &= IIf(Parameters = "", "", !"\r")
 								iPos = InStr(LCase(Parameter), LCase(sWord))
 								'If StartsWith(Trim(LCase(Parameter)), LCase(sWord)) Then
@@ -4840,7 +4860,9 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 								Else
 									Parameters &= Parameter
 								End If
+								Deallocate res(n)
 							Next n
+							Erase res
 							ParametersList.Add te->Parameters
 							If te->Comment <> "" Then Comments &= "" & te->Comment
 							Index = GlobalFunctionsHelp.IndexOf(sWord)
@@ -4863,7 +4885,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 										End If
 									Next n
 									ParametersList.Add te->Parameters
-									If te->Comment <> "" Then Comments &= "" & te->Comment
+									If te->Comment <> "" Then Comments &= "" & IIf(te->ElementType = E_Keyword  OrElse te->ElementType = E_KeywordFunction OrElse te->ElementType = E_KeywordOperator OrElse te->ElementType = E_KeywordSub, te->Comment, MC(te->Name))
 								End If
 							End If
 						End If
@@ -5677,7 +5699,7 @@ Sub OnKeyPressEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, Key
 				If cbINFO.hwndList Then
 					Dim As Rect rc
 					GetWindowRect cbINFO.hwndList, @rc
-					MoveWindow cbINFO.hwndList, rc.Left, rc.Top, rc.Right - rc.Left, Max(1, Min(tb->txtCode.cboIntellisense.ItemCount, 7)) * ScaleY(tb->txtCode.cboIntellisense.ItemHeight) + 2, True
+					MoveWindow cbINFO.hwndList, rc.Left, rc.Top, rc.Right - rc.Left, Max(1, min(tb->txtCode.cboIntellisense.ItemCount, 7)) * tb->ScaleY(tb->txtCode.cboIntellisense.ItemHeight) + 2, True
 				End If
 			End If
 		#endif
@@ -8550,10 +8572,13 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 			End If
 			.SelectedControls.Clear
 			.Objects.Clear
+			.Components.Clear
 			.Controls.Clear
 			Events.Clear
 			If .DesignControl Then
 				.Objects.Add .DesignControl
+				.Components.Add .DesignControl
+				.Controls.Add .DesignControl
 				Dim As Any Ptr st = .CtrlSymbols.Object(0)
 				.CtrlSymbols.Clear
 				.CtrlSymbols.Add .DesignControl, st
@@ -9693,6 +9718,8 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 						#endif
 						'Des->layout = pnlForm.layoutwidget
 						'Des->ContextMenu = @mnuForm
+						Des->xdpi = xdpi
+						Des->ydpi = ydpi
 						pnlTopMenu.Visible = False
 					End If
 					Pos1 = InStr(Trim(LCase(*FLine), Any !"\t "), " extends ")
@@ -9728,9 +9755,14 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									stDesignControl->WritePropertyFunc(.DesignControl, "ParentHandle", @pnlFormHandle)
 									'.ComponentSetBoundsSub(.DesignControl, 0, 0, 350, 300)
 								#endif
+								stDesignControl->WritePropertyFunc(.DesignControl, "xdpi", @xdpi)
+								stDesignControl->WritePropertyFunc(.DesignControl, "ydpi", @ydpi)
 								stDesignControl->WritePropertyFunc(.DesignControl, "DesignMode", @bTrue)
 								stDesignControl->WritePropertyFunc(.DesignControl, "Visible", @bTrue)
 								'.DesignControl->Parent = @pnlForm
+								If xdpi > 1 Then
+									stDesignControl->WritePropertyFunc(.DesignControl, "Visible", @bTrue)
+								End If
 							End If
 							If stDesignControl AndAlso stDesignControl->ReadPropertyFunc Then
 								#ifdef __USE_GTK__
@@ -10087,7 +10119,8 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 End Sub
 
 Sub tbrTop_ButtonClick(ByRef Designer As My.Sys.Object, ByRef Sender As ToolBar, ByRef Button As ToolButton)
-	Var tb = Cast(TabWindow Ptr, Cast(ToolButton Ptr, @Button)->Ctrl->Parent->Parent->Parent)
+	'Var tb = Cast(TabWindow Ptr, Cast(ToolButton Ptr, @Button)->Ctrl->Parent->Parent->Parent)
+	Var tb = Cast(TabWindow Ptr, Cast(ToolButton Ptr, @Button)->Ctrl->Parent)
 	If tb = 0 Then Exit Sub
 	With *tb
 		Select Case Button.Name
@@ -10102,6 +10135,7 @@ Sub tbrTop_ButtonClick(ByRef Designer As My.Sys.Object, ByRef Sender As ToolBar,
 			.pnlForm.Align = DockStyle.alClient
 			.pnlForm.Visible = True
 			.splForm.Visible = False
+			.LastButton = Button.Name
 			If (.bNotDesign = False) AndAlso tb->FormNeedDesign Then .FormDesign: tb->FormNeedDesign = False
 			'tpToolbox->SelectTab
 		Case "CodeAndForm"
@@ -10111,6 +10145,7 @@ Sub tbrTop_ButtonClick(ByRef Designer As My.Sys.Object, ByRef Sender As ToolBar,
 			.pnlForm.Visible = True
 			.splForm.Visible = True
 			.pnlCode.Visible = True
+			.LastButton = Button.Name
 			If (.bNotDesign = False) AndAlso tb->FormNeedDesign Then .FormDesign: tb->FormNeedDesign = False
 			'tpToolbox->SelectTab
 		End Select
@@ -10139,7 +10174,15 @@ Sub cboIntellisense_CloseUp(ByRef Designer As My.Sys.Object, ByRef Sender As Com
 	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 	If tb = 0 Then Exit Sub
 	tb->txtCode.DropDownShowed = False
-	tb->txtCode.CloseDropDownToolTip
+	#ifdef __USE_WINAPI__
+		Dim pt As ..Point
+		GetCursorPos(@pt)
+		If LCase(GetClassNameOf(WindowFromPoint(pt))) <> "tooltips" Then
+			tb->txtCode.CloseDropDownToolTip
+		End If
+	#else
+		tb->txtCode.CloseDropDownToolTip
+	#endif
 	'CurrentTimerCloseUp = SetTimer(0, 0, 1000, @TimerProcCloseUp)
 End Sub
 
@@ -10150,9 +10193,11 @@ End Sub
 Sub TabWindow_Resize(ByRef Designer As My.Sys.Object, ByRef Sender As Control, NewWidth As Integer, NewHeight As Integer)
 	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 	If tb = 0 Then Exit Sub
-	If tb->pnlForm.Visible AndAlso tb->pnlForm.Align = 2 AndAlso tb->pnlForm.Width > tb->Width Then
-		tb->pnlForm.Width = tb->Width - tb->splForm.Width
-	End If
+	#ifndef __USE_GTK__
+		If tb->pnlForm.Visible AndAlso tb->pnlForm.Align = 2 AndAlso tb->pnlForm.Width > tb->Width Then
+			tb->pnlForm.Width = tb->Width - tb->splForm.Width
+		End If
+	#endif
 End Sub
 
 'mnuCode.ImagesList = pimgList '<m>
@@ -10197,7 +10242,7 @@ Sub pnlForm_Message(ByRef Designer As My.Sys.Object, ByRef Sender As Control, By
 			si.fMask  = SIF_RANGE Or SIF_PAGE
 			si.nMin   = 0
 			If dwClientX - iWidth < 0 Then
-				si.nMax   = ScaleX(iWidth - dwClientX)
+				si.nMax   = Sender.ScaleX(iWidth - dwClientX)
 			Else
 				si.nMax   = 0
 			End If
@@ -10212,7 +10257,7 @@ Sub pnlForm_Message(ByRef Designer As My.Sys.Object, ByRef Sender As Control, By
 			si.fMask  = SIF_RANGE Or SIF_PAGE
 			si.nMin   = 0
 			If dwClientY - iHeight < 0 Then
-				si.nMax   = ScaleY(iHeight - dwClientY)
+				si.nMax   = Sender.ScaleY(iHeight - dwClientY)
 			Else
 				si.nMax   = 0
 			End If
@@ -10441,6 +10486,7 @@ Constructor TabWindow(ByRef wFileName As WString = "", bNew As Boolean = False, 
 	'txtCode.Functions.Sorted = True
 	'txtCode.FunctionsOthers.Sorted = True
 	'txtCode.Args.Sorted = True
+	LastButton = "CodeAndForm"
 	lvPropertyWidth = 150
 	btnClose.tbParent = @This
 	#ifdef __USE_GTK__
@@ -10448,15 +10494,15 @@ Constructor TabWindow(ByRef wFileName As WString = "", bNew As Boolean = False, 
 	#else
 		pnlTop.Height = 25
 	#endif
-	pnlTop.Align = DockStyle.alTop
-	#ifdef __USE_GTK__
-		pnlTopCombo.Height = 33
-	#else
-		pnlTopCombo.Height = 25
-	#endif
+	'pnlTop.Align = DockStyle.alTop
+	'#ifdef __USE_GTK__
+	'	pnlTopCombo.Height = 33
+	'#else
+	'	pnlTopCombo.Height = 25
+	'#endif
 	txtCode.ContextMenu = @mnuCode
-	pnlTopCombo.Align = DockStyle.alClient
-	pnlTopCombo.Width = 101
+	'pnlTopCombo.Align = DockStyle.alClient
+	'pnlTopCombo.Width = 101
 	pnlForm.Name = "Designer"
 	pnlForm.Width = 360
 	pnlForm.Align = DockStyle.alRight
@@ -10479,55 +10525,65 @@ Constructor TabWindow(ByRef wFileName As WString = "", bNew As Boolean = False, 
 	'cboClass.ItemIndex = 0
 	'cboClass.SetBounds 0, 2, 60, 20
 	tbrTop.ImagesList = pimgList
-	#ifdef __USE_GTK__
-		tbrTop.Width = 150
-		pnlToolbar.Width = 150
-	#else
-		tbrTop.Width = 75
-		pnlToolbar.Width = 75
-	#endif
-	tbrTop.Align = DockStyle.alRight
+	'#ifdef __USE_GTK__
+	'	tbrTop.Width = 150
+	'	pnlToolbar.Width = 150
+	'#else
+	'	tbrTop.Width = 75
+	'	pnlToolbar.Width = 75
+	'#endif
+	'tbrTop.Align = DockStyle.alRight
+	tbrTop.Align = DockStyle.alTop
+	Var btnClass = tbrTop.Buttons.Add(tbsCustom)
+	btnClass->Child = @cboClass
+	btnClass->Expand = True
+	tbrTop.Buttons.Add tbsSeparator
+	Var btnFunction = tbrTop.Buttons.Add(tbsCustom)
+	btnFunction->Child = @cboFunction
+	btnFunction->Expand = True
 	tbrTop.Buttons.Add tbsSeparator
 	tbrTop.Buttons.Add tbsCheckGroup, "Code", , , "Code", , ML("Show Code"), True ' Show the toollips
 	tbrTop.Buttons.Add tbsCheckGroup, "Form", , , "Form", , ML("Show Form"), True ' Show the toollips
 	tbrTop.Buttons.Add tbsCheckGroup, "CodeAndForm", , , "CodeAndForm", , ML("Show Code And Form"), True '
 	tbrTop.OnButtonClick = @tbrTop_ButtonClick
 	tbrTop.Flat = True
-	pnlToolbar.Align = DockStyle.alRight
-	cboClass.Width = 50
+	'pnlToolbar.Align = DockStyle.alRight
+	'cboClass.Width = 50
 	#ifdef __USE_GTK__
-		cboClass.Top = 0
+		'cboClass.Top = 0
 		#ifdef __USE_GTK3__
 			cboClass.Height = 20
 		#else
 			cboClass.Height = 30
 		#endif
 	#else
-		cboClass.Top = 1
-		cboClass.Height = 30 * 22
+		'cboClass.Top = 1
+		'cboClass.Height = 30 * 22
 		cboClass.DropDownCount = 30
 	#endif
-	cboClass.Anchor.Left = asAnchor
-	cboClass.Anchor.Right = asAnchorProportional
+	'cboClass.Anchor.Left = asAnchor
+	'cboClass.Anchor.Right = asAnchorProportional
 	cboClass.OnSelected = @cboClass_Change
 	cboClass.ImagesList = pimgListTools
+	cboClass.Tag = @This
 	cboFunction.ImagesList = pimgList
-	cboFunction.Left = 50 + 0 + 1
-	cboFunction.Width = 50
+	cboFunction.Tag = @This
+	'cboFunction.Left = 50 + 0 + 1
+	'cboFunction.Width = 50
 	#ifdef __USE_GTK__
-		cboFunction.Top = 0
+	'	cboFunction.Top = 0
 		#ifdef __USE_GTK3__
 			cboFunction.Height = 20
 		#else
 			cboFunction.Height = 30
 		#endif
 	#else
-		cboFunction.Top = 1
+	'	cboFunction.Top = 1
 		cboFunction.Height = 30 * 22
 		cboFunction.DropDownCount = 30
 	#endif
-	cboFunction.Anchor.Left = asAnchorProportional
-	cboFunction.Anchor.Right = asAnchor
+	'cboFunction.Anchor.Left = asAnchorProportional
+	'cboFunction.Anchor.Right = asAnchor
 	cboFunction.OnSelected = @cboFunction_Change
 	'cboFunction.Sort = True
 	cboFunction.Items.Add WStr("(") & ML("Declarations") & ")" & WChr(0), , "Sub", "Sub"
@@ -10535,11 +10591,11 @@ Constructor TabWindow(ByRef wFileName As WString = "", bNew As Boolean = False, 
 	pnlForm.Visible = False
 	pnlForm.OnMessage = @pnlForm_Message
 	splForm.Visible = False
-	pnlToolbar.Add @tbrTop
-	pnlTop.Add @pnlToolbar
-	pnlTop.Add @pnlTopCombo
-	pnlTopCombo.Add @cboClass
-	pnlTopCombo.Add @cboFunction
+	'pnlToolbar.Add @tbrTop
+	'pnlTop.Add @pnlToolbar
+	'pnlTop.Add @pnlTopCombo
+	'pnlTopCombo.Add @cboClass
+	'pnlTopCombo.Add @cboFunction
 	If CInt(wFileName <> "") And CInt(bNew = False OrElse TreeN <> 0) Then
 		If bNew Then
 			If TreeN > 0 Then FileName = TreeN->Text
@@ -10572,7 +10628,8 @@ Constructor TabWindow(ByRef wFileName As WString = "", bNew As Boolean = False, 
 		pnlForm.Style = pnlForm.Style Or WS_HSCROLL Or WS_VSCROLL
 	#endif
 	pnlCode.Add @txtCode
-	This.Add @pnlTop
+	'This.Add @pnlTop
+	This.Add @tbrTop
 	This.Add @pnlForm
 	This.Add @splForm
 	This.Add @pnlCode
@@ -11035,6 +11092,7 @@ Function Err2Description(Code As Integer) ByRef As WString
 	Case 17: Return ML("End of file")
 	Case 193: Return ML("Could not execute:Bad executable format")
 	Case 3221225477: Return ML("Stack Overflow")
+	Case 3221225781: Return ML("The application could not run as the required library was not found")
 	Case Else: Return WStr("")
 	End Select
 End Function
@@ -11456,10 +11514,10 @@ Function GetMainFile(bSaveTab As Boolean = False, ByRef Project As ProjectElemen
 	Return ""
 End Function
 
-Function GetResourceFile(WithoutMainNode As Boolean = False, ByRef FirstLine As WString = "") As UString
+Function GetResourceFile(WithoutMainNode As Boolean = False, ByRef FirstLine As WString = "", ProjectNode_ As TreeNode Ptr = 0) As UString
 	Dim As UString ResourceFile, MainFile, sFirstLine, CompileLine
 	Dim As ProjectElement Ptr Project
-	Dim As TreeNode Ptr ProjectNode
+	Dim As TreeNode Ptr ProjectNode = ProjectNode_
 	MainFile = GetMainFile(, Project, ProjectNode, WithoutMainNode)
 	If FirstLine = "" Then
 		sFirstLine = GetFirstCompileLine(MainFile, Project, CompileLine, True)
@@ -11519,7 +11577,7 @@ Sub Versioning(ByRef FileName As WString, ByRef sFirstLine As WString, ByRef Pro
 			End If
 		End If
 	End If
-	WLet(File, GetResourceFile(, sFirstLine))
+	WLet(File, GetResourceFile(, sFirstLine, ProjectNode))
 	Var bFinded = False, bChanged = False
 	Dim As String NewLine = ""
 	If AutoCreateRC Then
@@ -12863,6 +12921,14 @@ Sub TabWindow.ProcessMessage(ByRef msg As Message)
 		Select Case msg.Msg
 		Case EM_SETMODIFY
 			FormDesign
+		Case WM_DPICHANGED
+			If Des <> 0 Then 
+				Des->xdpi = xdpi
+				Des->ydpi = ydpi
+				Dim As HWND DesignControlHandle = Des->GetControlHandle(Des->DesignControl)
+				SendMessage DesignControlHandle, msg.Msg, msg.wParam, msg.lParam
+				Des->MoveDots Des->SelectedControl
+			End If
 		End Select
 	#endif
 	Base.ProcessMessage(msg)
@@ -13421,7 +13487,7 @@ Sub TabWindow.Define
 		ElseIf .Count = 1 Then
 			SelectSearchResult .Item(0)->Text(4), Val(.Item(0)->Text(2)), IIf(.Item(0)->Text(3) = "0", -1, Val(.Item(0)->Text(3))), , .Item(0)->Tag, sWord
 		Else
-			If pfTrek->ShowModal = ModalResults.OK Then
+			If pfTrek->ShowModal(frmMain) = ModalResults.OK Then
 				Var item = pfTrek->SelectedItem
 				If item <> 0 Then
 					SelectSearchResult item->Text(4), Val(item->Text(2)), IIf(item->Text(3) = "0", -1, Val(item->Text(3))), , item->Tag, sWord
