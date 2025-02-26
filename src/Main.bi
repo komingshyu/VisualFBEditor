@@ -138,7 +138,7 @@ Common Shared As ToolButton Ptr SelectedTool
 Common Shared As TabControl Ptr ptabCode, ptabLeft, ptabBottom, ptabRight
 Common Shared As TreeView Ptr ptvExplorer
 Common Shared As IniFile Ptr piniSettings, piniTheme
-Common Shared As MenuItem Ptr mnuUseDebugger, miHelps, miXizmat, miWindow
+Common Shared As MenuItem Ptr mnuUseDebugger, mnuUseProfiler, miHelps, miXizmat, miWindow
 Common Shared As MenuItem Ptr miPlainText, miUtf8, miUtf8BOM, miUtf16BOM, miUtf32BOM, miWindowsCRLF, miLinuxLF, miMacOSCR, miUseDefine
 
 Common Shared As Boolean AutoIncrement
@@ -159,7 +159,7 @@ Common Shared As Boolean InDebug, FormClosing, Restarting, FastRunning, RunningT
 Common Shared As Boolean HighlightCurrentLine, HighlightCurrentWord, HighlightBrackets
 Common Shared As Boolean mTabSelChangeByError
 Common Shared As Boolean DisplayMenuIcons, ShowMainToolBar, DarkMode, ShowStandardToolBar, ShowEditToolBar, ShowProjectToolBar, ShowBuildToolBar, ShowRunToolBar
-Common Shared As Boolean ShowKeywordsToolTip, ShowTooltipsAtTheTop, ShowHorizontalSeparatorLines, ShowTipoftheDay
+Common Shared As Boolean ShowKeywordsToolTip, ShowTooltipsAtTheTop, ShowHorizontalSeparatorLines, ShowHolidayFrame, ShowTipoftheDay
 Common Shared As Boolean OpenCommandPromptInMainFileFolder, ShowProjectFolders
 Common Shared As Integer WhenVisualFBEditorStarts, ShowTipoftheDayIndex
 Common Shared As Integer AutoSaveBeforeCompiling, HistoryCodeDays

@@ -410,6 +410,7 @@ Namespace My.Sys.Forms
 			Dim As HWND ControlHandle
 		#endif
 		ControlHandle = GetControlHandle(Control)
+		Dim As Integer CountOfControls
 		#ifdef __USE_GTK__
 			If GTK_IS_WIDGET(ControlHandle) Then
 		#else
@@ -418,9 +419,14 @@ Namespace My.Sys.Forms
 			SelectedControl = Control
 			FSelControl = ControlHandle
 			If SelectedControls.Count = 0 Then SelectedControls.Add SelectedControl
+			#ifdef __USE_GTK__
+				CountOfControls = 0
+			#else
+				CountOfControls = SelectedControls.Count
+			#endif
 			'if Control <> FDialog then
 			Dim As Integer DotsCount = UBound(FDots)
-			For j As Integer = DotsCount To SelectedControls.Count - 1 Step -1
+			For j As Integer = DotsCount To CountOfControls Step -1
 				For i As Integer = 7 To 0 Step -1
 					#ifdef __USE_GTK__
 						If FDots(j, i) > 0 AndAlso GTK_IS_WIDGET(FDots(j, i)) Then
@@ -560,7 +566,7 @@ Namespace My.Sys.Forms
 					Next i
 				Next j
 			#else
-				For j As Integer = SelectedControls.Count - 1 To DotsCount Step - 1 'For Compile with FBC 1.10
+				For j As Integer = SelectedControls.Count - 1 To DotsCount + 1 Step - 1 'For Compile with FBC 1.10
 					For i As Integer = 0 To 7
 						FDots(j, i) = CreateWindowEx(0, "DOT", "", WS_CHILD Or WS_CLIPSIBLINGS Or WS_CLIPCHILDREN, 0, 0, ScaleX(FDotSize), ScaleY(FDotSize), GetParent(FDialog), 0, Instance, 0)
 						SetWindowLongPtr(FDots(j, i), GWLP_USERDATA, CInt(@This))
@@ -1004,14 +1010,12 @@ Namespace My.Sys.Forms
 					FSelControl = FDialog
 					For i As Integer = Objects.Count - 1 To 0 Step -1
 						Ctrl = Objects.Item(i)
-						If Ctrl Then
+						Dim As SymbolsType Ptr st = Symbols(Ctrl)
+						If Ctrl AndAlso st AndAlso st->ReadPropertyFunc <> 0 Then
 							GetControlBounds(Ctrl, ALeft, ATop, AWidth, AHeight)
 							If Not (ALeft + AWidth < FBeginX OrElse ALeft > FNewX OrElse ATop > FNewY OrElse ATop + AHeight < FBeginY) Then
-								If SelectedControls.Count > 0 Then
-									Dim As SymbolsType Ptr stCtrl = Symbols(Ctrl), st0 = Symbols(SelectedControls.Items[0])
-									If SelectedControls.Count = 0 OrElse (stCtrl AndAlso st0 AndAlso st0->ReadPropertyFunc(SelectedControls.Items[0], "Parent") = stCtrl->ReadPropertyFunc(Ctrl, "Parent")) Then
-										SelectedControls.Add Ctrl
-									End If
+								If SelectedControls.Count = 0 OrElse (Symbols(SelectedControls.Items[0]) AndAlso Symbols(SelectedControls.Items[0])->ReadPropertyFunc <> 0 AndAlso Symbols(SelectedControls.Items[0])->ReadPropertyFunc(SelectedControls.Items[0], "Parent") = st->ReadPropertyFunc(Ctrl, "Parent")) Then
+									SelectedControls.Add Ctrl
 								End If
 							End If
 						End If
@@ -1482,7 +1486,7 @@ Namespace My.Sys.Forms
 					g_signal_connect(gtk_bin_get_child(GTK_BIN(Control)), "event", G_CALLBACK(@HookChildProc), @This)
 				End If
 				#ifdef __USE_GTK3__
-					g_signal_connect(Control, "draw", G_CALLBACK(@HookChildDraw), @This)
+					g_signal_connect_after(Control, "draw", G_CALLBACK(@HookChildDraw), @This)
 				#endif
 			End If
 		#else
@@ -1596,9 +1600,9 @@ Namespace My.Sys.Forms
 		Exit Function
 		ErrorHandler:
 		MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-		"in line " & Erl() & " " & _
-		"in function " & ZGet(Erfn()) & " " & _
-		"in module " & ZGet(Ermn())
+	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
 	End Function
 	
 	#ifdef __USE_GTK__

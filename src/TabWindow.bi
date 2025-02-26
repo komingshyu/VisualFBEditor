@@ -131,6 +131,15 @@ Type GlobalSettings
 	ShowClassesExplorerOnOpenWindow As Boolean
 End Type
 
+Type ProfilingFunction
+	Count As ZString * 8
+	Time As ZString * 12
+	Total As ZString * 11
+	Proc As ZString * 10
+	Mangled As ZString * 500
+	Items As WStringList
+End Type
+
 Type TabWindow Extends TabPage
 Private:
 	FCaptionNew As WString Ptr
@@ -401,7 +410,7 @@ Declare Sub lvProperties_ItemExpanding(ByRef Designer As My.Sys.Object, ByRef Se
 Declare Function SplitError(ByRef sLine As WString, ByRef ErrFileName As WString Ptr, ByRef ErrTitle As WString Ptr, ByRef ErrorLine As Integer) As UShort
 Declare Sub SelectError(ByRef FileName As WString, iLine As Integer, tabw As TabWindow Ptr = 0)
 
-Declare Sub PipeCmd(ByRef file As WString, ByRef cmd As WString)
+Declare Sub PipeCmd(ByRef file As WString, ByRef cmd As WString, MainThread As Boolean = True)
 
 #ifdef __USE_GTK__
 	Declare Function build_create_shellscript(ByRef working_dir As WString, ByRef cmd As WString, autoclose As Boolean, debug As Boolean = False, ByRef Arguments As WString = "") As String
@@ -439,6 +448,8 @@ Declare Sub PreprocessorNumberingOn(ByRef txtCode As EditControl, ByRef FileName
 Declare Sub PreprocessorNumberingOff(ByRef txtCode As EditControl, WithoutUpdate As Boolean = False)
 
 Declare Sub ParameterInfo(Key As Integer = Asc(","), SelStartChar As Integer = -1, SelEndChar As Integer = -1, sWordAt As String = "")
+
+Declare Sub CheckProfiler(ByRef WorkDir As WString, ByRef ExeName As WString)
 
 #ifndef __USE_MAKE__
 	#include once "TabWindow.bas"

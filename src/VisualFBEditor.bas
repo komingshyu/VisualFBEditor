@@ -254,10 +254,10 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			UpdateAllTabWindows
 		End If
 		#ifdef __USE_WINAPI__
-			If DarkMode Then
+			If DarkMode AndAlso g_darkModeSupported Then
 				txtLabelProperty.BackColor = darkBkColor
 				txtLabelEvent.BackColor = darkBkColor
-				fAddIns.txtDescription.BackColor = GetSysColor(COLOR_WINDOW)
+				fAddIns.txtDescription.BackColor = darkBkColor
 			Else
 				txtLabelProperty.BackColor = clBtnFace
 				txtLabelEvent.BackColor = clBtnFace
@@ -297,6 +297,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "Run":                                 ShowRunToolBar = Not ShowRunToolBar: MainReBar.Bands.Item(4)->Visible = ShowRunToolBar: mnuRunToolBar->Checked = ShowRunToolBar: pfrmMain->RequestAlign
 	Case "TBUseDebugger":                       ChangeUseDebugger tbtUseDebugger->Checked, 0
 	Case "UseDebugger":                         ChangeUseDebugger Not mnuUseDebugger->Checked, 1
+	Case "UseProfiler":                         mnuUseProfiler->Checked = Not mnuUseProfiler->Checked
 	Case "ShowWithFolders":                     ChangeFolderType ProjectFolderTypes.ShowWithFolders
 	Case "ShowWithoutFolders":                  ChangeFolderType ProjectFolderTypes.ShowWithoutFolders
 	Case "ShowAsFolder":                        ChangeFolderType ProjectFolderTypes.ShowAsFolder
@@ -354,7 +355,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 					'#ifndef __USE_GTK__
 						ChangeEnabledDebug False, True, True
 						'brk_set(12)
-						'runtype=RTAUTO
+						'runtype = RTAUTO
 						'#ifdef __FB_WIN32__
 						'	set_cc()
 						'#else
@@ -368,9 +369,29 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 						'runtype = RTRUN
 						'thread_resume()
 					'#endif
+					'runtype = RTAUTO
+					'#ifdef __FB_WIN32__
+					'	set_cc()
+					'#else
+					'	If ccstate = KCC_NONE Then
+					'		msgdata = 1 ''CC everywhere
+					'		exec_order(KPT_CCALL)
+					'	End If
+					'#endif
+					'thread_set()
 				ElseIf UseDebugger Then
 					runtype = RTFRUN
 					'runtype = RTRUN
+					'runtype = RTAUTO
+					'#ifdef __FB_WIN32__
+					'	set_cc()
+					'#else
+					'	If ccstate = KCC_NONE Then
+					'		msgdata = 1 ''CC everywhere
+					'		exec_order(KPT_CCALL)
+					'	End If
+					'#endif
+					'thread_set()
 					SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
 					CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
 					ThreadCounter(ThreadCreate_(@StartDebuggingWithCompile))
@@ -933,7 +954,7 @@ pApp->Run
 End
 AA:
 MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-"in function " & ZGet(Erfn()) & " " & _
-"in module " & ZGet(Ermn()) ' & " " & _
-'"in line " & Erl()
+	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
  

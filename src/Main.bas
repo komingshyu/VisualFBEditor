@@ -38,7 +38,35 @@
 Using My.Sys.Forms
 Using My.Sys.Drawing
 
+Dim Shared As Boolean bQuitting
 #ifdef __USE_WINAPI__
+	Function EnumWindowsProc(ByVal hWnd As HWND, ByVal lParam As LPARAM) As BOOL
+		Dim As Any Ptr VisualFBEditorAppPtr = GetProp(hWnd, "VisualFBEditorApp")
+		
+		If VisualFBEditorAppPtr <> 0 Then
+			Dim As ZString Ptr FileFromCmdLine = Cast(ZString Ptr, lParam)
+			Dim cds As COPYDATASTRUCT
+			cds.dwData = 0
+			cds.cbData = Len(*FileFromCmdLine) + 1
+			cds.lpData = FileFromCmdLine
+			If SendMessage(hWnd, WM_COPYDATA, 0, Cast(lParam, @cds)) <> 0 Then
+				bQuitting = True
+				End
+			End If
+		End If
+		
+		Return True
+	End Function
+	
+	If App.PrevInstance Then
+		Var FileFromCommandLine = Command(-1)
+		Var Pos1 = InStr(FileFromCommandLine, "2>CON")
+		If Pos1 > 0 Then FileFromCommandLine = Left(FileFromCommandLine, Pos1 - 1)
+		If FileFromCommandLine <> "" AndAlso Right(LCase(FileFromCommandLine), 4) <> ".exe" Then
+			EnumWindows(@EnumWindowsProc, Cast(LPARAM, StrPtr(FileFromCommandLine)))
+		End If
+	End If
+		
 	InitDarkMode
 	'setDarkMode(True, True)
 #endif
@@ -88,29 +116,29 @@ Dim Shared As ReBar MainReBar
 Dim Shared As List Tools, TabPanels, ControlLibraries
 Dim Shared As WStringOrStringList Comps, GlobalAsmFunctionsHelp, GlobalFunctionsHelp, Snippets, TypesInFunc, EnumsInFunc
 'Dim Shared As WStringOrStringList GlobalNamespaces, GlobalTypes, GlobalEnums, GlobalDefines, GlobalFunctions, GlobalTypeProcedures, GlobalArgs
-Dim Shared As WStringList AddIns, IncludeFiles, LoadPaths, IncludePaths, LibraryPaths, MRUFiles, MRUFolders, MRUProjects, MRUSessions ' add Sessions
+Dim Shared As WStringList AddIns, IncludeFiles, LoadPaths, IncludePaths, LibraryPaths, MRUFiles, MRUFolders, MRUProjects, MRUSessions, ProfilingFunctions ' add Sessions
 Dim Shared As WString Ptr RecentFiles, RecentFile, RecentProject, RecentFolder, RecentSession '
 Dim Shared As Dictionary Helps, HotKeys, Compilers, MakeTools, Debuggers, Terminals, OtherEditors, BuildConfigurations, mlCompiler, mlTemplates, mpKeys, mcKeys
 Dim Shared As ListView lvProblems, lvSuggestions, lvSearch, lvToDo, lvMemory
 Dim Shared As ProgressBar prProgress
 Dim Shared As CommandButton btnPropertyValue
-Dim Shared As TextBox txtPropertyValue
+Dim Shared As TextBox txtPropertyValue, txtExpand
 Dim Shared As RichTextBox txtLabelProperty, txtLabelEvent
 Dim Shared As ComboBoxEdit cboPropertyValue
 Dim Shared As PopupMenu mnuForm, mnuVars, mnuWatch, mnuExplorer, mnuTabs, mnuProcedures, mnuProblems
-Dim Shared As ImageList imgList, imgListD, imgListTools, imgListStates
-Dim Shared As TreeListView lvProperties, lvEvents, lvLocals, lvGlobals, lvThreads, lvWatches
+Dim Shared As ImageList imgList, imgListD, imgListTools, imgListStates, imgList32
+Dim Shared As TreeListView lvProperties, lvEvents, lvLocals, lvGlobals, lvThreads, lvWatches, lvProfiler
 Dim Shared As ToolPalette tbToolBox
 Dim Shared As Panel pnlToolBox
 Dim Shared As TabControl tabLeft, tabRight, tabBottom ', tabDebug
 Dim Shared As TreeView tvExplorer, tvVar, tvPrc, tvThd, tvWch
 Dim Shared As TextBox txtOutput, txtImmediate
 Dim Shared As TextBox txtChangeLog ' Add Change Log
-Dim Shared As TabPage Ptr tpProject, tpToolbox, tpProperties, tpEvents, tpOutput, tpProblems, tpSuggestions, tpFind, tpToDo, tpChangeLog, tpImmediate, tpLocals, tpGlobals, tpProcedures, tpThreads, tpWatches, tpMemory
+Dim Shared As TabPage Ptr tpProject, tpToolbox, tpProperties, tpEvents, tpOutput, tpProblems, tpSuggestions, tpFind, tpToDo, tpChangeLog, tpImmediate, tpLocals, tpGlobals, tpProcedures, tpThreads, tpWatches, tpMemory, tpProfiler
 Dim Shared As Form frmMain
 Dim Shared As Integer tabItemHeight
 Dim Shared As Integer miRecentMax =20 'David Changed
-Dim Shared As Boolean mLoadLog, mLoadToDo, mChangeLogEdited, mStartLoadSession = True, ManifestIcoCopy ' Add Change Log
+Dim Shared As Boolean mLoadLog, mLoadToDo, mChangeLogEdited, mStartLoadSession = True, ManifestIcoCopy
 Dim Shared As WString * MAX_PATH mChangelogName  'David Changed
 pApp = @VisualFBEditorApp
 pfrmMain = @frmMain
@@ -190,6 +218,7 @@ Globals.Functions.Sorted = True
 Globals.Args.Sorted = True
 GlobalAsmFunctionsHelp.Sorted = True
 GlobalFunctionsHelp.Sorted = True
+WithFrame = Month(Now) = 12 OrElse Month(Now) = 1
 
 Namespace VisualFBEditor
 	Function Application.ReadProperty(ByRef PropertyName As String) As Any Ptr
@@ -360,10 +389,12 @@ Sub cboPropertyValue_Change(ByRef Designer As My.Sys.Object, ByRef Sender As Con
 	If Trim(cboPropertyValue.Text) = "" Then
 		Exit Sub
 	End If
-	If bNotChange Then
-		bNotChange = False
-		Exit Sub
-	End If
+	#ifdef __USE_GTK__
+		If bNotChange Then
+			bNotChange = False
+			Exit Sub
+		End If
+	#endif
 	PropertyChanged Sender, cboPropertyValue.Text, True
 End Sub
 
@@ -434,24 +465,19 @@ Function GetFullPath(ByRef Path As WString, ByRef FromFile As WString = "") As U
 End Function
 
 Function GetFolderName(ByRef FileName As WString, WithSlash As Boolean = True) As UString
-	Dim Pos1 As Long = InStrRev(FileName, "\", Len(FileName) - 1)
-	Dim Pos2 As Long = InStrRev(FileName, "/", Len(FileName) - 1)
-	If Pos1 = 0 OrElse Pos2 > Pos1 Then Pos1 = Pos2
-	If Pos1 > 0 Then
-		If Not WithSlash Then Pos1 -= 1
-		Return Left(FileName, Pos1)
-	End If
-	Return ""
+	Dim Posi As Long = InStrRev(FileName, Any "\/") 
+	If Posi <= 0 Then Return ""  
+	If Not WithSlash Then Posi -= 1  
+	Return Left(FileName, Posi)  
 End Function
 
 Function GetFileName(ByRef FileName As WString) As UString
-	Dim Pos1 As Long = InStrRev(FileName, "\")
-	Dim Pos2 As Long = InStrRev(FileName, "/")
-	If Pos1 = 0 OrElse Pos2 > Pos1 Then Pos1 = Pos2
-	If Pos1 > 0 Then
-		Return Mid(FileName, Pos1 + 1)
+	Dim Posi As Long = InStrRev(FileName, Any "\/:") 
+	If Posi > 0 Then
+		Return Mid(FileName, Posi + 1)
+	Else
+		Return FileName
 	End If
-	Return FileName
 End Function
 
 Function GetBakFileName(ByRef FileName As WString) As UString
@@ -522,7 +548,7 @@ End Function
 
 Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 	On Error Goto ErrorHandler
-	Dim As WString Ptr MainFile, LogFileName, LogFileName2, LogText, BatFileName, fbcCommand, PipeApplicationName, PipeCommand
+	Dim As WString Ptr MainFileNameOnly, MainFile, LogFileName, LogFileName2, LogText, BatFileName, fbcCommand, PipeApplicationName, PipeCommand, fbcCommand1, PipeCommand1
 	Dim As WString Ptr CompileWith, MFFPathC, ErrFileName, ErrTitle, ExeName, FirstLine, ProjectPath
 	Dim As Integer NumberErr, NumberWarning, NumberInfo, NodesCount, CompileResult = 1
 	Dim As UString CompileLine
@@ -593,16 +619,27 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 				Continue For
 			End If
 		End If
-		Dim As UserToolType Ptr Tool
-		For i As Integer = 0 To Tools.Count - 1
-			Tool = Tools.Item(i)
-			If Tool->LoadType = LoadTypes.BeforeCompile Then Tool->Execute
-		Next
 		Dim As Integer iLine
 		WLet(MFFPathC, *MFFPath)
 		If CInt(InStr(*MFFPathC, ":") = 0) AndAlso CInt(Not StartsWith(*MFFPathC, "/")) Then WLet(MFFPathC, ExePath & "/" & *MFFPath)
 		WLet(BatFileName, ExePath + "/debug.bat")
 		Dim As Boolean Band, Yaratilmadi
+		Dim As UserToolType Ptr Tool
+		For i As Integer = 0 To Tools.Count - 1
+			Tool = Tools.Item(i)
+			If Tool->LoadType = LoadTypes.BeforeCompile Then Tool->Execute
+		Next
+		Dim As Any Ptr AddInDll
+		Dim As Sub(VisualFBEditorApp As Any Ptr, ByRef CompilingProgramPath As WString) OnBeforeCompile
+		For i As Integer = 0 To AddIns.Count - 1
+			AddInDll = AddIns.Object(i)
+			If AddInDll <> 0 Then
+				OnBeforeCompile = DyLibSymbol(AddInDll, "OnBeforeCompile")
+				If OnBeforeCompile Then
+					OnBeforeCompile(@VisualFBEditorApp, *ExeName)
+				End If
+			End If
+		Next
 		ChDir(GetFolderName(*MainFile))
 		If Parameter = "Check" Then
 			WLet(ExeName, "chk.dll")
@@ -633,6 +670,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 			WLet(CompileWith, CompilerTool->GetCommand(, True))
 		End If
 		WAdd(CompileWith, " " & *FirstLine)
+		WLet(MainFileNameOnly, GetFileName(*MainFile))
 		'If IncludeMFFPath Then WAdd CompileWith, " -i """ & *MFFPathC & """"
 		Dim As Boolean UseWasm = InStr(*FirstLine & CompileLine, "__USE_WASM__") > 0
 		'If UseWasm Then
@@ -697,13 +735,13 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 		If CInt(ProjectNode <> 0) AndAlso CInt(Project <> 0) AndAlso CInt(Project->PassAllModuleFilesToCompiler) Then
 			For i As Integer = 0 To ProjectNode->Nodes.Count - 1
 				If EndsWith(LCase(ProjectNode->Nodes.Item(i)->Text), ".bas") Then
-					If LCase(GetFileName(*MainFile)) <> LCase(ProjectNode->Nodes.Item(i)->Text) Then
+					If LCase(*MainFileNameOnly) <> LCase(ProjectNode->Nodes.Item(i)->Text) Then
 						OtherModuleFiles &= " """ & GetRelative(*Cast(ExplorerElement Ptr, ProjectNode->Nodes.Item(i)->Tag)->FileName, GetFolderName(*Project->MainFileName)) & """"
 					End If
 				Else
 					For j As Integer = 0 To ProjectNode->Nodes.Item(i)->Nodes.Count - 1
 						If EndsWith(LCase(ProjectNode->Nodes.Item(i)->Nodes.Item(j)->Text), ".bas") Then
-							If LCase(GetFileName(*MainFile)) <> LCase(ProjectNode->Nodes.Item(i)->Nodes.Item(j)->Text) Then
+							If LCase(*MainFileNameOnly) <> LCase(ProjectNode->Nodes.Item(i)->Nodes.Item(j)->Text) Then
 								OtherModuleFiles &= " """ & GetRelative(*Cast(ExplorerElement Ptr, ProjectNode->Nodes.Item(i)->Nodes.Item(j)->Tag)->FileName, GetFolderName(*Project->MainFileName)) & """"
 							End If
 						End If
@@ -712,9 +750,9 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 			Next
 		End If
 		If InStr(*CompileWith, "{S}") > 0 Then
-			WLet(fbcCommand, Replace(*CompileWith, "{S}", """" & GetFileName(*MainFile) & """" & OtherModuleFiles))
+			WLet(fbcCommand, Replace(*CompileWith, "{S}", """" & *MainFileNameOnly & """" & OtherModuleFiles))
 		Else
-			WLet(fbcCommand, """" & GetFileName(*MainFile) & """" & OtherModuleFiles & " " & *CompileWith)
+			WLet(fbcCommand, """" & *MainFileNameOnly & """" & OtherModuleFiles & " " & *CompileWith)
 		End If
 		If Parameter <> "" AndAlso Parameter <> "Make" AndAlso Parameter <> "MakeClean" Then
 			If Parameter = "Check" Then WAdd fbcCommand, " -x """ & *ExeName & """"
@@ -826,21 +864,20 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 			ThreadsLeave()
 		End If
 		Dim As Dictionary CompileCommands
-		Dim MainFileName As UString = GetFileName(*MainFile)
 		If UseWasm Then
 			Dim FbcFolder As UString = GetFolderName(*FbcExe)
-			Var Pos1 = InStrRev(MainFileName, ".")
+			Var Pos1 = InStrRev(*MainFileNameOnly, ".")
 			If Pos1 > 0 Then
-				MainFileName = Left(MainFileName, Pos1 - 1)
+				*MainFileNameOnly = Left(*MainFileNameOnly, Pos1 - 1)
 			End If
 			CompileCommands.Add "", *PipeCommand
-			CompileCommands.Add "compiling C :  ", GetFullPath("emcc") & " -c -nostdlib -nostdinc -Wall -Wno-unused-label -Wno-unused-function -Wno-unused-variable -Wno-warn-absolute-paths -Wno-main -Werror-implicit-function-declaration -fno-strict-aliasing -fno-math-errno -fwrapv -fno-exceptions -fno-asynchronous-unwind-tables -funwind-tables -Wno-format """ & MainFileName & ".c"" -o """ & MainFileName & ".o"""
-			'CompileCommands.Add "linking :      ", GetFullPath("emcc") & " -o """ & MainFileName & ".html"" -O0 -Wno-warn-absolute-paths -s CASE_INSENSITIVE_FS=1 -s TOTAL_MEMORY=67108864 -s ALLOW_MEMORY_GROWTH=1 -s RETAIN_COMPILER_SETTINGS=1 --shell-file """ & FbcFolder & "lib\js-asmjs\fb_shell.html"" --post-js """ & FbcFolder & "lib\js-asmjs\fb_rtlib.js"" --post-js """ & FbcFolder & "lib\js-asmjs\termlib_min.js"" -L""" & FbcFolder & "lib\js-asmjs"" -L""."" """ & MainFileName & ".o"" -lfb -lfb  -s ASYNCIFY=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s WASM=1 -s EXPORTED_FUNCTIONS=""['_ONLOAD']"" --post-js " & *MFFPathC & "\mff\Web\mff.js"
+			CompileCommands.Add "compiling C :  ", GetFullPath("emcc") & " -c -nostdlib -nostdinc -Wall -Wno-unused-label -Wno-unused-function -Wno-unused-variable -Wno-warn-absolute-paths -Wno-main -Werror-implicit-function-declaration -fno-strict-aliasing -fno-math-errno -fwrapv -fno-exceptions -fno-asynchronous-unwind-tables -funwind-tables -Wno-format """ & *MainFileNameOnly & ".c"" -o """ & *MainFileNameOnly & ".o"""
+			'CompileCommands.Add "linking :      ", GetFullPath("emcc") & " -o """ & *MainFileNameOnly & ".html"" -O0 -Wno-warn-absolute-paths -s CASE_INSENSITIVE_FS=1 -s TOTAL_MEMORY=67108864 -s ALLOW_MEMORY_GROWTH=1 -s RETAIN_COMPILER_SETTINGS=1 --shell-file """ & FbcFolder & "lib\js-asmjs\fb_shell.html"" --post-js """ & FbcFolder & "lib\js-asmjs\fb_rtlib.js"" --post-js """ & FbcFolder & "lib\js-asmjs\termlib_min.js"" -L""" & FbcFolder & "lib\js-asmjs"" -L""."" """ & *MainFileNameOnly & ".o"" -lfb -lfb  -s ASYNCIFY=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s WASM=1 -s EXPORTED_FUNCTIONS=""['_ONLOAD']"" --post-js " & *MFFPathC & "\mff\Web\mff.js"
 			Dim As String EXPORTED_FUNCTIONS = "'_ONSTART', '_ONLOAD', '_ONCHANGE', '_ONCLICK', '_ONCLOSE', '_ONDBLCLICK', '_ONGOTFOCUS', '_ONLOSTFOCUS', '_ONKEYDOWN', '_ONKEYPRESS', '_ONKEYUP', '_ONMOUSEENTER', '_ONMOUSEDOWN', '_ONMOUSEMOVE', '_ONMOUSEUP', '_ONMOUSELEAVE', '_ONMOUSEWHEEL', '_ONUNLOAD'"
 			For i As Integer = 0 To Globals.Functions.Count - 1
 				
 			Next
-			CompileCommands.Add "linking :      ", GetFullPath("emcc") & " -o """ & MainFileName & ".html"" -O0 -Wno-warn-absolute-paths -s CASE_INSENSITIVE_FS=1 -s TOTAL_MEMORY=67108864 -s ALLOW_MEMORY_GROWTH=1 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$stringToNewUTF8 -s RETAIN_COMPILER_SETTINGS=1 --shell-file """ & *MFFPathC & "\mff\Web\mff.html"" --post-js """ & FbcFolder & "lib\js-asmjs\fb_rtlib.js"" --post-js """ & FbcFolder & "lib\js-asmjs\termlib_min.js"" -L""" & FbcFolder & "lib\js-asmjs"" -L""."" """ & MainFileName & ".o"" -lfb -lfb  -s ASYNCIFY=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s WASM=1 -s EXPORTED_FUNCTIONS=""[" & EXPORTED_FUNCTIONS & "]"" --post-js " & *MFFPathC & "\mff\Web\mff.js"
+			CompileCommands.Add "linking :      ", GetFullPath("emcc") & " -o """ & *MainFileNameOnly & ".html"" -O0 -Wno-warn-absolute-paths -s CASE_INSENSITIVE_FS=1 -s TOTAL_MEMORY=67108864 -s ALLOW_MEMORY_GROWTH=1 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$stringToNewUTF8 -s RETAIN_COMPILER_SETTINGS=1 --shell-file """ & *MFFPathC & "\mff\Web\mff.html"" --post-js """ & FbcFolder & "lib\js-asmjs\fb_rtlib.js"" --post-js """ & FbcFolder & "lib\js-asmjs\termlib_min.js"" -L""" & FbcFolder & "lib\js-asmjs"" -L""."" """ & *MainFileNameOnly & ".o"" -lfb -lfb  -s ASYNCIFY=1 -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s WASM=1 -s EXPORTED_FUNCTIONS=""[" & EXPORTED_FUNCTIONS & "]"" --post-js " & *MFFPathC & "\mff\Web\mff.js"
 		Else
 			CompileCommands.Add "", *PipeCommand
 		End If
@@ -851,7 +888,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 			If cc > 0 Then
 				If UseWasm AndAlso CBool(cc = 1) Then
 					'Var Fn = FreeFile_
-					'If Open(MainFileName & ".c" For Input As #Fn) = 0 Then
+					'If Open(*MainFileNameOnly & ".c" For Input As #Fn) = 0 Then
 					'	Dim As String Buffer
 					'	Dim As WStringList Lines
 					'	Lines.Add "typedef void fn(void); fn *volatile fp;"
@@ -870,7 +907,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 					'	Loop
 					'	Close #Fn
 					'	Fn = FreeFile_
-					'	Open MainFileName & ".c" For Output As #Fn
+					'	Open *MainFileNameOnly & ".c" For Output As #Fn
 					'	For ii As Integer = 0 To Lines.Count - 1
 					'		Print #Fn, Lines.Item(ii)
 					'	Next
@@ -881,18 +918,25 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 				ShowMessages(Str(Time) + ": " + CompileCommands.Item(cc)->Key & *PipeCommand)
 				ThreadsLeave()
 			End If
+			Dim As String TmpStrKey = "@freebasic compiler@copyright@standalone@target@backend@compiling@compiling rc@compiling rc failed@compiling c@assembling@linking@obj@creating@restarting@creating import library@archiving@"
+			Dim As WString * 2048 TmpStr
 			#ifdef __USE_GTK__
 				Dim As Integer Fn = FreeFile_
 				If Open Pipe(*PipeCommand For Input As #Fn) = 0 Then
 					While Not EOF(Fn)
 						Line Input #Fn, Buff
 						If Len(Trim(Buff)) <= 1 OrElse StartsWith(Trim(Buff), "|") Then Continue While
-						
-						If Not (StartsWith(Buff, "FreeBASIC Compiler") OrElse StartsWith(Buff, "Copyright ") OrElse StartsWith(Buff, "standalone") OrElse StartsWith(Buff, "target:") _
-							OrElse StartsWith(Buff, "compiling:") OrElse StartsWith(Buff, "compiling C:") OrElse StartsWith(Buff, "assembling:") OrElse StartsWith(Buff, "compiling rc:") _
-							OrElse StartsWith(Buff, "linking:") OrElse StartsWith(Buff, "OBJ file not made") OrElse StartsWith(Buff, "compiling rc failed:") _
-							OrElse StartsWith(Buff, "creating import library:") OrElse StartsWith(Buff, "backend:") OrElse StartsWith(Buff, "Restarting fbc") OrElse StartsWith(Buff, "archiving:") OrElse StartsWith(Buff, "creating:")) Then
-								ThreadsEnter()
+						Dim As Integer nPos = InStr(Buff, ":")
+						If nPos < 1 Then nPos = InStr(Buff, " ")
+						If nPos < 1 Then
+							nPos = Len(Buff) + 1
+							TmpStr = Trim(Buff)
+						Else
+							TmpStr = Trim(Left(Buff, nPos - 1))
+						End If
+						Dim As Boolean bErrorInfo = InStr(LCase(TmpStrKey), "@" & LCase(TmpStr) & "@") OrElse InStr(LCase(Buff), "ld.exe") > 0
+						If Not bErrorInfo Then
+							ThreadsEnter()
 							ShowMessages(Buff, False)
 								ThreadsLeave()
 							bFlagErr = SplitError(Buff, ErrFileName, ErrTitle, iLine)
@@ -915,15 +959,6 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 								ThreadsLeave()
 							End If
 						Else
-							Dim As String TmpStr
-							Var nPos = InStr(Buff, ":")
-							If nPos < 1 Then nPos = InStr(Buff, " ")
-							If nPos < 1 Then
-								nPos = Len(Buff) + 1
-								TmpStr = Trim(Buff)
-							Else
-								TmpStr = Trim(Left(Buff, nPos - 1))
-							End If
 							ThreadsEnter()
 							ShowMessages Str(Time) & ": " & ML(TmpStr) & " " & Trim(Mid(Buff, nPos))
 							ThreadsLeave()
@@ -932,13 +967,13 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 				End If
 				CloseFile_(Fn)
 			#else
-				#define BufferSize 2048
+				Dim As Integer BufferSize = 128
 				Dim si As STARTUPINFO
 				Dim pi As PROCESS_INFORMATION
 				Dim sa As SECURITY_ATTRIBUTES
 				Dim hReadPipe As HANDLE
 				Dim hWritePipe As HANDLE
-				Dim sBuffer As ZString * BufferSize
+				Dim sBuffer As ZString * 2048
 				Dim sOutput As UString
 				Dim bytesRead As DWORD
 				Dim result_ As Integer
@@ -947,7 +982,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 				sa.lpSecurityDescriptor = NULL
 				sa.bInheritHandle = True
 				
-				If CreatePipe(@hReadPipe, @hWritePipe, @sa, 0) = 0 Then
+				If CreatePipe(@hReadPipe, @hWritePipe, @sa, ByVal 0) = 0 Then
 					ShowMessages(ML("Error: Couldn't Create Pipe"), False)
 					CompileResult = 0
 					Continue For
@@ -957,29 +992,28 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 				si.dwFlags = STARTF_USESTDHANDLES Or STARTF_USESHOWWINDOW
 				si.hStdOutput = hWritePipe
 				si.hStdError = hWritePipe
+				si.hStdInput  = hReadPipe
 				si.wShowWindow = 0
 				
-				If CreateProcess(PipeApplicationName, PipeCommand, @sa, @sa, 1, NORMAL_PRIORITY_CLASS Or CREATE_NEW_CONSOLE, 0, 0, @si, @pi) = 0 Then
-					ShowMessages(ML("Error: Couldn't Create Process"), False)
+				If CreateProcess(PipeApplicationName, PipeCommand, @sa, @sa, 1, NORMAL_PRIORITY_CLASS Or CREATE_NEW_CONSOLE, ByVal 0, ByVal 0, @si, @pi) = 0 Then
+					ShowMessages(ML("Error: Couldn't Create Process") & ": " & GetErrorString(GetLastError), False)
 					CompileResult = 0
 					Continue For
 				End If
 				
 				CloseHandle hWritePipe
-				
-				Dim As Integer Pos1, FirstErrFlag
+				Dim As Integer Pos1, PosFirstErr, FirstErrFlag
 				Do
 					result_ = ReadFile(hReadPipe, @sBuffer, BufferSize, @bytesRead, ByVal 0)
 					sBuffer = Left(sBuffer, bytesRead)
+					If CBool(FirstErrFlag < 2) AndAlso CBool(InStr(sBuffer, "compiling:")) Then sBuffer += Chr(10) : FirstErrFlag += 1: BufferSize = 2048
 					Pos1 = InStrRev(sBuffer, Chr(10))
 					If Pos1 > 0 Then
+							sOutput += Left(sBuffer, Pos1 - 1)
 						Dim res() As WString Ptr
-						sOutput += Left(sBuffer, Pos1 - 1)
 						If CBool(InStr(sOutput, "GoRC.exe' terminated with exit code") > 0) OrElse CBool(InStr(sOutput, "of Resource Script ") > 0) Then
 							sOutput = Replace(sOutput, Chr(13, 10), " ")
 							ERRGoRc = True
-						ElseIf InStr(sOutput, "of Resource Script ") > 0 Then
-							sOutput = Replace(sOutput, Chr(13, 10), " ")
 						End If
 						Dim As String buffer = Str(sOutput)
 						Dim As Integer wideCharsNeeded = MultiByteToWideChar(CP_ACP, 0, StrPtr(buffer), -1, NULL, 0)
@@ -987,13 +1021,18 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 						MultiByteToWideChar(CP_ACP, 0, StrPtr(buffer), -1, sOutput.m_Data, wideCharsNeeded)
 						Split sOutput, Chr(10), res()
 						For i As Integer = 0 To UBound(res) 'Copyright
-							If Len(Trim(*res(i))) <= 1 OrElse StartsWith(Trim(*res(i)), "|") Then Continue For
-							If InStr(*res(i), Chr(13)) > 0 Then *res(i) = Left(*res(i), Len(*res(i)) - 1)
-							If Not (StartsWith(*res(i), "FreeBASIC Compiler") OrElse StartsWith(*res(i), "Copyright ") OrElse StartsWith(*res(i), "standalone") OrElse StartsWith(*res(i), "target:") _
-								OrElse StartsWith(*res(i), "backend:") OrElse StartsWith(*res(i), "compiling:") OrElse StartsWith(*res(i), "compiling C:") OrElse StartsWith(*res(i), "assembling:") _
-								OrElse StartsWith(*res(i), "compiling rc:") OrElse StartsWith(*res(i), "linking:") OrElse StartsWith(*res(i), "OBJ file not made") OrElse StartsWith(*res(i), Space(14)) _
-								OrElse StartsWith(*res(i), "creating import library:") OrElse StartsWith(*res(i), "compiling rc failed:") OrElse StartsWith(*res(i), "Restarting fbc") OrElse StartsWith(*res(i), "creating:") OrElse StartsWith(*res(i), "archiving:") OrElse InStr(*res(i), "ld.exe") > 0) Then
-								ShowMessages(*res(i), False)
+							*res(i) = Trim(*res(i), Any !"\t\n\r ")
+							If Len(*res(i)) < 10 OrElse StartsWith(Trim(*res(i)), "|") Then Continue For
+							Dim As Integer nPos = InStr(*res(i), ":")
+							If nPos < 1 Then nPos = InStr(*res(i), " ")
+							If nPos < 1 Then
+								nPos = Len(*res(i)) + 1
+								TmpStr = Trim(*res(i))
+							Else
+								TmpStr = Trim(Left(*res(i), nPos - 1))
+							End If
+							Dim As Boolean bErrorInfo = InStr(LCase(TmpStrKey), "@" & LCase(TmpStr) & "@") OrElse InStr(LCase(*res(i)), "ld.exe") > 0
+							If Not bErrorInfo Then
 								bFlagErr = SplitError(*res(i), ErrFileName, ErrTitle, iLine)
 								If iLine > 0 OrElse InStr(LCase(*ErrTitle), "runtime error") > 0 Then
 									If bFlagErr = 2 Then
@@ -1005,23 +1044,18 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 									End If
 								
 								End If
-								If 	bFlagErr >= 0 Then
-									If *ErrFileName <> "" AndAlso InStr(*ErrFileName, "/") = 0 AndAlso InStr(*ErrFileName, "\") = 0 Then WLet(ErrFileName, GetFolderName(*MainFile) & *ErrFileName)
+								If bFlagErr >= 0 AndAlso *ErrFileName <> "" AndAlso iLine> 0 Then
+									If InStr(*ErrFileName, "/") = 0 AndAlso InStr(*ErrFileName, "\") = 0 Then WLet(ErrFileName, GetFolderName(*MainFile) & *ErrFileName)
 									lvProblems.ListItems.Add *ErrTitle, IIf(bFlagErr = 1, "Warning", IIf(bFlagErr = 2, "Error", "Info"))
 									lvProblems.ListItems.Item(lvProblems.ListItems.Count - 1)->Text(1) = WStr(iLine)
 									lvProblems.ListItems.Item(lvProblems.ListItems.Count - 1)->Text(2) = *ErrFileName
+									FirstErrFlag += 1
+									ShowMessages(*res(i), False)
+								Else
+									ShowMessages(Str(Time) & ": " & *res(i), False)
 								End If
 							Else
-								Dim As UString TmpStr
-								Dim As Integer nPos = InStr(*res(i), ":")
-								If nPos < 1 Then nPos = InStr(*res(i), " ")
-								If nPos < 1 Then
-									nPos = Len(*res(i)) + 1
-									TmpStr = Trim(*res(i))
-								Else
-									TmpStr = Trim(Left(*res(i), nPos - 1))
-								End If
-								If StartsWith(TmpStr, "FreeBASIC") Then 
+								If StartsWith(TmpStr, "FreeBASIC") Then
 									nPos = Len(*res(i)) + 1
 									TmpStr = Replace(Replace(*res(i), "FreeBASIC Compiler", ML("FreeBASIC Compiler")), "Version", ML("Version"))
 									Var Pos1 = InStr(TmpStr, "built for ")
@@ -1058,14 +1092,9 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 							sOutput = ""
 						Next i
 						Erase res
-						sOutput = Mid(sBuffer, Pos1 + 1)
+						If sBuffer <> "" Then sOutput = Mid(sBuffer, Pos1 + 1)
 					Else
-						If FirstErrFlag < 3 AndAlso (InStr(LCase(sOutput), "compiling") OrElse result_  = False) Then
-							sOutput +=  Chr(10) + sBuffer
-							FirstErrFlag +=1
-						Else
-							sOutput += sBuffer
-						End If
+						sOutput += sBuffer
 					End If
 				Loop While result_
 				
@@ -1134,6 +1163,8 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 		If Yaratilmadi Or Band Then
 			ThreadsEnter()
 			If Parameter <> "Check" Then
+				'Sometimes information is missed when compiling too quickly in less than 1 second.
+				If lvProblems.ListItems.Count < 1 Then ShowMessages(Str(Time) & ": " & MS("Found $1.",  ML("Errors") & " (1) " & ML("Pos")), False)
 				ShowMessages(Str(Time) & ": " & ML("Do not build file.")) & " "  & ML("Elapsed Time") & ": " & Format(Timer - CompileElapsedTime, "#0.00") & " " & ML("Seconds")
 				If (Not Log2_) AndAlso lvProblems.ListItems.Count <> 0 Then tpProblems->SelectTab
 			ElseIf lvProblems.ListItems.Count <> 0 Then
@@ -1178,15 +1209,16 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 	WDeAllocate(LogFileName2)
 	WDeAllocate(BatFileName)
 	WDeAllocate(MainFile)
+	WDeAllocate(MainFileNameOnly)
 	WDeAllocate(ProjectPath)
 	Return CompileResult
 	Exit Function
 	ErrorHandler:
 	ThreadsEnter()
 	MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-	"in line " & Erl() & " " & _
-	"in function " & ZGet(Erfn()) & " " & _
-	"in module " & ZGet(Ermn())
+	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
 	ThreadsLeave()
 End Function
 
@@ -1562,7 +1594,7 @@ Function AddFolder(ByRef FolderName As WString) As TreeNode Ptr
 		Next
 		Dim As String IconName
 		If FileExists(FolderName & Slash & GetFileName(FolderName) & ".vfp") Then
-			IconName = "Project"
+			IconName = "Opened"
 			tn = tvExplorer.Nodes.Add(GetFileName(FolderName), , FolderName, IconName, IconName)
 			AddProject FolderName & Slash & GetFileName(FolderName) & ".vfp", , tn
 			WLet(Cast(ExplorerElement Ptr, tn->Tag)->FileName, FolderName)
@@ -1625,7 +1657,7 @@ Function AddProject(ByRef FileName As WString = "", pFilesList As WStringList Pt
 			If Result = 0 Then
 				Do Until EOF(Fn)
 					Line Input #Fn, Buff
-					If Buff = "OpenProjectAsFolder=true" Then
+					If InStr(LCase(Buff), "openprojectasfolder") > 0 AndAlso InStr(LCase(Buff), "true") > 0 Then
 						Return AddFolder(GetFolderName(FileName, False))
 					End If
 				Loop
@@ -1957,9 +1989,9 @@ Function AddSession(ByRef FileName As WString) As Boolean
 				Pos1 = InStr(Buff, "=")
 				If Pos1 <> 0 Then
 					bMain = StartsWith(Buff, "*")
-					WLet(filn, Mid(Buff, Pos1 + 1))
-					If CInt(InStr(*filn, ":") = 0) OrElse CInt(StartsWith(*filn, "/")) Then
-						WLet(filn, CurrentPath & Replace(*filn, BackSlash, Slash))
+					WLet(filn, Replace(Mid(Buff, Pos1 + 1), BackSlash, Slash))
+					If CInt(InStr(*filn, ":") = 0) OrElse CInt(StartsWith(*filn, Slash)) Then
+						WLet(filn, CurrentPath & *filn)
 						If EndsWith(*filn, Slash) Then WLetEx filn, Left(*filn, Len(*filn) - 1), True
 					End If
 					Dim tn As TreeNode Ptr
@@ -2087,6 +2119,7 @@ Function FolderCopy(FromDir As UString, ToDir As UString) As Integer
 End Function
 
 Function FolderExists(ByRef FolderName As WString) As Boolean
+	If Trim(FolderName)="" Then Return False
 	Dim AttrTester As Integer, DirString As String
 	DirString = Dir(FolderName, fbDirectory, AttrTester)
 	Return AttrTester = fbDirectory
@@ -2273,10 +2306,11 @@ End Function
 Function SaveProject(ByRef tnP As TreeNode Ptr, bWithQuestion As Boolean = False) As Boolean
 	If tnP = 0 Then MsgBox(ML("Project not selected!")): Return True
 	Dim As TreeNode Ptr tnPr = GetParentNode(tnP)
+	If tnPr = 0 Then Return True
 	Dim As ExplorerElement Ptr ee
 	Dim As ProjectElement Ptr ppe
 	ppe = tnPr->Tag
-	If tnPr->ImageKey <> "Project" Then MsgBox(ML("Project not selected!")): Return True
+	If tnPr->ImageKey <> "Project" AndAlso tnPr->ImageKey <> "Opened" Then MsgBox(ML("Project not selected!")): Return True
 	If CInt(ppe = 0) OrElse CInt(InStr(WGet(ppe->FileName), "\") = 0 AndAlso InStr(WGet(ppe->FileName), "/") = 0) OrElse CInt(bWithQuestion) Then
 		SaveD.Caption = ML("Save Project As")
 		SaveD.InitialDir = GetFullPath(*ProjectsPath)
@@ -2626,7 +2660,14 @@ Sub RunHelp(Param As Any Ptr)
 		ThreadsLeave()
 	Else
 		#ifdef __USE_GTK__
-			PipeCmd "", "xchm " & CurrentHelpPath
+			Dim As WString * MAX_PATH wszKeyword
+			If Param <> 0 Then wszKeyword = Cast(HelpOptions Ptr, Param)->CurrentWord
+			If wszKeyword = "" AndAlso Param = 0 AndAlso tb <> 0 Then wszKeyword = tb->txtCode.GetWordAtCursor
+			If wszKeyword = "" Then
+				PipeCmd "", ExePath & "/CHMVIEW " & CurrentHelpPath, False
+			Else
+				PipeCmd "", ExePath & "/CHMVIEW " & CurrentHelpPath & " -k " & wszKeyword, False
+			End If
 		#endif
 	End If
 	#ifndef __USE_GTK__
@@ -2644,7 +2685,7 @@ Sub RunHelp(Param As Any Ptr)
 			If Param <> 0 Then wszKeyword = Cast(HelpOptions Ptr, Param)->CurrentWord
 			If wszKeyword = "" AndAlso Param = 0 AndAlso tb <> 0 Then wszKeyword = tb->txtCode.GetWordAtCursor
 			If wszKeyword = "" Then
-				HtmlHelpW(0, CurrentHelpPath, HH_DISPLAY_TOC, Null)
+				HtmlHelpW(0, CurrentHelpPath, HH_DISPLAY_TOC, NULL)
 			Else
 				wszKeywordUpper = UCase(wszKeyword)
 				For i As Integer = -1 To Helps.Count - 1
@@ -2712,11 +2753,22 @@ Function ContainsFileName(tn As TreeNode Ptr, ByRef FileName As WString) As Bool
 End Function
 
 Sub AddFromTemplate(ByRef Template As WString)
-	Dim As TreeNode Ptr ptn, tn1, tn3
-	If tvExplorer.SelectedNode <> 0 Then
-		ptn = GetParentNode(tvExplorer.SelectedNode)
-		If ptn->ImageKey = "Project" Then
-			tn1 = GetTreeNodeChild(ptn, Template)
+	Dim As TreeNode Ptr ptn, tn1, tn3, tnSelecte
+	tnSelecte = tvExplorer.SelectedNode
+	If tnSelecte <> 0 Then
+		ptn = GetParentNode(tnSelecte)
+		If ptn->ImageKey = "Project" OrElse ptn->ImageKey = "Opened" Then
+			If ptn->ImageKey = "Opened" Then
+				Dim As String tmpKeyStr = " @Sub @StandartTypes @Property @Enum @EnumItem @Type @Function @Opened "
+				If InStr(tmpKeyStr, " @" & tnSelecte->ImageKey & " ") Then
+					tn1 = IIf(tnSelecte->ParentNode->ImageKey = tnSelecte->ImageKey, tnSelecte->ParentNode->ParentNode , tnSelecte->ParentNode)
+				Else
+					tn1 = tnSelecte
+				End If
+				If tnSelecte->ImageKey <> "Opened" Then tn1 = tn1->ParentNode
+			Else
+				tn1 = GetTreeNodeChild(ptn, Template)
+			End If
 			Dim As String IconName = GetIconName(Template)
 			Dim As UString FileName = Replace(GetFileName(Template), " ", "")
 			Dim As UString FileExt
@@ -2801,7 +2853,19 @@ Sub RemoveFileFromProject
 	Dim tn As TreeNode Ptr = tvExplorer.SelectedNode
 	Dim As TreeNode Ptr ptn
 	ptn = GetParentNode(tn)
-	If ptn->ImageKey <> "Project" Then ptn = 0
+	If ptn->ImageKey <> "Project" Then
+		If ptn->ImageKey = "Opened" AndAlso tn->Tag > 0 Then
+			Dim As ExplorerElement Ptr ee
+			ee = New ExplorerElement
+			ee = tn->Tag
+			If ee->FileName> 0 AndAlso Dir(*ee->FileName) <> "" Then 
+				'Move the file to temp folds.
+				FileCopy(*ee->FileName, ExePath + "/Temp/" + GetFileName(*ee->FileName))
+				Kill *ee->FileName
+			End If
+		End If
+		ptn = 0
+	End If
 	Dim tb As TabWindow Ptr
 	For j As Integer = 0 To TabPanels.Count - 1
 		Var ptabCode = @Cast(TabPanel Ptr, TabPanels.Item(j))->tabCode
@@ -2825,9 +2889,18 @@ Sub RemoveFileFromProject
 End Sub
 
 Sub OpenProjectFolder
-	Dim As TreeNode Ptr ptn = tvExplorer.SelectedNode
+	Dim As TreeNode Ptr ptn, tnSelect = tvExplorer.SelectedNode
+	If tnSelect = 0 Then Exit Sub
+	ptn = GetParentNode(tnSelect)
 	If ptn = 0 Then Exit Sub
-	ptn = GetParentNode(ptn)
+	If ptn->ImageKey = "Opened" Then
+		Dim As String tmpKeyStr = "@Sub@StandartTypes@Property@Enum@EnumItem@Type@Function@"
+		If InStr(tmpKeyStr, " @" & tnSelect->ImageKey & "@") AndAlso tnSelect->ParentNode Then
+			If tnSelect->ParentNode Then ptn = IIf(tnSelect->ParentNode->ImageKey = tnSelect->ImageKey, tnSelect->ParentNode->ParentNode , tnSelect->ParentNode)
+		Else
+			ptn = tnSelect
+		End If
+	End If
 	Dim As ExplorerElement Ptr ee = ptn->Tag
 	If ee = 0 Then Exit Sub
 	If WGet(ee->FileName) <> "" Then
@@ -2873,20 +2946,19 @@ Sub ReloadHistoryCode()
 End Sub
 
 Sub SetAsMain(IsTab As Boolean)
-	Dim As TreeNode Ptr tn
+	Dim As TreeNode Ptr tn, ptn
 	If IsTab AndAlso ptabCode->SelectedTab <> 0 Then
 		tn = Cast(TabWindow Ptr, ptabCode->SelectedTab)->tn
 	Else
 		tn = tvExplorer.SelectedNode
 	End If
 	If CInt(ptabCode->Focused) AndAlso CInt(ptabCode->SelectedTab <> 0) Then tn = Cast(TabWindow Ptr, ptabCode->SelectedTab)->tn
-	If tn = 0 Then Exit Sub
-	If tn->ParentNode = 0 OrElse (tn->Tag <> 0 AndAlso *Cast(ExplorerElement Ptr, tn->Tag) Is ProjectElement) Then
+	If tn = 0 Then Exit Sub Else ptn = GetParentNode(tn)
+	If tn->ParentNode = 0 OrElse (ptn <> 0 AndAlso ptn->ImageKey = "Opened") OrElse (tn->Tag <> 0 AndAlso *Cast(ExplorerElement Ptr, tn->Tag) Is ProjectElement) Then
 		SetMainNode tn
 		lblLeft.Text = ML("Main Project") & ": " & MainNode->Text
 	Else
 		Dim As ExplorerElement Ptr ee = tn->Tag
-		Dim As TreeNode Ptr ptn = GetParentNode(tn)
 		Dim As ProjectElement Ptr ppe
 		Dim As WString * MAX_PATH tMainNode
 		If ptn <> 0 Then
@@ -3225,6 +3297,7 @@ Sub TimerProc()
 	tb->txtCode.PaintControl
 	#ifndef __USE_GTK__
 		SetForegroundWindow frmMain.Handle
+		ChangeEnabledDebug True, False, True
 	#endif
 	fntab = 0
 	fcurlig = -1
@@ -3668,7 +3741,8 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 	'	#ifdef __US_GTK__
 	'		Exit Sub
 	'	#endif
-	Dim As UString b1, Comment, PathFunction, LoadFunctionPath
+	Dim As WString * 2048 b, b1, Comment, bTrim, bTrimLCase
+	Dim As WString * 255 PathFunction, LoadFunctionPath
 	Dim As String t, e, tOrig, bt, CurrentCondition
 	Dim As Integer Pos1, Pos2, Pos3, Pos4, Pos5, l, n, nc, Index, iStart, i, j, iC, OldiC
 	Dim As TypeElement Ptr te, tbi, typ, lastfunctionte
@@ -3676,8 +3750,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 	Dim As Boolean bTypeIsPointer
 	Dim As Integer inPubProPri = 0
 	Dim As Integer Result
-	Dim As WString * 2048 bTrim, bTrimLCase
-	Dim b As WString * 2048 ' for V1.07 Line Input not working fine
+	'Dim b As WString * 2048 ' for V1.07 Line Input not working fine
 	Dim As EditControlLine Ptr FECLine
 	Dim As Integer LastIndexFunction
 	Dim As WStringList Lines, Namespaces, OldTypes
@@ -3729,35 +3802,41 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 	For i As Integer = 0 To Lines.Count - 1
 		b1 = Replace(Lines.Item(i), !"\t", " ")
 		If StartsWith(Trim(b1), "'") Then
-			Comment &= Mid(Trim(b1), 2) & Chr(13) & Chr(10)
+			If i = 0 OrElse Trim(Comment) = "" Then
+				Comment = Mid(Trim(b1), 2)
+			Else
+				Comment &= " <br> " & Mid(Trim(b1), 2)
+			End If
 			Continue For
 		ElseIf Trim(b1) = "" Then
 			Comment = ""
 			Continue For
 		End If
-		Dim As UString res(Any)
+		Dim As WString Ptr res(Any)
 		Split(b1, """", res())
 		b = ""
 		For j As Integer = 0 To UBound(res)
 			If j = 0 Then
-				b = res(0)
+				b = *res(0)
 			ElseIf j Mod 2 = 0 Then
-				b &= """" & res(j)
+				b &= """" & *res(j)
 			Else
-				b &= """" & WSpace(Len(res(j)))
+				b &= """" & WSpace(Len(*res(j)))
 			End If
+			Deallocate res(j)
 		Next
+		Erase res
 		If inType Then
 			b = Replace(b, ":", "%")
 		End If
 		Split(b, ":", res())
 		Dim k As Integer = 1
 		For j As Integer = 0 To UBound(res)
-			l = Len(res(j))
+			l = Len(*res(j))
 			b = Mid(b1, k, l)
 			bTrim = Trim(b, Any !"\t ") 'DeleteSpaces(Trim(b, Any !"\t "))
 			bTrimLCase = LCase(bTrim)
-			k = k + Len(res(j)) + 1
+			k = k + Len(*res(j)) + 1
 			If CInt(StartsWith(LTrim(LCase(b)), "#include ")) Then
 				Pos1 = InStr(b, """")
 				If Pos1 > 0 Then
@@ -3765,11 +3844,11 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 					LoadFunctionPath = GetRelativePath(Mid(b, Pos1 + 1, Pos2 - Pos1 - 1), PathFunction)
 					Var Idx = IncludeFiles.IndexOf(LoadFunctionPath)
 					If Idx <> -1 Then
-						File->Includes.Add LoadFunctionPath, IncludeFiles.Object(Idx)
+						FILE->Includes.Add LoadFunctionPath, IncludeFiles.Object(Idx)
 					Else
-						File->Includes.Add LoadFunctionPath
+						FILE->Includes.Add LoadFunctionPath
 					End If
-					File->IncludeLines.Add i
+					FILE->IncludeLines.Add i
 				End If
 			ElseIf LoadParameter <> LoadParam.OnlyIncludeFiles Then
 				Pos3 = InStr(bTrimLCase, " as ")
@@ -3791,7 +3870,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							Else
 								t = Trim(Mid(bTrim, Pos1 + Pos5, Pos3 - Pos1 - Pos5))
 								e = Trim(Mid(bTrim, Pos3 + 4))
-							End If 
+							End If
 						Else
 							Pos2 = InStr(Pos1 + Pos5, bTrim, " ")
 							If Pos2 > 0 Then
@@ -4005,7 +4084,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 					InNamespace = True
 					Pos1 = InStr(11, bTrim, " ")
 					Dim As String Names
-					Dim As UString res1(Any)
+					Dim As WString Ptr res1(Any)
 					If Pos1 = 0 Then
 						Names = Trim(Mid(bTrim, 11))
 					Else
@@ -4015,7 +4094,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 					nc = UBound(res1)
 					For n As Integer = 0 To nc
 						te = _New( TypeElement)
-						te->Name = Trim(res1(n))
+						te->Name = Trim(*res1(n))
 						te->DisplayName = te->Name
 						te->ElementType = E_Namespace
 						te->Parameters = bTrim
@@ -4041,7 +4120,9 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							te->FullName = te->Name
 						End If
 						Namespaces.Add te->Name, te
+						Deallocate res1(n)
 					Next
+					Erase res1
 				ElseIf StartsWith(bTrimLCase & " ", "end namespace ") Then
 					InNamespace = False
 					If Namespaces.Count > 0 Then
@@ -4184,16 +4265,16 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						End If
 						Comment = ""
 					ElseIf CInt(StartsWith(bTrimLCase, "as ")) OrElse CInt(StartsWith(bTrimLCase, "const ")) OrElse InStr(bTrimLCase, " as ") Then
-						Dim As UString b2 = bTrim
-						Dim As UString CurType, ElementValue, TypeComment
-						Dim As UString res1(Any)
+						Dim As WString * 2048 b2 = bTrim
+						Dim As WString * 255 CurType, ElementValue, TypeComment
+						Dim As WString Ptr res1(Any)
 						Dim As Integer uu, ct
 						Dim As Boolean bOldAs
-						If b2.ToLower.StartsWith("dim ") Then
+						If StartsWith(LCase(b2), "dim ") Then
 							b2 = Trim(Mid(b2, 4))
-						ElseIf b2.ToLower.StartsWith("redim ") Then
+						ElseIf StartsWith(LCase(b2), "redim ") Then
 							b2 = Trim(Mid(b2, 6))
-						ElseIf b2.ToLower.StartsWith("static ") Then
+						ElseIf StartsWith(LCase(b2), "static ") Then
 							b2 = Trim(Mid(b2, 7))
 						End If
 						Pos1 = InStr(b2, "'")
@@ -4213,8 +4294,8 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						End If
 						Pos1 = InStr(b2, "=>")
 						If Pos1 > 0 Then b2 = Trim(Left(b2, Pos1 - 1))
-						If b2.ToLower.StartsWith("as ") Then
-							If b2.ToLower.StartsWith("as ") Then CurType = Trim(Mid(b2, 4)) Else CurType = Trim(b2)
+						If StartsWith(LCase(b2), "as ") Then
+							If StartsWith(LCase(b2), "as ") Then CurType = Trim(Mid(b2, 4)) Else CurType = Trim(b2)
 							bOldAs = True
 							Pos1 = InStr(CurType, " ")
 							Pos2 = InStr(CurType, " Ptr ")
@@ -4227,74 +4308,78 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							If Pos1 > 0 Then
 								Split GetChangedCommas(Mid(CurType, Pos1 + 1)), ",", res1()
 								If UBound(res1) > -1 Then
-									CurType = ..Left(CurType, Pos1 + Len(res1(0)))
+									CurType = ..Left(CurType, Pos1 + Len(*res1(0)))
 								End If
+								For n As Integer = 0 To UBound(res1)
+									Deallocate res1(n)
+								Next n
+								Erase res1
 							End If
 						Else
 							Split GetChangedCommas(b2), ",", res1()
 						End If
 						For n As Integer = 0 To UBound(res1)
-							res1(n) = Trim(Replace(res1(n), ";", ","))
+							*res1(n) = Trim(Replace(*res1(n), ";", ","))
 							ElementValue = ""
-							If InStr(b2.ToLower, " sub(") = 0 Then
-								Pos1 = InStr(res1(n), "=")
+							If InStr(LCase(b2), " sub(") = 0 Then
+								Pos1 = InStr(*res1(n), "=")
 								If Pos1 > 0 Then
-									ElementValue = Trim(Mid(res1(n), Pos1 + 1))
+									ElementValue = Trim(Mid(*res1(n), Pos1 + 1))
 									If CBool(n = 0) AndAlso bOldAs Then
-										CurType = Trim(..Left(CurType, Len(CurType) - Len(res1(n)) + Pos1 - 2))
+										CurType = Trim(..Left(CurType, Len(CurType) - Len(*res1(n)) + Pos1 - 2))
 										CurType = Replace(CurType, "`", "=")
 									End If
 								End If
-								If Pos1 > 0 Then res1(n) = Trim(Left(res1(n), Pos1 - 1))
+								If Pos1 > 0 Then *res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							End If
-							Pos1 = InStr(LCase(res1(n)), " as ")
+							Pos1 = InStr(LCase(*res1(n)), " as ")
 							If Pos1 > 0 AndAlso Not bOldAs Then
-								CurType = Trim(Mid(res1(n), Pos1 + Len("As") + 2))
+								CurType = Trim(Mid(*res1(n), Pos1 + Len("As") + 2))
 								CurType = Replace(CurType, "`", "=")
-								res1(n) = Trim(..Left(res1(n), Pos1 - 1))
+								*res1(n) = Trim(..Left(*res1(n), Pos1 - 1))
 							End If
 							'If Pos1 > 0 Then
-							'	CurType = Trim(Mid(res1(n), Pos1 + 4))
-''								Pos2 = InStr(CurType, "*") 'David Change. Like Wstring * 200
-''								If Pos2 > 1 Then CurType = Trim(Mid(res1(n), Pos1 + 4, Pos2 - Pos1 - 3)) Else CurType = Trim(Mid(res1(n), Pos1 + 4))
-							'	res1(n) = Trim(Left(res1(n), Pos1 - 1))
+							'	CurType = Trim(Mid(*res1(n), Pos1 + 4))
+							''								Pos2 = InStr(CurType, "*") 'David Change. Like Wstring * 200
+							''								If Pos2 > 1 Then CurType = Trim(Mid(*res1(n), Pos1 + 4, Pos2 - Pos1 - 3)) Else CurType = Trim(Mid(*res1(n), Pos1 + 4))
+							'	*res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							'End If
 							'If CBool(n = 0) AndAlso bOldAs Then
-							'	CurType = Trim(..Left(CurType, Len(CurType) - Len(res1(n))))
+							'	CurType = Trim(..Left(CurType, Len(CurType) - Len(*res1(n))))
 							'	CurType = Replace(CurType, "`", "=")
 							'End If
-							Pos1 = InStr(res1(n), ":")
+							Pos1 = InStr(*res1(n), ":")
 							If Pos1 > 0 Then
-								ct += Len(res1(n)) - Pos1 + 1
-								res1(n) = Trim(Left(res1(n), Pos1 - 1))
+								ct += Len(*res1(n)) - Pos1 + 1
+								*res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							End If
-							If res1(n).ToLower.StartsWith("byref") OrElse res1(n).ToLower.StartsWith("byval") Then
-								ct += Len(res1(n)) - Len(Trim(Mid(res1(n), 6)))
-								res1(n) = Trim(Mid(res1(n), 6))
+							If StartsWith(LCase(*res1(n)), "byref") OrElse StartsWith(LCase(*res1(n)), "byval") Then
+								ct += Len(*res1(n)) - Len(Trim(Mid(*res1(n), 6)))
+								*res1(n) = Trim(Mid(*res1(n), 6))
 							End If
-							Pos1 = InStr(res1(n), "(")
+							Pos1 = InStr(*res1(n), "(")
 							If Pos1 > 0 Then
-								ct += Len(res1(n)) - Pos1 + 1
-								res1(n) = Trim(Left(res1(n), Pos1 - 1))
+								ct += Len(*res1(n)) - Pos1 + 1
+								*res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							End If
-							Pos1 = InStr(LCase(res1(n)), " alias ")
+							Pos1 = InStr(LCase(*res1(n)), " alias ")
 							If Pos1 > 0 Then
-								ct += Len(res1(n)) - Pos1 + 1
-								res1(n) = Trim(..Left(res1(n), Pos1 - 1))
+								ct += Len(*res1(n)) - Pos1 + 1
+								*res1(n) = Trim(..Left(*res1(n), Pos1 - 1))
 							End If
-							ct += Len(res1(n)) - Len(res1(n).TrimAll)
-							res1(n) = res1(n).TrimAll
-							Pos1 = InStrRev(res1(n), " ")
-							If Pos1 > 0 Then res1(n) = Trim(Mid(res1(n), Pos1 + 1))
+							ct += Len(*res1(n)) - Len(Trim(*res1(n)))
+							*res1(n) = Trim(*res1(n))
+							Pos1 = InStrRev(*res1(n), " ")
+							If Pos1 > 0 Then *res1(n) = Trim(Mid(*res1(n), Pos1 + 1))
 							If CBool(n = 0) AndAlso bOldAs Then
-								CurType = Trim(..Left(CurType, Len(CurType) - Len(res1(n)) - ct))
+								CurType = Trim(..Left(CurType, Len(CurType) - Len(*res1(n)) - ct))
 							End If
-							If Not (CurType.ToLower.StartsWith("sub") OrElse CurType.ToLower.StartsWith("function")) Then
+							If Not (StartsWith(LCase(CurType), "sub") OrElse StartsWith(LCase(CurType), "function")) Then
 								Pos1 = InStrRev(CurType, ".")
 								If Pos1 > 0 Then CurType = Mid(CurType, Pos1 + 1)
 							End If
 							Var te = _New( TypeElement)
-							te->Name = res1(n)
+							te->Name = *res1(n)
 							If tbi AndAlso tbi->Name <> "" Then
 								te->DisplayName = tbi->Name & "." & te->Name
 							Else
@@ -4319,12 +4404,14 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							te->ElementType = IIf(StartsWith(bTrimLCase, "const "), E_Constant, IIf(StartsWith(LCase(te->TypeName), "sub(") OrElse StartsWith(LCase(te->TypeName), "function("), E_Event, E_Field))
 							te->Locals = inPubProPri
 							te->StartLine = i
-							te->Parameters = res1(n) & " As " & CurType
+							te->Parameters = *res1(n) & " As " & CurType
 							te->FileName = PathFunction
 							te->CtlLibrary = CtlLibrary
 							If Comment <> "" Then te->Comment = Comment: Comment = ""
 							If tbi Then tbi->Elements.Add te->Name, te
-						Next
+							Deallocate res1(n)
+						Next n
+						Erase res1
 					End If
 				ElseIf CInt(StartsWith(Trim(LCase(b)), "enum ")) OrElse CInt(StartsWith(Trim(LCase(b)), "public enum ")) OrElse CInt(StartsWith(Trim(LCase(b)), "private enum ")) OrElse CInt(Trim(LCase(b)) = "enum") Then
 					inEnum = True
@@ -4363,21 +4450,22 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 					inEnum = False
 				ElseIf inEnum Then
 					If StartsWith(bTrim, "#") OrElse StartsWith(bTrim, "'") Then Continue For
-					Dim As UString b2 = b, res1(), ElementValue
+					Dim As WString * 2048 b2 = b, ElementValue
+					Dim As WString Ptr res1(Any)
 					Pos2 = InStr(b2, "'")
 					If Pos2 > 0 Then b2 = Trim(Left(b2, Pos2 - 1))
 					Split b2, ",", res1()
 					For n As Integer = 0 To UBound(res1)
-						Pos3 = InStr(res1(n), "=")
+						Pos3 = InStr(*res1(n), "=")
 						If Pos3 > 0 Then
-							ElementValue = Trim(Mid(res1(n), Pos3 + 1))
+							ElementValue = Trim(Mid(*res1(n), Pos3 + 1))
 						Else
 							ElementValue = ""
 						End If
 						If Pos3 > 0 Then
-							t = Trim(Left(res1(n), Pos3 - 1))
+							t = Trim(Left(*res1(n), Pos3 - 1))
 						Else
-							t = Trim(res1(n))
+							t = Trim(*res1(n))
 						End If
 						Var te = _New( TypeElement)
 						te->Name = t
@@ -4389,7 +4477,7 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						te->ElementType = E_EnumItem
 						te->Value = ElementValue
 						te->StartLine = i
-						te->Parameters = Trim(res1(n))
+						te->Parameters = Trim(*res1(n))
 						te->FileName = PathFunction
 						If tbi Then tbi->Elements.Add te->Name, te
 						te = _New( TypeElement)
@@ -4402,11 +4490,13 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						te->ElementType = E_EnumItem
 						te->Value = ElementValue
 						te->StartLine = i
-						te->Parameters = Trim(res1(n))
+						te->Parameters = Trim(*res1(n))
 						te->FileName = PathFunction
 						te->CtlLibrary = CtlLibrary
 						Args.Add te->Name, te
+						Deallocate res1(n)
 					Next n
+					Erase res1
 				Else 'If LoadParameter <> LoadParam.OnlyTypes Then
 					If CInt(StartsWith(bTrimLCase & " ", "end sub ")) OrElse _
 						CInt(StartsWith(bTrimLCase & " ", "end function ")) OrElse _
@@ -4447,6 +4537,16 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If Comment <> "" Then te->Comment = Comment: Comment = ""
 						te->FileName = PathFunction
 						te->CtlLibrary = CtlLibrary
+						If Namespaces.Count > 0 Then
+							Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+							If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
+							For n_i As Integer = 0 To Namespaces.Count - 1
+								te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
+							Next
+							te->FullName = te->OwnerNamespace & "." & te->Name
+						Else
+							te->FullName = te->Name
+						End If
 						LastIndexFunction = Functions.Add(te->Name, te)
 						lastfunctionte = te
 					ElseIf CInt(StartsWith(bTrimLCase, "destructor ")) OrElse _
@@ -4473,6 +4573,16 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If Comment <> "" Then te->Comment = Comment: Comment = ""
 						te->FileName = PathFunction
 						te->CtlLibrary = CtlLibrary
+						If Namespaces.Count > 0 Then
+							Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+							If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
+							For n_i As Integer = 0 To Namespaces.Count - 1
+								te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
+							Next
+							te->FullName = te->OwnerNamespace & "." & te->Name
+						Else
+							te->FullName = te->Name
+						End If
 						LastIndexFunction = Functions.Add(te->Name, te)
 						lastfunctionte = te
 					ElseIf CInt(StartsWith(bTrimLCase, "sub ")) OrElse _
@@ -4511,6 +4621,18 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If Comment <> "" Then te->Comment = Comment: Comment = ""
 						te->FileName = PathFunction
 						te->CtlLibrary = CtlLibrary
+						If Namespaces.Count > 0 Then
+							If bt = "" Then
+								Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+								If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
+							End If
+							For n_i As Integer = 0 To Namespaces.Count - 1
+								te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
+							Next
+							te->FullName = te->OwnerNamespace & "." & IIf(bt = "", "", bt & ".") & te->Name
+						Else
+							te->FullName = IIf(bt = "", "", bt & ".") & te->Name
+						End If
 						If bt <> "" Then
 							te->Parameters = Trim(Mid(te->Parameters, Len(bt) + 2))
 							'te->TypeProcedure = True
@@ -4532,16 +4654,6 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							LastIndexFunction = TypeProcedures.Add(te->Name, te)
 						Else
 							'LastIndexFunction = Functions.Add(te->Name, te)
-							If Namespaces.Count > 0 Then
-								Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-								If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
-								For n_i As Integer = 0 To Namespaces.Count - 1
-									te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
-								Next
-								te->FullName = te->OwnerNamespace & "." & te->Name
-							Else
-								te->FullName = te->Name
-							End If
 							LastIndexFunction = Functions.Add(te->Name, te)
 						End If
 						lastfunctionte = te
@@ -4587,6 +4699,18 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If Comment <> "" Then te->Comment = Comment: Comment = ""
 						te->FileName = PathFunction
 						te->CtlLibrary = CtlLibrary
+						If Namespaces.Count > 0 Then
+							If bt = "" Then
+								Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+								If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
+							End If
+							For n_i As Integer = 0 To Namespaces.Count - 1
+								te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
+							Next
+							te->FullName = te->OwnerNamespace & "." & IIf(bt = "", "", bt & ".") & te->Name
+						Else
+							te->FullName = IIf(bt = "", "", bt & ".") & te->Name
+						End If
 						If bt <> "" Then
 							te->Parameters = Trim(Mid(te->Parameters, Len(bt) + 2))
 							'te->TypeProcedure = True
@@ -4608,16 +4732,6 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							LastIndexFunction = TypeProcedures.Add(te->Name, te)
 						Else
 							'LastIndexFunction = Functions.Add(te->Name, te)
-							If Namespaces.Count > 0 Then
-								Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
-								If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
-								For n_i As Integer = 0 To Namespaces.Count - 1
-									te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
-								Next
-								te->FullName = te->OwnerNamespace & "." & te->Name
-							Else
-								te->FullName = te->Name
-							End If
 							LastIndexFunction = Functions.Add(te->Name, te)
 						End If
 						lastfunctionte = te
@@ -4663,6 +4777,18 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						If Comment <> "" Then te->Comment = Comment: Comment = ""
 						te->FileName = PathFunction
 						te->CtlLibrary = CtlLibrary
+						If Namespaces.Count > 0 Then
+							If bt = "" Then
+								Index = Globals.Namespaces.IndexOf(Cast(TypeElement Ptr, Namespaces.Object(Namespaces.Count - 1))->Name)
+								If Index > -1 Then Cast(TypeElement Ptr, Globals.Namespaces.Object(Index))->Elements.Add te->Name, te
+							End If
+							For n_i As Integer = 0 To Namespaces.Count - 1
+								te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
+							Next
+							te->FullName = te->OwnerNamespace & "." & IIf(bt = "", "", bt & ".") & te->Name
+						Else
+							te->FullName = IIf(bt = "", "", bt & ".") & te->Name
+						End If
 						If bt <> "" Then
 							te->Parameters = Trim(Mid(te->Parameters, Len(bt) + 2))
 							'te->TypeProcedure = True
@@ -4672,8 +4798,8 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							'	n = Comps.IndexOf(bt)
 							'	If n > -1 AndAlso Comps.Object(n) <> 0 Then Cast(TypeElement Ptr, Comps.Object(n))->Elements.Add te->Name, te
 							'End If
-						'Else
-						'	LastIndexFunction = Functions.Add(te->Name, te)
+							'Else
+							'	LastIndexFunction = Functions.Add(te->Name, te)
 						End If
 						LastIndexFunction = TypeProcedures.Add(te->Name, te)
 						lastfunctionte = te
@@ -4685,15 +4811,15 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 						CInt(StartsWith(bTrimLCase, "redim ")) OrElse _
 						CInt(StartsWith(bTrimLCase, "extern ")) OrElse _
 						CInt(StartsWith(bTrimLCase, "var "))) Then
-						Dim As UString b2 = Trim(Mid(bTrim, InStr(bTrim, " ")))
-						Dim As UString CurType, ElementValue
-						Dim As UString res1(Any)
+						Dim As WString * 2048 b2 = Trim(Mid(bTrim, InStr(bTrim, " ")))
+						Dim As WString * 255 CurType, ElementValue
+						Dim As WString Ptr res1(Any)
 						Dim As Boolean bShared, bOldAs
 						Pos1 = InStr(b2, "'")
 						If Pos1 > 0 Then b2 = Trim(Left(b2, Pos1 - 1))
-						If b2.ToLower.StartsWith("shared ") Then bShared = True: b2 = Trim(Mid(b2, 7))
-						If b2.ToLower.StartsWith("import ") Then b2 = Trim(Mid(b2, 7))
-						If b2.ToLower.StartsWith("as ") Then
+						If StartsWith(LCase(b2), "shared ") Then bShared = True: b2 = Trim(Mid(b2, 7))
+						If StartsWith(LCase(b2), "import ") Then b2 = Trim(Mid(b2, 7))
+						If StartsWith(LCase(b2), "as ") Then
 							bOldAs = True
 							CurType = Trim(Mid(b2, 4))
 							Pos1 = InStr(CurType, " ")
@@ -4706,59 +4832,63 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							End If
 							If Pos1 > 0 Then
 								Split GetChangedCommas(Mid(CurType, Pos1 + 1)), ",", res1()
-								If UBound(res1) > -1 Then 
-									CurType = Trim(..Left(CurType, Pos1 + Len(res1(0))))
+								If UBound(res1) > -1 Then
+									CurType = Trim(..Left(CurType, Pos1 + Len(*res1(0))))
 								End If
+								For n As Integer = 0 To UBound(res1)
+									Deallocate res1(n)
+								Next n
+								Erase res1
 							End If
 						Else
 							Split GetChangedCommas(b2), ",", res1()
 						End If
 						For n As Integer = 0 To UBound(res1)
-							res1(n) = Trim(Replace(res1(n), ";", ","))
-							Pos1 = InStr(res1(n), "=")
+							*res1(n) = Trim(Replace(*res1(n), ";", ","))
+							Pos1 = InStr(*res1(n), "=")
 							If Pos1 > 0 Then
-								ElementValue = Trim(Mid(res1(n), Pos1 + 1))
+								ElementValue = Trim(Mid(*res1(n), Pos1 + 1))
 							Else
 								ElementValue = ""
 							End If
-							If Pos1 > 0 Then res1(n) = Trim(Left(res1(n), Pos1 - 1))
-							Pos1 = InStr(LCase(res1(n)), " as ")
+							If Pos1 > 0 Then *res1(n) = Trim(Left(*res1(n), Pos1 - 1))
+							Pos1 = InStr(LCase(*res1(n)), " as ")
 							If Pos1 > 0 Then
-								CurType = Trim(Mid(res1(n), Pos1 + 4))
+								CurType = Trim(Mid(*res1(n), Pos1 + 4))
 								CurType = Replace(CurType, "`", "=")
-'								Pos2 = InStr(CurType, "*") 'David Change ,  a As WString *2
-'								If Pos2 > 1 Then CurType = Trim(Mid(res1(n), Pos1 + 4, Pos2 - Pos1 - 3)) Else CurType = Trim(Mid(res1(n), Pos1 + 4))
-								res1(n) = Trim(Left(res1(n), Pos1 - 1))
+								'								Pos2 = InStr(CurType, "*") 'David Change ,  a As WString *2
+								'								If Pos2 > 1 Then CurType = Trim(Mid(*res1(n), Pos1 + 4, Pos2 - Pos1 - 3)) Else CurType = Trim(Mid(*res1(n), Pos1 + 4))
+								*res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							End If
-							If res1(n).ToLower.StartsWith("byref") OrElse res1(n).ToLower.StartsWith("byval") Then
-								res1(n) = Trim(Mid(res1(n), 6))
+							If StartsWith(LCase(*res1(n)), "byref") OrElse StartsWith(LCase(*res1(n)), "byval") Then
+								*res1(n) = Trim(Mid(*res1(n), 6))
 							Else
-								Pos1 = InStrRev(res1(n), " ") 'David Change,  a As WString*2
-								res1(n) = Trim(Mid(res1(n), Pos1 + 1))
+								Pos1 = InStrRev(*res1(n), " ") 'David Change,  a As WString*2
+								*res1(n) = Trim(Mid(*res1(n), Pos1 + 1))
 							End If
-							Pos1 = InStr(res1(n), "(")
+							Pos1 = InStr(*res1(n), "(")
 							If Pos1 > 0 Then
-								res1(n) = Trim(Left(res1(n), Pos1 - 1))
+								*res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							End If
-							Pos1 = InStr(LCase(res1(n)), " alias ")
+							Pos1 = InStr(LCase(*res1(n)), " alias ")
 							If Pos1 > 0 Then
-								res1(n) = Trim(Left(res1(n), Pos1 - 1))
+								*res1(n) = Trim(Left(*res1(n), Pos1 - 1))
 							End If
-							res1(n) = res1(n).TrimAll
-							Pos1 = InStrRev(res1(n), " ")
+							*res1(n) = Trim(*res1(n))
+							Pos1 = InStrRev(*res1(n), " ")
 							If Pos1 > 0 Then
-								res1(n) = Trim(Mid(res1(n), Pos1 + 1))
+								*res1(n) = Trim(Mid(*res1(n), Pos1 + 1))
 							End If
 							If CBool(n = 0) AndAlso bOldAs Then
-								CurType = Trim(..Left(CurType, Len(CurType) - Len(res1(n))))
+								CurType = Trim(..Left(CurType, Len(CurType) - Len(*res1(n))))
 								CurType = Replace(CurType, "`", "=")
 							End If
-							If Not (CurType.ToLower.StartsWith("sub") OrElse CurType.ToLower.StartsWith("function")) Then
+							If Not (StartsWith(LCase(CurType), "sub") OrElse StartsWith(LCase(CurType), "function")) Then
 								Pos1 = InStrRev(CurType, ".")
 								If Pos1 > 0 Then CurType = Mid(CurType, Pos1 + 1)
 							End If
 							Var te = _New( TypeElement)
-							te->Name = res1(n)
+							te->Name = *res1(n)
 							te->DisplayName = te->Name
 							If StartsWith(bTrimLCase, "common ") Then
 								te->ElementType = E_CommonVariable
@@ -4769,13 +4899,13 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 							Else
 								te->ElementType = IIf(StartsWith(LCase(te->TypeName), "sub(") OrElse StartsWith(LCase(te->TypeName), "function("), E_Event, E_Property)
 							End If
-							te->TypeIsPointer = CurType.ToLower.EndsWith(" pointer") OrElse CurType.ToLower.EndsWith(" ptr")
+							te->TypeIsPointer = EndsWith(LCase(CurType), " pointer") OrElse EndsWith(LCase(CurType), " ptr")
 							te->TypeName = CurType
 							te->TypeName = WithoutPointers(te->TypeName)
 							te->Value = ElementValue
 							te->Locals = 0 'IIf(bShared, 0, 2)
 							te->StartLine = i
-							te->Parameters = res1(n) & " As " & CurType
+							te->Parameters = *res1(n) & " As " & CurType
 							te->FileName = PathFunction
 							te->CtlLibrary = CtlLibrary
 							If Comment <> "" Then te->Comment = Comment: Comment = ""
@@ -4787,11 +4917,15 @@ Sub LoadFunctions(ByRef Path As WString, LoadParameter As LoadParam = FilePathAn
 									te->OwnerNamespace &= IIf(n_i = 0, "", ".") & Namespaces.Item(n_i)
 								Next
 							End If
+							Deallocate res1(n)
 						Next
+						Erase res1
 					End If
 				End If
 			End If
+			Deallocate res(j)
 		Next
+		Erase res
 		If FormClosing Then MutexUnlock tlockSave: Exit Sub
 	Next
 	Lines.Clear
@@ -5257,12 +5391,29 @@ Sub LoadSnippets
 	Wend
 End Sub
 
-Function GetTypeLink(ByRef TypeName As String) As String
-	If StartsWith(TypeName, "Const ") Then
-		Dim As String NewTypeName = Trim(Mid(TypeName, 7))
-		Return "<a href=""https://www.freebasic.net/wiki/KeyPgConst"">Const</a> " & IIf(pkeywords1 <> 0 AndAlso pkeywords1->Contains(NewTypeName), "<a href=""https://www.freebasic.net/wiki/KeyPg" & NewTypeName & """>" & NewTypeName & "</a>", "[[" & NewTypeName & "]]")
+Function GetTypeLink(ByRef TypeName As String, ByVal bMarkDown As Boolean = False) As String
+	'putFont As Function(ByVal pThis As Any Ptr,ByVal pVal As IFontDisp Ptr) As HRESULT
+	Dim As String NewTypeName
+	If bMarkDown Then
+		If StartsWith(TypeName, "Const ") Then
+			NewTypeName = Trim(Mid(TypeName, 7))
+			Return "[`Const`](a href=""https://www.freebasic.net/wiki/KeyPgConst"")" & IIf(pkeywords1 <> 0 AndAlso pkeywords1->Contains(NewTypeName), "[`" & NewTypeName & "`]" & "(a href=""https://www.freebasic.net/wiki/KeyPg" & NewTypeName & """)", "[`" & NewTypeName & "`]")
+		Else
+			Dim As Integer posi = InStrRev(LCase(TypeName), " as ") + 4
+			If posi < 5 Then posi = 1
+			NewTypeName = Trim(Mid(TypeName, posi))
+			Return IIf(pkeywords1 <> 0 AndAlso pkeywords1->Contains(NewTypeName), "[`" & NewTypeName & "`](a href=""https://www.freebasic.net/wiki/KeyPg" & NewTypeName & """)" , "[`" & NewTypeName & "`]")
+		End If
 	Else
-		Return IIf(pkeywords1 <> 0 AndAlso pkeywords1->Contains(TypeName), "<a href=""https://www.freebasic.net/wiki/KeyPg" & TypeName & """>" & TypeName & "</a>", "[[" & TypeName & "]]")
+		If StartsWith(TypeName, "Const ") Then
+			NewTypeName = Trim(Mid(TypeName, 7))
+			Return "<a href=""https://www.freebasic.net/wiki/KeyPgConst"">Const</a> " & IIf(pkeywords1 <> 0 AndAlso pkeywords1->Contains(NewTypeName), "<a href=""https://www.freebasic.net/wiki/KeyPg" & NewTypeName & """>" & NewTypeName & "</a>", "[[" & NewTypeName & "]]")
+		Else
+			Dim As Integer posi = InStrRev(LCase(TypeName), " as ") + 4
+			If posi < 5 Then posi = 1
+			NewTypeName = Trim(Mid(TypeName, posi))
+			Return IIf(pkeywords1 <> 0 AndAlso pkeywords1->Contains(NewTypeName), "<a href=""https://www.freebasic.net/wiki/KeyPg" & NewTypeName & """>" & NewTypeName & "</a>", "[[" & NewTypeName & "]]")
+		End If
 	End If
 End Function
 
@@ -5331,8 +5482,12 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 			CtlLibrary->LibX32Folder = GetFullPath(GetFullPath(ini.ReadString("Setup", "LibX32Folder"), Temp))
 			CtlLibrary->LibX64Folder = GetFullPath(GetFullPath(ini.ReadString("Setup", "LibX64Folder"), Temp))
 			CtlLibrary->Enabled = iniSettings.ReadBool("ControlLibraries", "Enabled_" & WStr(i), False)
+			If Temp = MFF Then
+				If CtlLibrary->HeadersFolder = "" Then CtlLibrary->HeadersFolder = "mff"
+				If CtlLibrary->SourcesFolder = "" Then CtlLibrary->SourcesFolder = "mff"
+				MFFCtlLibrary = CtlLibrary
+			End If
 			ControlLibraries.Add CtlLibrary
-			If Temp = MFF Then MFFCtlLibrary = CtlLibrary
 			i += 1
 		Loop
 	End If
@@ -5368,7 +5523,7 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 	Next i
 	Comps.Sort
 	Var iOld = -1, iNew = 0
-	Dim As String it, g(1 To 4): g(1) = ML("Controls"): g(2) = ML("Containers"): g(3) = ML("Components"): g(4) = ML("Dialogs")
+	Dim As String it = "Cursor"
 	Dim As String wikiFolder = ExePath & "/Controls/MyFbFramework/MyFbFramework.wiki/"
 	Dim As String wikiTitle
 	Dim As List ECLines, teList
@@ -5391,10 +5546,12 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 		toolb->Tag = Comps.Object(i)
 		iOld = iNew
 	Next i
+	' HTML STYLE
 	#if 0
+		If Dir(wikiFolder) = "" Then MkDir wikiFolder
 		For i = 0 To Comps.Count - 1
 			tbi = Cast(TypeElement Ptr, Comps.Object(i))
-			If tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
+			If tbi = 0 OrElse tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
 			Dim As Integer Fn = FreeFile_
 			Open wikiFolder & Comps.Item(i) & ".mediawiki" For Output As #Fn
 			Print #Fn, "== Definition =="
@@ -5416,7 +5573,7 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 			FPropertyItems.Sort
 			For j As Integer = 0 To FPropertyItems.Count - 1
 				te = FPropertyItems.Object(j)
-				If te->ElementType <> ElementTypes.E_Field AndAlso te->ElementType <> ElementTypes.E_Property Then Continue For
+				If te = 0 OrElse te->ElementType <> ElementTypes.E_Field AndAlso te->ElementType <> ElementTypes.E_Property Then Continue For
 				Var Pos1 = InStr(te->DisplayName, "[")
 				If Pos1 > 0 Then wikiTitle = Trim(Left(te->DisplayName, Pos1 - 1)) Else wikiTitle = te->DisplayName
 				Print #Fn, "<tr class=""property"">"
@@ -5455,7 +5612,7 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 			Print #Fn, "<tbody>"
 			For j As Integer = 0 To FPropertyItems.Count - 1
 				te = FPropertyItems.Object(j)
-				If te->ElementType <> ElementTypes.E_Function AndAlso te->ElementType <> ElementTypes.E_Sub AndAlso te->ElementType <> ElementTypes.E_Define AndAlso te->ElementType <> ElementTypes.E_Macro Then Continue For
+				If te = 0 OrElse te->ElementType <> ElementTypes.E_Function AndAlso te->ElementType <> ElementTypes.E_Sub AndAlso te->ElementType <> ElementTypes.E_Define AndAlso te->ElementType <> ElementTypes.E_Macro Then Continue For
 				Var Pos1 = InStr(te->DisplayName, "[")
 				If Pos1 > 0 Then wikiTitle = Trim(Left(te->DisplayName, Pos1 - 1)) Else wikiTitle = te->DisplayName
 				Print #Fn, "<tr class=""method"">"
@@ -5515,7 +5672,7 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 			Print #Fn, "<tbody>"
 			For j As Integer = 0 To FPropertyItems.Count - 1
 				te = FPropertyItems.Object(j)
-				If te->ElementType <> ElementTypes.E_Event Then Continue For
+				If te = 0 OrElse te->ElementType <> ElementTypes.E_Event Then Continue For
 				Var Pos1 = InStr(te->DisplayName, "[")
 				If Pos1 > 0 Then wikiTitle = Trim(Left(te->DisplayName, Pos1 - 1)) Else wikiTitle = te->DisplayName
 				Print #Fn, "<tr class=""event"">"
@@ -5932,6 +6089,464 @@ Sub LoadToolBox(ForLibrary As Library Ptr = 0)
 			CloseFile_(Fn)
 		Next i
 	#endif
+	' Markdown STYLE
+	#if 0
+		If Dir(wikiFolder) = "" Then MkDir wikiFolder
+		Dim As String TmpName
+		For i = 0 To Comps.Count - 1
+			tbi = Cast(TypeElement Ptr, Comps.Object(i))
+			If tbi = 0 OrElse tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
+			Dim As Integer Fn = FreeFile_
+			Open wikiFolder & Comps.Item(i) & ".md" For Output As #Fn
+			Print #Fn, "## Definition"
+			Print #Fn, "Namespace: [^" & tbi->OwnerNamespace & "]"
+			Print #Fn, ""
+			Print #Fn, "`" & Comps.Item(i) & "` - " & tbi->Comment
+			Print #Fn, ""
+			Print #Fn, "## Properties"
+			Print #Fn, "|Name|Description|"
+			Print #Fn, "| :------------ | :------------ |"
+			FPropertyItems.Clear
+			TabWindow.FillProperties Comps.Item(i)
+			FPropertyItems.Sort
+			For j As Integer = 0 To FPropertyItems.Count - 1
+				te = FPropertyItems.Object(j)
+				If te = 0 OrElse te->ElementType <> ElementTypes.E_Field AndAlso te->ElementType <> ElementTypes.E_Property Then Continue For
+				Var Pos1 = InStr(te->DisplayName, "[")
+				If Pos1 > 0 Then wikiTitle = Trim(Left(te->DisplayName, Pos1 - 1)) Else wikiTitle = te->DisplayName
+				Print #Fn, "|[" & FPropertyItems.Item(j) & "](""" & wikiTitle & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+				Dim As Integer Fn1 = FreeFile_
+				Open wikiFolder & wikiTitle & ".md" For Output As #Fn1
+				Print #Fn1, "#" & wikiTitle & " Property" & "#"
+				Print #Fn1, te->Comment
+				
+				If tbi->OwnerNamespace <> "" Then
+					Print #Fn1, "## Definition"
+					Print #Fn1, "Namespace: [" & tbi->OwnerNamespace & "]"
+				End If
+				Print #Fn1, "## Syntax"
+				Print #Fn1, "```freeBasic"
+				Print #Fn1, te->Parameters
+				Print #Fn1, "```"
+				Print #Fn1, "## Property Value"
+				Print #Fn1, GetTypeLink(te->TypeName, True)
+				Print #Fn1, "## See also"
+				TmpName = Left(te->DisplayName, InStr(te->DisplayName, ".") - 1)
+				Print #Fn1, "* [^" & tmpName & "]:[" & TmpName & "](" & TmpName & ".md)"
+				CloseFile_(Fn1)
+			Next
+			Print #Fn, ""
+			Print #Fn, "## Methods"
+			Print #Fn, "|Name|Description|"
+			Print #Fn, "| :------------ | :------------ |"
+			For j As Integer = 0 To FPropertyItems.Count - 1
+				te = FPropertyItems.Object(j)
+				If te = 0 OrElse te->ElementType <> ElementTypes.E_Function AndAlso te->ElementType <> ElementTypes.E_Sub AndAlso te->ElementType <> ElementTypes.E_Define AndAlso te->ElementType <> ElementTypes.E_Macro Then Continue For
+				Var Pos1 = InStr(te->DisplayName, "[")
+				If Pos1 > 0 Then wikiTitle = Trim(Left(te->DisplayName, Pos1 - 1)) Else wikiTitle = te->DisplayName
+				Print #Fn, "|[" & FPropertyItems.Item(j) & "](""" & wikiTitle & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+				If Not teList.Contains(te) Then
+					teList.Add te
+					Dim As Integer Fn1 = FreeFile_
+					Open wikiFolder & wikiTitle & ".md" For Output As #Fn1
+					Print #Fn1, "## " & wikiTitle & " Method"
+					Print #Fn1, te->Comment
+					If tbi->OwnerNamespace <> "" Then
+						Print #Fn1, "## Definition
+						Print #Fn1, "Namespace: [^" & tbi->OwnerNamespace & "]"
+					End If
+					Print #Fn1, "##Syntax"
+					Print #Fn1, "```freeBasic"
+					Print #Fn1, IIf(te->ElementType = ElementTypes.E_Function, "Declare Function", "Declare Sub") & " " & te->Parameters
+					Print #Fn1, "```"
+					Print #Fn1, ""
+					Pos1 = InStr(te->Parameters, "(")
+					If Pos1 > 0 Then
+						SplitParameters te->Parameters, Pos1, Mid(te->Parameters, Pos1 + 1, Len(te->Parameters) - Pos1 - 1), te->FileName, te, te->StartLine, 0, ECLines, te->InCondition, te->Declaration, False
+						Print #Fn1, "##Parameters"
+						Print #Fn1, ""
+						Print #Fn1, "|'Part'|'Type'|'Description'|"
+						Print #Fn, "| :------------ | :------------ |"
+						For k As Integer = 0 To te->Elements.Count - 1
+							If Trim(te->Elements.Item(k)) = "" Then Continue For
+							te1 = te->Elements.Object(k)
+							Print #Fn1, "|`" & te->Elements.Item(k) & "`|" & GetTypeLink(te1->TypeName, True) & "`|" & Trim(te1->Comment, Any !"\r\n\t ") & "|"
+						Next
+					End If
+					If te->ElementType = ElementTypes.E_Function Then
+						Print #Fn1, ""
+						Print #Fn1, "## Return Value"
+						Print #Fn1, GetTypeLink(te->TypeName, True)
+					End If
+					Print #Fn1, "## See also"
+					TmpName = Left(te->DisplayName, InStr(te->DisplayName, ".") - 1)
+					Print #Fn1, "* [^" & tmpName & "]:[" & TmpName & "](" & TmpName & ".md)"
+					CloseFile_(Fn1)
+				End If
+			Next
+			Print #Fn, "## Events"
+			Print #Fn, "|Name|Description|"
+			Print #Fn, "| :------------ | :------------ |"
+			For j As Integer = 0 To FPropertyItems.Count - 1
+				te = FPropertyItems.Object(j)
+				If te = 0 OrElse te->ElementType <> ElementTypes.E_Event Then Continue For
+				Var Pos1 = InStr(te->DisplayName, "[")
+				If Pos1 > 0 Then wikiTitle = Trim(Left(te->DisplayName, Pos1 - 1)) Else wikiTitle = te->DisplayName
+				Print #Fn, "|[" & FPropertyItems.Item(j) & "](""" & wikiTitle & ".md"") |" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+				If Not teList.Contains(te) Then
+					teList.Add te
+					Dim As Integer Fn1 = FreeFile_
+					Open wikiFolder & wikiTitle & ".md" For Output As #Fn1
+					Print #Fn1, "# " & wikiTitle & " Event"
+					Print #Fn1, te->Comment
+					If tbi->OwnerNamespace <> "" Then
+						Print #Fn1, "## Definition"
+						Print #Fn1, "Namespace: [" & tbi->OwnerNamespace & "]"
+					End If
+					Print #Fn1, "## Syntax"
+					Print #Fn1, "```freeBasic"
+					Print #Fn1, te->Parameters
+					Print #Fn1, "```"
+					Print #Fn1, ""
+					Pos1 = InStr(te->Parameters, "(")
+					If Pos1 > 0 Then
+						SplitParameters te->Parameters, Pos1, Mid(te->Parameters, Pos1 + 1, Len(te->Parameters) - Pos1 - 1), te->FileName, te, te->StartLine, 0, ECLines, te->InCondition, te->Declaration, False
+						Print #Fn1, "## Parameters"
+						Print #Fn1, ""
+						Print #Fn1, "|'Part'|'Type'|'Description'|"
+						Print #Fn, "| :------------ | :------------ | :------------ |"
+						For k As Integer = 0 To te->Elements.Count - 1
+							If Trim(te->Elements.Item(k)) = "" Then Continue For
+							te1 = te->Elements.Object(k)
+							Print #Fn1, "|`" & te->Elements.Item(k) & "`|" & GetTypeLink(te1->TypeName, True) & "|" & IIf(te1->Name = "Designer", "The designer of the object that received the signal. When an object is created without a designer, the designer will be empty. This can be checked with the command: `Designer.IsEmpty()`", IIf(te1->Name = "Sender", "The object which received the signal", te1->Comment)) & "|"
+						Next
+					End If
+					If StartsWith(LCase(te->TypeName), "function(") Then
+						Print #Fn1, ""
+						Print #Fn1, "## Return Value"
+						Print #Fn1, GetTypeLink(te->TypeName, True)
+					End If
+					Print #Fn1, ""
+					Print #Fn1, "## See also"
+					TmpName = Left(te->DisplayName, InStr(te->DisplayName, ".") - 1)
+					Print #Fn1, "* [^" & tmpName & "]:[" & TmpName & "](" & TmpName & ".md)"
+					CloseFile_(Fn1)
+				End If
+			Next
+			If tbi->OwnerNamespace <> "" Then
+				Print #Fn, "## See also"
+				Print #Fn, "* [^" & tbi->OwnerNamespace & "]:[" & tbi->OwnerNamespace & "](" & tbi->OwnerNamespace & ".md)"
+			End If
+			CloseFile_(Fn)
+		Next i
+		For i = 0 To Globals.Enums.Count - 1
+			tbi = Cast(TypeElement Ptr, Globals.Enums.Object(i))
+			If tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
+			Dim As Integer Fn = FreeFile_
+			Open wikiFolder & Globals.Enums.Item(i) & ".md" For Output As #Fn
+			Print #Fn, "# " & Globals.Enums.Item(i) & " Enum"
+			Print #Fn, tbi->Comment
+			If tbi->OwnerNamespace <> "" Then
+				Print #Fn, "## Definition"
+				Print #Fn, "Namespace: [^" & tbi->OwnerNamespace & "]"
+			End If
+			Print #Fn, "## Fields"
+			Print #Fn, "| :------------ | :------------ |"
+			For j As Integer = 0 To tbi->Elements.Count - 1
+				te = tbi->Elements.Object(j)
+				Print #Fn, "|" & tbi->Elements.Item(j) & "|" & te->Value & "|" & te->Comment & "|"
+			Next
+			If tbi->OwnerNamespace <> "" Then
+				Print #Fn, "## See also"
+				Print #Fn, "* [^" & tbi->OwnerNamespace & "]:[" & tbi->OwnerNamespace & "](" & tbi->OwnerNamespace & ".md)"
+			End If
+			CloseFile_(Fn)
+		Next i
+		For i = 0 To Globals.Namespaces.Count - 1
+			tbi = Cast(TypeElement Ptr, Globals.Namespaces.Object(i))
+			If tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
+			If Not teList.Contains(tbi) Then
+				teList.Add tbi
+				Dim As Boolean bNamespaces, bTypes, bEnums, bDefines, bMacros, bMethods, bConstants, bVariables
+				For ii As Integer = 0 To Globals.Namespaces.Count - 1
+					tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+					If tbi1->CtlLibrary <> MFFCtlLibrary Then Continue For
+					If tbi1->Name <> tbi->Name Then Continue For
+					For j As Integer = 0 To tbi1->Elements.Count - 1
+						te = tbi1->Elements.Object(j)
+						Select Case te->ElementType
+						Case E_Namespace: bNamespaces = True
+						Case E_Type, E_TypeCopy, E_Class, E_Union: bTypes = True
+						Case E_Enum: bEnums = True
+						Case E_Define: bDefines = True
+						Case E_Macro: bMacros = True
+						Case E_Function, E_Sub: bMethods = True
+						Case E_Constant: bConstants = True
+						Case E_CommonVariable, E_LocalVariable, E_ExternVariable, E_SharedVariable: bVariables = True
+						End Select
+					Next
+				Next
+				Dim As Integer Fn = FreeFile_
+				Open wikiFolder & tbi->FullName & ".md" For Output As #Fn
+				Print #Fn, tbi->Comment
+				Print #Fn, ""
+				If bNamespaces Then
+					Dim As WStringList Namespaces
+					Print #Fn, "## Namespaces"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> E_Namespace Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							If Not Namespaces.Contains(te->Name) Then
+								Namespaces.Add te->Name
+								Print #Fn, "|[" & te->Name & "](""" & te->FullName & ".md"") |" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+							End If
+						Next
+					Next
+					Print #Fn, ""
+				End If
+				If bTypes Then
+					Print #Fn, "## Types"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> E_Type AndAlso te->ElementType <> E_TypeCopy AndAlso te->ElementType <> E_Union AndAlso te->ElementType <> E_Class Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->Name & ".md"") |" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+					Print #Fn, ""
+				End If
+				If bEnums Then
+					Print #Fn, "## Enums"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> E_Enum Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->Name & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+				End If
+				If bDefines Then
+					Print #Fn, "## Defines"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> E_Define AndAlso te->ElementType <> E_Macro Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->fullName & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+				End If
+				If bMacros Then
+					Print #Fn, "## Macros"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> E_Define AndAlso te->ElementType <> E_Macro Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->fullName & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+				End If
+				If bMethods Then
+					Print #Fn, "## Methods"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> ElementTypes.E_Function AndAlso te->ElementType <> ElementTypes.E_Sub Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							If te->Declaration Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->fullName & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+				End If
+				If bConstants Then
+					Print #Fn, "## Constants"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> ElementTypes.E_Constant Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->Name & ".md"")|" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+				End If
+				If bVariables Then
+					Print #Fn, "## Variables"
+					Print #Fn, "|Name|Comment|"
+					Print #Fn, "| :------------ | :------------ |"
+					For ii As Integer = 0 To Globals.Namespaces.Count - 1
+						tbi1 = Cast(TypeElement Ptr, Globals.Namespaces.Object(ii))
+						If tbi1->Name <> tbi->Name Then Continue For
+						For j As Integer = 0 To tbi1->Elements.Count - 1
+							te = tbi1->Elements.Object(j)
+							If te->ElementType <> ElementTypes.E_CommonVariable AndAlso te->ElementType <> ElementTypes.E_LocalVariable AndAlso te->ElementType <> ElementTypes.E_ExternVariable AndAlso te->ElementType <> ElementTypes.E_SharedVariable Then Continue For
+							If te->CtlLibrary <> MFFCtlLibrary Then Continue For
+							Print #Fn, "|[" & te->Name & "](""" & te->Name & ".md"") |" & Trim(te->Comment, Any !"\r\n\t ") & "|"
+						Next
+					Next
+				End If
+				CloseFile_(Fn)
+			End If
+		Next i
+		For i = 0 To Globals.Functions.Count - 1
+			tbi = Cast(TypeElement Ptr, Globals.Functions.Object(i))
+			If tbi->ElementType <> ElementTypes.E_Define AndAlso tbi->ElementType <> ElementTypes.E_Macro AndAlso tbi->ElementType <> ElementTypes.E_Function AndAlso tbi->ElementType <> ElementTypes.E_Sub Then Continue For
+			If tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
+			If tbi->Declaration Then Continue For
+			Dim As Integer Fn1 = FreeFile_
+			Open wikiFolder & tbi->FullName & ".md" For Output As #Fn1
+			Print #Fn1, "## " & tbi->FullName & IIf(tbi->ElementType = ElementTypes.E_Function, " Function", IIf(tbi->ElementType = ElementTypes.E_Sub, " Method", IIf(tbi->ElementType = ElementTypes.E_Define, " Define", IIf(tbi->ElementType = ElementTypes.E_Macro, " Macro", ""))))
+			Dim As UString Lines()
+			Split(tbi->Comment, Chr(13) & Chr(10), Lines())
+			Dim iLine As Integer
+			Do While iLine <= UBound(Lines) AndAlso Trim(Lines(iLine), Any !"\t ") <> "Parameters" AndAlso Trim(Lines(iLine), Any !"\t ") <> "Return Value" AndAlso Trim(Lines(iLine), Any !"\t ") <> "See also"
+				Print #Fn1, LTrim(Lines(iLine), Any !"\t ")
+				iLine += 1
+			Loop
+			'Print #Fn1, tbi->Comment
+			If tbi->OwnerNamespace <> "" Then
+				Print #Fn1, "## Definition"
+				Print #Fn1, "Namespace: [^" & tbi->OwnerNamespace & "]"
+			End If
+			Print #Fn1, "## Syntax"
+			Print #Fn1, ""
+			Print #Fn1, "```freeBasic"
+			Print #Fn1, IIf(tbi->ElementType = ElementTypes.E_Function, "Function", IIf(tbi->ElementType = ElementTypes.E_Sub, "Sub", IIf(tbi->ElementType = ElementTypes.E_Define, "#define", IIf(tbi->ElementType = ElementTypes.E_Macro, "#macro", "")))) & " " & tbi->Parameters
+			Print #Fn1, "```"
+			Print #Fn1, ""
+			Var Pos1 = InStr(tbi->Parameters, "(")
+			If Pos1 > 0 Then
+				SplitParameters tbi->Parameters, Pos1, Mid(tbi->Parameters, Pos1 + 1, Len(tbi->Parameters) - Pos1 - 1), tbi->FileName, tbi, tbi->StartLine, 0, ECLines, tbi->InCondition, tbi->Declaration, False
+				Print #Fn1, "## Parameters"
+				Print #Fn1, ""
+				Print #Fn1, "|'Part'|'Type'|'Description'|"
+				Print #Fn1, "| :------------ | :------------ | :------------ |"
+				For k As Integer = 0 To tbi->Elements.Count - 1
+					te1 = tbi->Elements.Object(k)
+					Dim As UString Comment = IIf(te1->Value = "", "Required. ", "Optional. ")
+					Dim As Boolean bFinded
+					For kk As Integer = iLine To UBound(Lines)
+						If LCase(Trim(Lines(kk), Any !"\t ")) = LCase(tbi->Elements.Item(k)) Then
+							bFinded = True
+						ElseIf bFinded Then
+							If Trim(Lines(kk), Any !"\t ") = "Return Value" OrElse Trim(Lines(kk), Any !"\t ") = "Remarks" OrElse Trim(Lines(kk), Any !"\t ") = "Example" OrElse Trim(Lines(kk), Any !"\t ") = "See also" OrElse (k < tbi->Elements.Count - 1 AndAlso LCase(Trim(Lines(kk), Any !"\t ")) = LCase(tbi->Elements.Item(k + 1))) Then
+								iLine = kk
+								Exit For
+							Else
+								Comment = Comment & IIf(Comment = "", "", "    ") & Trim(Lines(kk), Any !"\t ")
+							End If
+						End If
+					Next
+					If Trim(tbi->Elements.Item(k)) = "" Then Continue For
+					Print #Fn1, "|`" & tbi->Elements.Item(k) & "`|`" & GetTypeLink(te1->TypeName, True) & "`|" & Trim(te1->Comment, Any !"\r\n\t ") & Trim(Comment, Any !"\r\n\t ") & "|"
+				Next
+				
+			End If
+			If tbi->ElementType = ElementTypes.E_Function Then
+				Print #Fn1, ""
+				Print #Fn1, "## Return Value"
+				Print #Fn1, GetTypeLink(tbi->TypeName, True)
+				Print #Fn1, ""
+				Dim bFinded As Boolean
+				For kk As Integer = iLine To UBound(Lines)
+					If Trim(Lines(kk), Any !"\t ") = "Return Value" Then
+						bFinded = True
+					ElseIf bFinded Then
+						If Trim(Lines(kk), Any !"\t ") = "Remarks" OrElse Trim(Lines(kk), Any !"\t ") = "Example" OrElse Trim(Lines(kk), Any !"\t ") = "See also" Then
+							iLine = kk
+							Exit For
+						Else
+							Print #Fn1, Trim(Lines(kk), Any !"\t ")
+						End If
+					End If
+				Next
+			End If
+			Dim As Boolean bSeeAlso, bExample
+			For kk As Integer = iLine To UBound(Lines)
+				If LTrim(Lines(kk), Any !"\t ") = "Remarks" Then
+					If bExample Then
+						Print #Fn1, "```"
+						bExample = False
+					End If
+					Print #Fn1, "## " & LTrim(Lines(kk), Any !"\t ")
+				ElseIf LTrim(Lines(kk), Any !"\t ") = "Example" Then
+					bExample = True
+					Print #Fn1, "## " & LTrim(Lines(kk), Any !"\t ")
+					Print #Fn1, "```freeBasic"
+				ElseIf LTrim(Lines(kk), Any !"\t ") = "See also" Then
+					If bExample Then
+						Print #Fn1, "```"
+						bExample = False
+					End If
+					bSeeAlso = True
+					Print #Fn1, "## " & LTrim(Lines(kk), Any !"\t ")
+				ElseIf bSeeAlso Then
+					If Trim(Lines(kk), Any !"\t ") = "" Then Continue For
+					Print #Fn1, "[" & LTrim(Lines(kk), Any !"\t ") & "]" & "(" & LTrim(Lines(kk), Any !"\t ") & ".md)"
+				ElseIf bExample Then
+					Print #Fn1, Lines(kk)
+				Else
+					Print #Fn1, LTrim(Lines(kk), Any !"\t ")
+				End If
+			Next
+			If tbi->OwnerNamespace <> "" AndAlso Not bSeeAlso Then
+				Print #Fn1, "## See also"
+				Print #Fn1, "Namespace: [^" & te->OwnerNamespace & "]"
+			End If
+			CloseFile_(Fn1)
+		Next i
+		For i = 0 To Globals.Args.Count - 1
+			tbi = Cast(TypeElement Ptr, Globals.Args.Object(i))
+			If tbi->Name <> "App" AndAlso tbi->Name <> "Clipboard" AndAlso tbi->Name <> "DebugWindowHandle" AndAlso tbi->Name <> "DefaultFont" Then Continue For
+			If tbi->CtlLibrary <> MFFCtlLibrary Then Continue For
+			Dim As Integer Fn = FreeFile_
+			Open wikiFolder & tbi->Name & ".md" For Output As #Fn
+			Print #Fn, "## Definition"
+			Print #Fn, "Namespace: " & tbi->OwnerNamespace
+			Print #Fn, ""
+			Print #Fn, "`" & tbi->Name & "` - " & tbi->Comment
+			Print #Fn, ""
+			Print #Fn, "```freeBasic"
+			Print #Fn, tbi->Parameters
+			Print #Fn, "```"
+			Print #Fn, ""
+			Print #Fn, "## Property Value"
+			Print #Fn, GetTypeLink(tbi->TypeName, True)
+			CloseFile_(Fn)
+		Next i
+	#endif
 	For i = 0 To ControlLibraries.Count - 1
 		CtlLibrary = ControlLibraries.Item(i)
 		If ForLibrary <> 0 AndAlso CtlLibrary <> ForLibrary Then Continue For
@@ -6322,11 +6937,13 @@ Sub LoadSettings
 	GlobalSettings.ShowSymbolsTooltipsOnMouseHover = iniSettings.ReadBool("Options", "ShowSymbolsTooltipsOnMouseHover", True)
 	GlobalSettings.ShowClassesExplorerOnOpenWindow = iniSettings.ReadBool("Options", "ShowClassesExplorerOnOpenWindow", True)
 	ShowHorizontalSeparatorLines = iniSettings.ReadBool("Options", "ShowHorizontalSeparatorLines", True)
+	ShowHolidayFrame = iniSettings.ReadBool("Options", "ShowHolidayFrame", True)
 	HighlightBrackets = iniSettings.ReadBool("Options", "HighlightBrackets", True)
 	HighlightCurrentLine = iniSettings.ReadBool("Options", "HighlightCurrentLine", True)
 	HighlightCurrentWord = iniSettings.ReadBool("Options", "HighlightCurrentWord", True)
 	TabAsSpaces = iniSettings.ReadBool("Options", "TabAsSpaces", True)
 	ChoosedTabStyle = iniSettings.ReadInteger("Options", "ChoosedTabStyle", 1)
+	CodeEditorHoverTime = iniSettings.ReadInteger("Options", "CodeEditorHoverTime", 0)
 	TabWidth = iniSettings.ReadInteger("Options", "TabWidth", 4)
 	AutoSaveCharMax = iniSettings.ReadInteger("Options", "AutoSaveCharMax", 100)
 	HistoryLimit = iniSettings.ReadInteger("Options", "HistoryLimit", 20)
@@ -6361,7 +6978,7 @@ Sub LoadSettings
 		*CurrentTheme = IIf(DarkMode, "Dark (Visual Studio)", "Default Theme")
 	End If
 	#ifdef __USE_WINAPI__
-		If DarkMode Then
+		If DarkMode AndAlso g_darkModeSupported Then
 			txtLabelProperty.BackColor = darkBkColor
 			txtLabelEvent.BackColor = darkBkColor
 			fAddIns.txtDescription.BackColor = GetSysColor(COLOR_WINDOW)
@@ -6385,7 +7002,7 @@ Sub LoadSettings
 	pfSplash->lblProcess.Text = ML("Load On Startup") & ": " & ML("KeyWords")	
 	LoadKeyWords
 	LoadTheme
-	
+	EditControlFrame.LoadFromFile(ExePath & "/Resources/Frame.png")
 End Sub
 
 Sub LoadLanguageTexts
@@ -6688,6 +7305,26 @@ Sub CreateMenusAndToolBars
 	'imgListD.Add "StartD", "Start"
 	'imgListD.Add "BreakD", "Break"
 	'imgListD.Add "EndD", "EndProgram"
+	imgList32.Name = "imgList32"
+	imgList32.ImageWidth = 32
+	imgList32.ImageHeight = 32
+	imgList32.Add "AppWindows", "AppWindows"
+	imgList32.Add "AppAndroid", "AppAndroid"
+	imgList32.Add "AppAddin", "AppAddin"
+	imgList32.Add "AppControl", "AppControl"
+	imgList32.Add "AppConsole", "AppConsole"
+	imgList32.Add "AppGUI", "AppGUI"
+	imgList32.Add "AppDynamic", "AppDynamic"
+	imgList32.Add "AppStatic", "AppStatic"
+	imgList32.Add "AppGTK", "AppGTK"
+	imgList32.Add "AppEmpty", "AppEmpty"
+	imgList32.Add "File32", "File32"
+	imgList32.Add "Resource32", "Resource32"
+	imgList32.Add "Module32", "Module32"
+	imgList32.Add "UserControl32", "UserControl32"
+	imgList32.Add "Form32", "Form32"
+	imgList32.Add "Form3D32", "Form3D32"
+	imgList32.Add "Manifest32", "Manifest32"
 	
 	'mnuMain.ImagesList = @imgList
 	
@@ -6818,7 +7455,7 @@ Sub CreateMenusAndToolBars
 	miFormatProject = miEdit->Add(ML("&Format Project") & HK("FormatProject"), "", "FormatProject", @mClick, , , False)
 	miUnformatProject = miEdit->Add(ML("&Unformat Project") & HK("UnformatProject"), "", "UnformatProject", @mClick, , , False)
 	miAddSpaces = miEdit->Add(ML("Add &Spaces") & HK("AddSpaces"), "", "AddSpaces", @mClick, , , False)
-	miDeleteBlankLines = miEdit->Add(ML("Delete blank Lines"), "", "DeleteBlankLines", @mClick)
+	miDeleteBlankLines = miEdit->Add(ML("Merge Multiple Blank Lines"), "", "DeleteBlankLines", @mClick)
 	miEdit->Add("-")
 	miSuggestions = miEdit->Add(ML("Suggestions") & HK("Suggestions"), "Suggestions", "Suggestions", @mClick, , , False)
 	miCompleteWord = miEdit->Add(ML("Complete Word") & HK("CompleteWord", "Ctrl+Space"), "CompleteWord", "CompleteWord", @mClick, , , False)
@@ -6959,6 +7596,7 @@ Sub CreateMenusAndToolBars
 	
 	Var miDebug = mnuMain.Add(ML("&Debug"), "", "Debug")
 	mnuUseDebugger = miDebug->Add(ML("&Use Debugger") & HK("UseDebugger"), "", "UseDebugger", @mClick, True)
+	mnuUseProfiler = miDebug->Add(ML("Use &Profiler") & HK("UseProfiler"), "", "UseProfiler", @mClick, True)
 	miDebug->Add("-")
 	miStepInto = miDebug->Add(ML("Step &Into") & HK("StepInto", "F8"), "", "StepInto", @mClick, , , False)
 	miStepOver = miDebug->Add(ML("Step &Over") & HK("StepOver", "Shift+F8"), "", "StepOver", @mClick, , , False)
@@ -7060,8 +7698,6 @@ Sub CreateMenusAndToolBars
 	miHelp->Add(ML("FreeBasic WiKi") & HK("FreeBasicWiKi"), "Book", "FreeBasicWiKi", @mClick)
 	miHelp->Add(ML("FreeBasic Forums") & HK("FreeBasicForums"), "Forum", "FreeBasicForums", @mClick)
 	Var miGitHub = miHelp->Add(ML("GitHub"))
-	miGitHub->Add(ML("GitHub WebSite") & HK("GitHubWebSite"), "", "GitHubWebSite", @mClick)
-	miGitHub->Add("-")
 	miGitHub->Add(ML("FreeBasic Repository") & HK("FreeBasicRepository"), "", "FreeBasicRepository", @mClick)
 	miGitHub->Add("-")
 	miGitHub->Add(ML("VisualFBEditor Repository") & HK("VisualFBEditorRepository"), "", "VisualFBEditorRepository", @mClick)
@@ -7310,11 +7946,16 @@ End Sub
 CreateMenusAndToolBars
 'tbStandard.AddRange 1, @cboCommands
 
+Sub tbLeft_OnResize(ByRef Designer As My.Sys.Object, ByRef Sender As Control, NewWidth As Integer, NewHeight As Integer)
+	pnlLeftPin.Height = NewHeight
+End Sub
+
 tbLeft.ImagesList = @imgList
 tbLeft.Buttons.Add tbsCheck, "Pinned", , @mClick, "PinLeft", "", ML("Pin"), , tstEnabled Or tstChecked
 tbLeft.Flat = True
 tbLeft.Width = 23
 tbLeft.Parent = @pnlLeftPin
+tbLeft.OnResize = @tbLeft_OnResize
 
 tbExplorer.ImagesList = @imgList
 tbExplorer.HotImagesList = @imgList
@@ -7577,8 +8218,8 @@ Sub tvExplorer_NodeActivate(ByRef Designer As My.Sys.Object, ByRef Sender As Con
 			Dim As String extStr = LCase(Right(*ee->FileName, 4))
 			If CBool(extStr = ".exe" OrElse extStr = ".dll"  OrElse extStr = ".png" OrElse extStr = ".jpg" OrElse extStr = ".bmp" OrElse extStr = ".ico" OrElse extStr = ".cur" OrElse extStr = ".gif" OrElse extStr = ".avi" OrElse _
 				extStr = ".chm" OrElse extStr = ".zip" OrElse extStr = ".rar") OrElse EndsWith(LCase(*ee->FileName), ".dll.a") OrElse EndsWith(LCase(*ee->FileName), ".so") OrElse EndsWith(LCase(*ee->FileName), ".7z") Then
-				'Shell *ee->FileName
-				PipeCmd "", *ee->FileName
+				Shell *ee->FileName
+				'PipeCmd "", *ee->FileName
 				Exit Sub
 			ElseIf extStr = ".vfp" Then
 				AddProject *ee->FileName
@@ -7673,7 +8314,7 @@ Sub tvExplorer_SelChange(ByRef Designer As My.Sys.Object, ByRef Sender As TreeVi
 	Dim As TreeNode Ptr ptn = tvExplorer.SelectedNode
 	If ptn = 0 Then Exit Sub 'David Change For Safty
 	ptn = GetParentNode(ptn)
-	If OldParentNode <> ptn Then
+	If ptn > 0 AndAlso OldParentNode <> ptn Then
 		OldParentNode = ptn
 		'If MainNode <> 0 Then MainNode->Bold = False
 		'MainNode = ptn
@@ -7738,13 +8379,18 @@ End Sub
 
 Sub tvExplorer_MouseUp(ByRef Designer As My.Sys.Object, ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
 	If MouseButton <> 1 Then Exit Sub
-	Dim tn As TreeNode Ptr = tvExplorer.DraggedNode
+	Dim As TreeNode Ptr ptn, tn = tvExplorer.DraggedNode
 	If tn = 0 Then
 		tn = tvExplorer.SelectedNode
 	Else
 		tvExplorer.SelectedNode = tn
 	End If
 	If tn <> 0 AndAlso tn->ParentNode <> 0 Then
+		ptn = GetParentNode(tn)
+		If ptn->ImageKey <> "Project" Then
+			miProjectProperties->Enabled = False
+			miCloseProject->Enabled = False
+		End If
 		miSetAsMain->Caption = ML("Set as Main")
 		If tn->ImageKey = "Opened" Then
 			miSetAsMain->Enabled = False
@@ -7752,8 +8398,9 @@ Sub tvExplorer_MouseUp(ByRef Designer As My.Sys.Object, ByRef Sender As Control,
 	Else
 		miSetAsMain->Caption = ML("Set as Start Up")
 	End If
-	If CInt(tn = 0) OrElse CInt(tn <> 0 AndAlso tn->ImageKey = "Opened") Then
-		miSetAsMain->Enabled = False
+	Dim As String tmpKeyStr = " @Sub @StandartTypes @Property @Enum @EnumItem @Type @Function @Opened "
+	If CInt(tn = 0) OrElse CInt(tn <> 0 AndAlso InStr(tmpKeyStr, " @" & tn->ImageKey & " ")) Then
+		miSetAsMain->Enabled = IIf(tn <> 0 AndAlso tn->ParentNode <> 0, False, True)
 		miRemoveFiles->Enabled = False
 		miRemoveFiles->Caption = ML("Remove")
 	Else
@@ -7767,7 +8414,7 @@ tvExplorer.Images = @imgList
 tvExplorer.SelectedImages = @imgList
 tvExplorer.Align = DockStyle.alClient
 tvExplorer.HideSelection = False
-'tvExplorer.Sorted = True
+'tvExplorer.EditLabels = True
 'tvExplorer.OnDblClick = @tvExplorer_DblClick
 tvExplorer.OnNodeActivate = @tvExplorer_NodeActivate
 tvExplorer.OnNodeExpanding = @tvExplorer_NodeExpanding
@@ -8009,7 +8656,7 @@ Sub btnPropertyValue_Click(ByRef Designer As My.Sys.Object, ByRef Sender As Cont
 		Dim As Any Ptr SelFont = txtPropertyValue.Tag
 		If SelFont = 0 Then Exit Sub
 		Dim As FontDialog fd
-		Dim As UString FontName = QWString(st->ReadPropertyFunc(SelFont, "Name"))
+		Dim As WString * 255 FontName = QWString(st->ReadPropertyFunc(SelFont, "Name"))
 		Dim As Integer FontColor = QInteger(st->ReadPropertyFunc(SelFont, "Color"))
 		Dim As Integer FontSize = QInteger(st->ReadPropertyFunc(SelFont, "Size"))
 		Dim As Integer FontCharset_ = QInteger(st->ReadPropertyFunc(SelFont, "Charset"))
@@ -8028,19 +8675,41 @@ Sub btnPropertyValue_Click(ByRef Designer As My.Sys.Object, ByRef Sender As Cont
 		fd.Font.StrikeOut = FontStrikeout
 		fd.Font.Orientation = FontOrientation
 		If fd.Execute Then
-			If fd.Font.Name <> FontName Then FontName = fd.Font.Name: st->WritePropertyFunc(SelFont, "Name", FontName.vptr): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Name")
-			If fd.Font.Color <> FontColor Then FontColor = fd.Font.Color: st->WritePropertyFunc(SelFont, "Color", @FontColor): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Color")
-			If fd.Font.Size <> FontSize Then FontSize = fd.Font.Size: st->WritePropertyFunc(SelFont, "Size", @FontSize): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Size")
-			If fd.Font.CharSet <> FontCharset_ Then FontCharset_ = fd.Font.CharSet: st->WritePropertyFunc(SelFont, "Charset", @FontCharset_): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Charset")
-			If fd.Font.Bold <> FontBold Then FontBold = fd.Font.Bold: st->WritePropertyFunc(SelFont, "Bold", @FontBold): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Bold")
-			If fd.Font.Italic <> FontItalic Then FontItalic = fd.Font.Italic: st->WritePropertyFunc(SelFont, "Italic", @FontItalic): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Italic")
-			If fd.Font.Underline <> FontUnderline Then FontUnderline = fd.Font.Underline: st->WritePropertyFunc(SelFont, "Underline", @FontUnderline): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Underline")
-			If fd.Font.StrikeOut <> FontStrikeout Then FontStrikeout = fd.Font.StrikeOut: st->WritePropertyFunc(SelFont, "Strikeout", @FontStrikeout): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Strikeout")
-			If fd.Font.Orientation <> FontOrientation Then FontOrientation = fd.Font.Orientation: st->WritePropertyFunc(SelFont, "Orientation", @FontOrientation): ChangeControl(*tb->Des, tb->Des->SelectedControl, te->Name & ".Orientation")
+			Dim As Integer SelCount = tb->Des->SelectedControls.Count
+			'Dim As Boolean OnlySelected = Not tb->Des->SelectedControls.Contains(tb->Des->SelectedControl)
+			'If OnlySelected Then SelCount = 1
+			For i As Integer = 0 To SelCount - 1
+				st = tb->Des->Symbols(tb->Des->SelectedControls.Item(i))
+				If st = 0 OrElse st->ReadPropertyFunc = 0 OrElse st->WritePropertyFunc = 0 Then Continue For
+				SelFont = st->ReadPropertyFunc(tb->Des->SelectedControls.Item(i), te->Name)
+				If SelFont = 0 Then Continue For
+				FontName = QWString(st->ReadPropertyFunc(SelFont, "Name"))
+				FontColor = QInteger(st->ReadPropertyFunc(SelFont, "Color"))
+				FontSize = QInteger(st->ReadPropertyFunc(SelFont, "Size"))
+				FontCharset_ = QInteger(st->ReadPropertyFunc(SelFont, "Charset"))
+				FontBold = QBoolean(st->ReadPropertyFunc(SelFont, "Bold"))
+				FontItalic = QBoolean(st->ReadPropertyFunc(SelFont, "Italic"))
+				FontUnderline = QBoolean(st->ReadPropertyFunc(SelFont, "Underline"))
+				FontStrikeout = QBoolean(st->ReadPropertyFunc(SelFont, "Strikeout"))
+				FontOrientation = QInteger(st->ReadPropertyFunc(SelFont, "Orientation"))
+				If fd.Font.Name <> FontName Then FontName = fd.Font.Name: st->WritePropertyFunc(SelFont, "Name", @FontName): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Name")
+				If fd.Font.Color <> FontColor Then FontColor = fd.Font.Color: st->WritePropertyFunc(SelFont, "Color", @FontColor): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Color")
+				If fd.Font.Size <> FontSize Then FontSize = fd.Font.Size: st->WritePropertyFunc(SelFont, "Size", @FontSize): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Size")
+				If fd.Font.CharSet <> FontCharset_ Then FontCharset_ = fd.Font.CharSet: st->WritePropertyFunc(SelFont, "Charset", @FontCharset_): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Charset")
+				If fd.Font.Bold <> FontBold Then FontBold = fd.Font.Bold: st->WritePropertyFunc(SelFont, "Bold", @FontBold): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Bold")
+				If fd.Font.Italic <> FontItalic Then FontItalic = fd.Font.Italic: st->WritePropertyFunc(SelFont, "Italic", @FontItalic): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Italic")
+				If fd.Font.Underline <> FontUnderline Then FontUnderline = fd.Font.Underline: st->WritePropertyFunc(SelFont, "Underline", @FontUnderline): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Underline")
+				If fd.Font.StrikeOut <> FontStrikeout Then FontStrikeout = fd.Font.StrikeOut: st->WritePropertyFunc(SelFont, "Strikeout", @FontStrikeout): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Strikeout")
+				If fd.Font.Orientation <> FontOrientation Then FontOrientation = fd.Font.Orientation: st->WritePropertyFunc(SelFont, "Orientation", @FontOrientation): ChangeControl(*tb->Des, tb->Des->SelectedControls.Item(i), te->Name & ".Orientation")
+			Next
 			If st->ToStringFunc Then txtPropertyValue.Text = st->ToStringFunc(SelFont)
 			If lvProperties.SelectedItem <> 0 Then lvProperties.SelectedItem->Text(1) = txtPropertyValue.Text
 		End If
 	Case Else
+		Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+		If tb = 0 OrElse tb->Des = 0 OrElse tb->Des->SelectedControl = 0 Then Exit Sub
+		Dim As SymbolsType Ptr st = tb->Des->Symbols(tb->Des->SelectedControl)
+		If st = 0 OrElse st->ReadPropertyFunc = 0 OrElse st->WritePropertyFunc = 0 Then Exit Sub
 		Dim As ColorDialog cd
 		cd.Color = Val(txtPropertyValue.Text)
 		If cd.Execute Then
@@ -8124,9 +8793,9 @@ Sub lvProperties_SelectedItemChanged(ByRef Designer As My.Sys.Object, ByRef Send
 			For i As Integer = 0 To tbi->Elements.Count - 1
 				cboPropertyValue.AddItem " " & i & " - " & MP(tbi->Elements.Item(i))
 			Next i
-			If Val(Item->Text(1)) >= 0 AndAlso Val(Item->Text(1)) <= tbi->Elements.Count - 1 Then
+			If Val(Item->Text(1)) >= 0 AndAlso Val(Trim(Item->Text(1))) <= tbi->Elements.Count - 1 Then
 				bNotChange = True
-				cboPropertyValue.ItemIndex = Val(Item->Text(1))
+				cboPropertyValue.ItemIndex = Val(Trim(Item->Text(1)))
 			End If
 		End If
 	ElseIf GetTypeIsPointer(te) AndAlso IsBase(te->TypeName, "My.Sys.Object") Then
@@ -8165,9 +8834,9 @@ Sub lvProperties_SelectedItemChanged(ByRef Designer As My.Sys.Object, ByRef Send
 			For i As Integer = 0 To tbi->Elements.Count - 1
 				cboPropertyValue.AddItem " " & i & " - " & MP(tbi->Elements.Item(i))
 			Next i
-			If Val(Item->Text(1)) >= 0 AndAlso Val(Item->Text(1)) <= tbi->Elements.Count - 1 Then
+			If Val(Trim(Item->Text(1))) >= 0 AndAlso Val(Trim(Item->Text(1))) <= tbi->Elements.Count - 1 Then
 				bNotChange = True
-				cboPropertyValue.ItemIndex = Val(Item->Text(1))
+				cboPropertyValue.ItemIndex = Val(Trim(Item->Text(1)))
 			End If
 		Else
 			'CtrlEdit = @txtPropertyValue
@@ -8188,7 +8857,7 @@ Sub lvProperties_SelectedItemChanged(ByRef Designer As My.Sys.Object, ByRef Send
 		If teTypeName = "font" Then
 			txtPropertyValue.Tag = st->ReadPropertyFunc(tb->Des->SelectedControl, te->Name)
 		ElseIf EndsWith(LCase(PropertyName), "color") Then
-			pnlColor.BackColor = Val(Item->Text(1))
+			pnlColor.BackColor = Val(Trim(Item->Text(1)))
 			pnlColor.Visible = True
 			txtPropertyValue.LeftMargin = 16
 		End If
@@ -8579,7 +9248,7 @@ lvThreads.Align = DockStyle.alClient
 lvThreads.Columns.Add ML("Procedure"), , 500
 lvThreads.Columns.Add ML("Line"), , 50
 lvThreads.Columns.Add ML("File"), , 500
-lvThreads.StateImages = @imgListStates
+'lvThreads.StateImages = @imgListStates
 lvThreads.Images = @imgListStates
 lvThreads.OnItemActivate = @lvThreads_ItemActivate
 
@@ -8651,7 +9320,7 @@ lvLocals.Columns.Add ML("Variable"), , 150
 lvLocals.Columns.Add ML("Value"), , 500
 lvLocals.Columns.Add ML("Type"), , 500
 lvLocals.Columns.Column(1)->Editable = True
-lvLocals.StateImages = @imgListStates
+'lvLocals.StateImages = @imgListStates
 lvLocals.Images = @imgListStates
 lvLocals.OnItemExpanding = @lvVar_ItemExpanding
 
@@ -8662,7 +9331,7 @@ lvGlobals.Columns.Add ML("Variable"), , 150
 lvGlobals.Columns.Add ML("Value"), , 500
 lvGlobals.Columns.Add ML("Type"), , 500
 lvGlobals.Columns.Column(1)->Editable = True
-lvGlobals.StateImages = @imgListStates
+'lvGlobals.StateImages = @imgListStates
 lvGlobals.Images = @imgListStates
 lvGlobals.OnItemExpanding = @lvVar_ItemExpanding
 
@@ -8708,7 +9377,7 @@ lvWatches.Columns.Add ML("Value"), , 500
 lvWatches.Columns.Add ML("Type"), , 500
 lvWatches.Columns.Column(0)->Editable = True
 lvWatches.Columns.Column(1)->Editable = True
-lvWatches.StateImages = @imgListStates
+'lvWatches.StateImages = @imgListStates
 lvWatches.Images = @imgListStates
 lvWatches.OnItemExpanding = @lvVar_ItemExpanding
 lvWatches.OnCellEditing = @lvWatches_CellEditing
@@ -8719,9 +9388,94 @@ lvMemory.Align = DockStyle.alClient
 lvMemory.ContextMenu = @mnuVars
 lvMemory.Columns.Add ML("Address / delta"), , 150
 lvMemory.Columns.Add ML("Ascii value"), , 150
-lvMemory.StateImages = @imgListStates
+'lvMemory.StateImages = @imgListStates
 lvMemory.Images = @imgListStates
 
+Sub lvProfiler_ItemExpanding(ByRef Designer As My.Sys.Object, ByRef Sender As TreeListView, ByRef Item As TreeListViewItem Ptr)
+	If Item AndAlso Item->Nodes.Count = 0 Then 'AndAlso Item->Nodes.Item(0)->Text(0) = "" Then
+		ptabBottom->UpdateLock
+		Item->Nodes.Clear
+		Var Idx = ProfilingFunctions.IndexOf(Item->Text(0))
+		Dim As TreeListViewItem Ptr tlvi, parenttlvi
+		If Idx > -1 Then
+			Dim As ProfilingFunction Ptr pfuncitem, pfunc = ProfilingFunctions.Object(Idx)
+			parenttlvi = Item->Nodes.Add(ProfilingFunctions.Item(Idx), , 1)
+			parenttlvi->Text(1) = pfunc->Count
+			parenttlvi->Text(2) = pfunc->Time
+			parenttlvi->Text(3) = pfunc->Total
+			parenttlvi->Text(4) = pfunc->Proc
+			parenttlvi->Text(5) = pfunc->Mangled
+			For i As Integer = 0 To pfunc->Items.Count - 1
+				pfuncitem = pfunc->Items.Object(i)
+				tlvi = parenttlvi->Nodes.Add(pfunc->Items.Item(i), , 1)
+				tlvi->Text(1) = pfuncitem->Count
+				tlvi->Text(2) = pfuncitem->Time
+				tlvi->Text(3) = pfuncitem->Total
+				tlvi->Text(4) = pfuncitem->Proc
+				tlvi->Text(5) = pfuncitem->Mangled
+				'tlvi->Nodes.Add
+			Next
+		End If
+		ptabBottom->UpdateUnLock
+	End If
+End Sub
+
+Sub lvProfiler_ItemActivate(ByRef Designer As My.Sys.Object, ByRef Sender As TreeListView, ByRef Item As TreeListViewItem Ptr)
+	If Item = 0 Then Exit Sub
+	Dim As String ItemText = Item->Text(0), FuncName
+	Var Pos1 = InStr(ItemText, "(")
+	If Pos1 > 0 Then ItemText = Left(ItemText, Pos1 - 1)
+	Pos1 = InStr(ItemText, " [")
+	If Pos1 > 0 Then ItemText = Left(ItemText, Pos1 - 1)
+	Pos1 = InStrRev(ItemText, ".")
+	If Pos1 > 0 Then 
+		FuncName = Mid(ItemText, Pos1 + 1)
+	Else
+		FuncName = ItemText
+	End If
+	Dim As TypeElement Ptr te
+	Dim As Boolean bFinded
+	Var Idx = pGlobalTypeProcedures->IndexOf(FuncName)
+	If Idx <> -1 Then
+		For i As Integer = Idx To pGlobalTypeProcedures->Count - 1
+			If UCase(pGlobalTypeProcedures->Item(i)) <> UCase(FuncName) Then Exit For
+			te = pGlobalTypeProcedures->Object(i)
+			If UCase(te->FullName) = UCase(ItemText) Then
+				bFinded = True
+				Exit For
+			End If
+		Next
+	End If
+	If Not bFinded Then
+		Var Idx = pGlobalFunctions->IndexOf(FuncName)
+		If Idx <> -1 Then
+			For i As Integer = Idx To pGlobalFunctions->Count - 1
+				If UCase(pGlobalFunctions->Item(i)) <> UCase(FuncName) Then Exit For
+				te = pGlobalFunctions->Object(i)
+				If UCase(te->FullName) = UCase(ItemText) Then
+					bFinded = True
+					If Not te->Declaration Then Exit For
+				End If
+			Next
+		End If
+	End If
+	If bFinded Then
+		SelectSearchResult(te->FileName, te->StartLine + 2, 0, 0)
+	End If
+End Sub
+
+lvProfiler.Align = DockStyle.alClient
+lvProfiler.OwnerData = True
+lvProfiler.Columns.Add ML("Function"), , 500
+lvProfiler.Columns.Add ML("Count"), , 100, ColumnFormat.cfRight
+lvProfiler.Columns.Add ML("Time"), , 100, ColumnFormat.cfRight
+lvProfiler.Columns.Add ML("Total, %"), , 100, ColumnFormat.cfRight
+lvProfiler.Columns.Add ML("Proc, %"), , 100, ColumnFormat.cfRight
+lvProfiler.Columns.Add ML("Mangled"), , 500
+lvProfiler.StateImages = @imgListStates
+lvProfiler.Images = @imgListStates
+lvProfiler.OnItemExpanding = @lvProfiler_ItemExpanding
+lvProfiler.OnItemActivate = @lvProfiler_ItemActivate
 
 Sub tabRight_Click(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	If tabRight.TabPosition = tpRight And pnlRight.Width = 30 Then
@@ -9405,6 +10159,7 @@ tpProcedures = ptabBottom->AddTab(ML("Procedures"))
 tpThreads = ptabBottom->AddTab(ML("Threads"))
 tpWatches = ptabBottom->AddTab(ML("Watches"))
 tpMemory = ptabBottom->AddTab(ML("Memory"))
+tpProfiler = ptabBottom->AddTab(ML("Profiler"))
 tpOutput->Add @txtOutput
 tpProblems->Add @lvProblems
 tpSuggestions->Add @lvSuggestions
@@ -9421,6 +10176,7 @@ tpThreads->Add @tvThd
 tpWatches->Add @lvWatches
 tpWatches->Add @tvWch
 tpMemory->Add @lvMemory
+tpProfiler->Add @lvProfiler
 ptabBottom->OnClick = @tabBottom_Click
 ptabBottom->OnDblClick = @tabBottom_DblClick
 ptabBottom->OnSelChange = @tabBottom_SelChange
@@ -9440,7 +10196,7 @@ pnlBottomPin.Parent = @pnlBottom
 
 #ifdef __USE_WINAPI__
 	Dim Shared As Integer iLine, iChar, CanvasHeight, CanvasWidth
-	Sub Document_PrintPage(ByRef Sender As PrintDocument, ByRef Canvas As My.Sys.Drawing.Canvas, ByRef HasMorePages As Boolean)
+	Sub Document_PrintPage(ByRef Designer As My.Sys.Object, ByRef Sender As PrintDocument, ByRef Canvas As My.Sys.Drawing.Canvas, ByRef HasMorePages As Boolean)
 		Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If tb = 0 Then Return
 		Canvas.Font = tb->txtCode.Font
@@ -9932,6 +10688,9 @@ Sub frmMain_Create(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		pnlPropertyValue.SendToBack
 		pnlToolBox_Resize *pnlToolBox.Designer, pnlToolBox, pnlToolBox.Width, pnlToolBox.Height + 1
 	#endif
+	#ifdef __USE_WINAPI__
+		SetProp(frmMain.Handle, "VisualFBEditorApp", @VisualFBEditorApp)
+	#endif
 	
 	LoadToolBox
 	
@@ -10159,13 +10918,15 @@ Sub frmMain_Show(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	
 	Var File = Command(-1)
 	Var Pos1 = InStr(File, "2>CON")
+	Var bFileOpening = False
 	If Pos1 > 0 Then File = Left(File, Pos1 - 1)
 	If File <> "" AndAlso Right(LCase(File), 4) <> ".exe" Then
-		OpenFiles GetFullPath(File)
-	ElseIf bSharedFind Then
+		bFileOpening = True
+	End If
+	If bSharedFind Then
 		Select Case WhenVisualFBEditorStarts
-		Case 1: NewProject 'pfTemplates->ShowModal
-		Case 2: AddNew ExePath & Slash & "Templates" & Slash & WGet(DefaultProjectFile)
+		Case 1: If Not bFileOpening Then NewProject 'pfTemplates->ShowModal
+		Case 2: If Not bFileOpening Then AddNew ExePath & Slash & "Templates" & Slash & WGet(DefaultProjectFile)
 		Case 3:
 			Select Case LastOpenedFileType
 			Case 0: OpenFiles GetFullPath(*RecentFiles)
@@ -10175,6 +10936,9 @@ Sub frmMain_Show(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 			Case 4: OpenFiles GetFullPath(*RecentFile)
 			End Select
 		End Select
+	End If
+	If bFileOpening Then
+		OpenFiles GetFullPath(File)
 	End If
 	'	Var FILE = Command(-1)
 	'	Var Pos1 = InStr(file, "2>CON")
@@ -10316,9 +11080,27 @@ Sub frmMain_Close(ByRef Designer As My.Sys.Object, ByRef Sender As Form, ByRef A
 	Exit Sub
 	ErrorHandler:
 	MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-	"in line " & Erl() & " " & _
-	"in function " & ZGet(Erfn()) & " " & _
-	"in module " & ZGet(Ermn())
+	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
+End Sub
+
+Sub frmMain_Message(ByRef Designer As My.Sys.Object, ByRef Sender As Control, ByRef Msg As Message)
+	#ifdef __USE_WINAPI__
+		Select Case Msg.Msg
+		Case WM_COPYDATA
+			Dim pCDS As COPYDATASTRUCT Ptr = Cast(COPYDATASTRUCT Ptr, Msg.lParam)
+			Dim As ZString Ptr FileNameFromCmdLine = Cast(ZString Ptr, pCDS->lpData)
+			If FileNameFromCmdLine <> 0 Then
+				OpenFiles *FileNameFromCmdLine
+				If frmMain.WindowState = WindowStates.wsMinimized Then ShowWindow frmMain.Handle, SW_RESTORE
+				SetForegroundWindow frmMain.Handle
+				SetFocus frmMain.Handle
+				Msg.Result = -1
+				Return
+			End If
+		End Select
+	#endif
 End Sub
 
 Sub ToolBar_MouseUp(ByRef Designer As My.Sys.Object, ByRef Sender As Control, MouseButton As Integer, x As Integer, y As Integer, Shift As Integer)
@@ -10357,6 +11139,7 @@ frmMain.OnCreate = @frmMain_Create
 frmMain.OnShow = @frmMain_Show
 frmMain.OnClose = @frmMain_Close
 frmMain.OnDropFile = @frmMain_DropFile
+frmMain.OnMessage = @frmMain_Message
 frmMain.Menu = @mnuMain
 '#ifndef __USE_GTK__
 MainReBar.Add @tbStandard
@@ -10385,6 +11168,7 @@ Sub OnProgramStart() Constructor
 End Sub
 
 Sub OnProgramQuit() Destructor
+	If bQuitting Then Exit Sub
 	WDeAllocate(ProjectsPath)
 	WDeAllocate(LastOpenPath)
 	WDeAllocate(DefaultMakeTool)
@@ -10586,4 +11370,3 @@ Sub OnProgramQuit() Destructor
 		'pGlobalArgs->Remove i
 	Next
 End Sub
-

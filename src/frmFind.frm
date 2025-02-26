@@ -131,7 +131,7 @@ pfFind = @fFind
 			.Default = True
 			.TabIndex = 8
 			.Hint = ML("Find Next") & " (" & HK("Find Next", "F3") & ")"
-			.SetBounds 403, 1, 25, 21
+			.SetBounds 403, 1, 25, 22
 			.OnClick = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @btnFind_Click)
 			.Designer = @This
 			.Parent = @This
@@ -446,7 +446,7 @@ Sub frmFind.FindInProj(ByRef lvSearchResult As ListView Ptr, ByRef tSearch As WS
 				If EndsWith(LCase(f), ".bas") OrElse EndsWith(LCase(f), ".bi") OrElse EndsWith(LCase(f), ".rc") OrElse EndsWith(LCase(f), ".inc") _
 					OrElse EndsWith(LCase(f), ".txt") OrElse EndsWith(LCase(f), ".frm") OrElse EndsWith(LCase(f), ".html") _
 					OrElse EndsWith(LCase(f), ".vfp") OrElse EndsWith(LCase(f), ".htm") OrElse EndsWith(LCase(f), ".xml") OrElse EndsWith(LCase(f), ".cs") OrElse EndsWith(LCase(f), ".vb")  _
-					OrElse EndsWith(LCase(f), ".c") OrElse EndsWith(LCase(f), ".h") OrElse EndsWith(LCase(f), ".cpp") OrElse EndsWith(LCase(f), ".java") Then
+					OrElse EndsWith(LCase(f), ".c") OrElse EndsWith(LCase(f), ".cxx") OrElse EndsWith(LCase(f), ".h") OrElse EndsWith(LCase(f), ".idl") OrElse EndsWith(LCase(f), ".cpp") OrElse EndsWith(LCase(f), ".java") Then
 					Result = -1: Fn = FreeFile_
 					Result = Open(f For Input Encoding "utf-8" As #Fn)
 					If Result <> 0 Then Result = Open(f For Input Encoding "utf-16" As #Fn)
@@ -517,7 +517,7 @@ Private Sub frmFind.ReplaceInProj(ByRef tSearch As WString="", ByRef tReplace As
 				If EndsWith(LCase(f), ".bas") OrElse EndsWith(LCase(f), ".bi") OrElse EndsWith(LCase(f), ".rc") OrElse EndsWith(LCase(f), ".inc") _
 					OrElse EndsWith(LCase(f), ".txt") OrElse EndsWith(LCase(f), ".frm") OrElse EndsWith(LCase(f), ".html") _
 					OrElse EndsWith(LCase(f), ".vfp") OrElse EndsWith(LCase(f), ".htm") OrElse EndsWith(LCase(f), ".xml") OrElse EndsWith(LCase(f), ".cs") OrElse EndsWith(LCase(f), ".vb") _
-					OrElse EndsWith(LCase(f), ".c") OrElse EndsWith(LCase(f), ".h") OrElse EndsWith(LCase(f), ".cpp") OrElse EndsWith(LCase(f), ".java") Then
+					OrElse EndsWith(LCase(f), ".c") OrElse EndsWith(LCase(f), ".cxx") OrElse EndsWith(LCase(f), ".h") OrElse EndsWith(LCase(f), ".idl") OrElse EndsWith(LCase(f), ".cpp") OrElse EndsWith(LCase(f), ".java") Then
 					If LCase(tML) <> LCase(tReplace) Then
 						FNameOpen = GetBakFileName(f)
 						'David Change https://www.freebasic.net/forum/viewtopic.php?f=2&t=27370&p=257529&hilit=FileCopy#p257529
@@ -932,7 +932,7 @@ Private Sub frmFind.btnReplaceShow_Click(ByRef Sender As Control)
 	btnReplaceShow.Hint = IIf(mFormFind, ML("Expand to Replace Mode"), ML("Narrowdown to Find mode"))
 	btnReplace.Enabled = IIf(mFormFind, False, True)
 	btnReplaceAll.Enabled = IIf(mFormFind, False, True)
-	Height = IIf(mFormFind, 52, 82)
+	This.Size = Type<My.Sys.Drawing.Size>(433, IIf(mFormFind, 52, 82))
 	btnFind.SetFocus
 End Sub
 
@@ -1012,6 +1012,7 @@ Private Sub frmFind.Form_Show(ByRef Sender As Form)
 	End If
 	btnReplaceShow_Click(Sender)
 	txtFind.SetFocus
+	This.BringToFront
 End Sub
 
 Private Sub frmFind.TrackBar1_Change(ByRef Sender As TrackBar, Position As Integer)

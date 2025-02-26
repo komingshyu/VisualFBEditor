@@ -29,10 +29,12 @@ Common Shared As Integer IntellisenseLimit
 Common Shared As Integer TabAsSpaces
 Common Shared As KeyWordsCase ChoosedKeyWordsCase
 Common Shared As Integer ChoosedTabStyle
+Common Shared As Integer CodeEditorHoverTime
 Common Shared As Boolean SyntaxHighlightingIdentifiers
 Common Shared As Boolean ChangeIdentifiersCase
 Common Shared As Boolean ChangeKeyWordsCase
 Common Shared As Boolean AddSpacesToOperators
+Common Shared As Boolean WithFrame
 Common Shared As WStringOrStringList Ptr pkeywordsAsm, pkeywords0, pkeywords1, pkeywords2 ', pkeywords3
 
 Type ECColorScheme
@@ -390,6 +392,8 @@ Namespace My.Sys.Forms
 		Dim As Integer HCaretPos, VCaretPos
 		#ifdef __USE_GTK__
 			Dim As GtkTooltip Ptr tooltip
+			Dim As Integer dead_key
+			Dim As GtkIMContext Ptr im_context
 		#else
 			Dim As HDC hd
 			Dim As HDC bufDC
@@ -624,6 +628,7 @@ Namespace My.Sys.Forms
 		Declare Function VisibleLinesCount(CodePane As Integer = -1) As Integer
 		Declare Function Lines(Index As Integer) ByRef As WString
 		Declare Function LineLength(Index As Integer) As Integer
+		Declare Function SelTextLength As Integer
 		Declare Property Text ByRef As WString
 		Declare Property Text(ByRef Value As WString)
 		Declare Property HintDropDown ByRef As WString
@@ -706,6 +711,7 @@ Namespace My.Sys.Forms
 	
 	Dim Shared Constructions() As Construction
 	Dim Shared ElementTypeNames() As ElementType
+	Dim Shared As My.Sys.Drawing.BitmapType EditControlFrame
 	Common As EditControl Ptr CurEC, ScrEC
 	Common As Integer MiddleScrollIndexX, MiddleScrollIndexY
 End Namespace
@@ -740,6 +746,8 @@ Namespace My.Sys.Forms
 		Declare Sub EditControl_SizeAllocate(widget As GtkWidget Ptr, allocation As GdkRectangle Ptr, user_data As Any Ptr)
 		
 		Declare Sub EditControl_ScrollValueChanged(widget As GtkAdjustment Ptr, user_data As Any Ptr)
+		
+		Declare Sub EditControl_Commit(imcontext As GtkIMContext Ptr, sStr As ZString Ptr, ec As EditControl Ptr)
 	#endif
 End Namespace
 

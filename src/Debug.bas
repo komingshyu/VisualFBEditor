@@ -3064,6 +3064,8 @@ End Sub
 	'================================================
 	'' starts debuggee for linux
 	'================================================
+	Declare Function execv_ Alias "execv" (ByVal __path As Const ZString Ptr, ByVal __argv As Const ZString Ptr Ptr) As Long
+	
 	Private Sub start_pgm(p As Any Ptr)
 		
 		thread2=syscall(SYS_GETTID)
@@ -3088,7 +3090,7 @@ End Sub
 			End If
 			dbg_prt2 "name=";exename
 			Dim As String exename_ = exename
-			If execv(StrPtr(exename_), NULL) Then
+			If execv_(StrPtr(exename_), NULL) Then
 				dbg_prt2 "error on starting debuggee=";errno ' argv, envp)=-1
 				Exit Sub
 			End If
@@ -6037,7 +6039,7 @@ End Sub
 '' -----------------------
 Private Sub dbg_line(linenum As Integer, ofset As Integer)
 	If linenum Then
-		#Ifndef __FB_64BIT__
+		#ifndef __FB_64BIT__
 			''to skip stabd
 			If linenum<rline(linenb).nu Then
 				If procnb=rline(linenb).px Then
@@ -6460,14 +6462,45 @@ Private Sub var_ini(j As UInteger ,bg As Integer ,ed As Integer) 'store informat
 	Next
 End Sub
 
+Private Function var_search2(text As String, typ As Integer, tv As Any Ptr) As Integer
+	For i As Integer = udt(typ).lb To udt(typ).ub
+		If cudt(i).nm = text Then
+			Dim As Integer iUBound = i - udt(typ).lb
+			#ifdef __USE_WINAPI__
+				Dim As HTREEITEM hFirstChildOfProcThis, hChildOfThis
+				hFirstChildOfProcThis = Cast(HTREEITEM, SendMessage(tvVar.Handle, TVM_GETNEXTITEM, TVGN_CHILD, Cast(LPARAM, tv)))
+				hChildOfThis = Cast(HTREEITEM, SendMessage(tvVar.Handle, TVM_GETNEXTITEM, TVGN_CHILD, Cast(LPARAM, hFirstChildOfProcThis)))
+				For j As Integer = 1 To iUBound
+					hChildOfThis = Cast(HTREEITEM, SendMessage(tvVar.Handle, TVM_GETNEXTITEM, TVGN_NEXT, Cast(LPARAM, hChildOfThis)))
+				Next
+				Dim tvi As TVITEM
+				tvi.mask = TVIF_PARAM
+				tvi.hItem = hChildOfThis
+				SendMessage(tvVar.Handle, TVM_GETITEM, 0, Cast(LPARAM, @tvi))
+				Return tvi.lParam
+			#endif
+			Return -1
+		End If
+	Next
+	If cudt(udt(typ).lb).nm = "BASE$" Then
+		#ifdef __USE_WINAPI__
+			Dim As HTREEITEM hFirstChildOfProcThisOrBase
+			hFirstChildOfProcThisOrBase = Cast(HTREEITEM, SendMessage(tvVar.Handle, TVM_GETNEXTITEM, TVGN_CHILD, Cast(LPARAM, tv)))
+			Return var_search2(text, cudt(udt(typ).lb).typ, hFirstChildOfProcThisOrBase)
+		#endif
+		Return -1
+	End If
+	Return -1
+End Function
+
 Private Function var_search(pproc As Integer,text() As String,vnb As Integer,varr As Integer,vpnt As Integer=0) As Integer
-	Dim As Integer begv=procr(pproc).vr,endv=procr(pproc+1).vr,tvar=1,flagvar
+	Dim As Integer begv = procr(pproc).vr, endv = procr(pproc + 1).vr, tvar = 1, flagvar
 	'dbg_prt2("searching="+text(1)+"__"+text(2)+"***"+Str(vnb))'18/01/2015
 	flagvar=True 'either only a var either var then its components
 	While begv<endv And tvar<=vnb 'inside the local vars and all the elements (see parsing)
 		If flagvar Then
-			If vrr(begv).vr>0 Then 'var ok
-				If vrb(vrr(begv).vr).nm=text(tvar) Then 'name ok
+			If vrr(begv).vr > 0 Then 'var ok Then
+				If vrb(vrr(begv).vr).nm = text(tvar) Then 'name ok
 					'testing array or not
 					flagvar=0 'only one time
 					If tvar=vnb Then
@@ -6476,13 +6509,16 @@ Private Function var_search(pproc As Integer,text() As String,vnb As Integer,var
 						End If
 						
 					End If
-					tvar+=1 'next element, a component
+					tvar += 1 'next element, a component
+				ElseIf vrb(vrr(begv).vr).nm = "THIS" Then
+					Dim ivrr As Integer = var_search2(text(tvar), vrb(vrr(begv).vr).typ, procr(pproc).tv)
+					If ivrr <> -1 Then Return ivrr
 				End If
 			End If
 		Else
 			'component level
-			If vrr(begv).vr<0 Then
-				If cudt(Abs(vrr(begv).vr)).nm=text(tvar) Then
+			If vrr(begv).vr < 0 Then
+				If cudt(Abs(vrr(begv).vr)).nm = text(tvar) Then
 					If tvar=vnb Then
 						If (varr=1 AndAlso cudt(Abs(vrr(begv).vr)).arr<>0 ) OrElse (varr=0 And cudt(Abs(vrr(begv).vr)).arr=0) Then
 							Return begv'happy found !!!
@@ -6716,7 +6752,7 @@ Private Function var_find2(tv As Any Ptr) As Integer 'return -1 if error
 				varfind.ad = vrp1(idx, i).ad
 				varfind.tv=tv 'handle treeview
 				varfind.tl=hitem 'handle line
-				varfind.iv=-1
+				varfind.iv = -1
 				Return i
 			End If
 		Next
@@ -6782,6 +6818,56 @@ End Function
 			'If helpbx=0 Then helptyp=5:fb_Dialog(@help_box,"WString (ushort) : "+varfind.nm+"       (To change value use dump)" ,windmain,2,2,400,250)
 		End If
 	End Sub
+	
+	Function get_sh(i As Integer) As UString
+		Static As Byte wrapflag, buf(32004)
+		var_fill(i)
+		
+		If varfind.ty <> 4 And varfind.ty <> 13 And varfind.ty <> 14 And varfind.ty <> 6 Then 'or ty<>15 Then
+			Return ""
+		End If
+		stringadr = varfind.ad
+		If varfind.pt Then
+			ReadProcessMemory(dbghand, Cast(LPCVOID, stringadr), @stringadr, SizeOf(Integer), 0) 'string ptr 27/07/2015 64bit
+			If varfind.pt = 2 Then ReadProcessMemory(dbghand, Cast(LPCVOID, stringadr), @stringadr, SizeOf(Integer), 0) 'if two levels
+		End If
+		Dim f As Integer, inc As Integer = 32000, wstrg As WString * 32001, bufw As UShort
+		If varfind.ty <> 6 Then
+			If varfind.ty = 13 Then 'string Then
+				ReadProcessMemory(dbghand, Cast(LPCVOID, stringadr), @stringadr, SizeOf(Integer), 0) 'string address
+			End If
+			
+			f = stringadr
+			While inc <> 0
+				If ReadProcessMemory(dbghand, Cast(LPCVOID, f + inc), @buf(0), 4, 0) Then
+					f += inc
+					Exit While
+				Else
+					inc \= 2
+				End If
+			Wend
+			ReadProcessMemory(dbghand, Cast(LPCVOID, stringadr), @buf(0), f - stringadr, 0)
+			buf(f - stringadr + 1) = 0 'end of string if length >32000
+			
+			Return *Cast(WString Ptr, @buf(0))
+			'txt.Text = *Cast(String Ptr, @buf(0))
+			'If helpbx=0 Then helptyp=4:fb_Dialog(@help_box,"String : "+varfind.nm+"       (To change value use dump)" ,windmain,2,2,400,260)
+		Else
+			inc = 0: wstrg = ""
+			ReadProcessMemory(dbghand, Cast(LPCVOID, stringadr), @bufw, 2, 0)
+			While bufw
+				wstrg[inc] = bufw
+				inc += 1
+				If inc = 32000 Then Exit While 'limit if wstring >32000
+				ReadProcessMemory(dbghand, Cast(LPCVOID, stringadr + inc * 2), @bufw, 2, 0)
+			Wend
+			wstrg[inc] = 0 'end of wstring
+			Return wstrg
+			'SendMessage (hedit1,WM_SETFONT,Cast(WPARAM,fonthdl),0)
+			'setwindowtextw(hedit1,wstrg)
+			'If helpbx=0 Then helptyp=5:fb_Dialog(@help_box,"WString (ushort) : "+varfind.nm+"       (To change value use dump)" ,windmain,2,2,400,250)
+		End If
+	End Function
 	
 	Sub shwexp_new(tview As Any Ptr) '24/11/2014
 		Dim As Integer hitem,temp,typ,pt,rvadr
@@ -6907,7 +6993,7 @@ Private Function var_sh2(t As Integer,pany As UInteger,p As UByte = 0,sOffset As
 			If p>200 Then
 				varlib+="="+proc_name(*Ptrs.puinteger) 'proc name
 			Else
-				varlib+="="+Str(*Ptrs.puinteger) 'just the value
+				varlib += "=" + Str(*Ptrs.puinteger) 'just the value
 			End If
 		Else
 			varlib+=" No valid value"
@@ -6942,7 +7028,7 @@ Private Function var_sh2(t As Integer,pany As UInteger,p As UByte = 0,sOffset As
 					varlib+=Str(*Ptrs.pshort)
 				Case 6 'ushort
 					ReadProcessMemory(dbghand,Cast(LPCVOID,pany),@recup(0),2,0)
-					varlib+=Str(*Ptrs.pushort)
+					varlib += Str(*Ptrs.pushort)
 				Case 7 'void  '25/07/2015
 					ReadProcessMemory(dbghand,Cast(LPCVOID,pany),@recup(0),SizeOf(Integer),0)
 					varlib+=Str(*Ptrs.pvoid)
@@ -8229,7 +8315,7 @@ End Sub
 			If ladr<>rline(linenb).ad Then
 				linenb+=1
 			Else
-				writeprocessmemory(dbghand,Cast(LPVOID,rline(linenb).ad),@rline(linenb).sv,1,0)
+				WriteProcessMemory(dbghand,Cast(LPVOID,rline(linenb).ad),@rline(linenb).sv,1,0)
 			End If
 			'
 			rline(linenb).ad=ladr
@@ -8632,19 +8718,19 @@ Private Sub load_dat(ByVal ofset As Integer,ByVal size As Integer,ByVal ofstr As
 	Dim As Integer value
 	Dim As String strg
 	ofstr+=1 ''1 based
-	#Ifdef __FB_64BIT__
+	#ifdef __FB_64BIT__
 		Dim As LongInt buf(1) ''16 bytes
 	#else
 		Dim As Long buf(2) ''12 bytes
 	#endif
 	Dim As Integer ofsmax,ofstemp
-	#Ifdef __FB_64BIT__
+	#ifdef __FB_64BIT__
 		For ibuf As Integer =1 To size/16
 	#else
 		For ibuf As Integer =1 To size/12
 	#endif
 		Get #1,ofset+1,buf()
-		#Ifdef __FB_64BIT__
+		#ifdef __FB_64BIT__
 			stab.full=buf(0)
 		#else
 			stab.offst=buf(0)
@@ -8660,7 +8746,7 @@ Private Sub load_dat(ByVal ofset As Integer,ByVal size As Integer,ByVal ofstr As
 			ofsmax=ofstemp
 		End If
 		'dbg_prt2 strg,ofstr,stab.offst,ofsmax
-		#Ifdef __FB_64BIT__
+		#ifdef __FB_64BIT__
 			value=buf(1)
 		#else
 			value=buf(2)
@@ -8668,33 +8754,33 @@ Private Sub load_dat(ByVal ofset As Integer,ByVal size As Integer,ByVal ofstr As
 		'dbg_prt2 "D="+str(value)+" H="+hex(value)
 		
 		Select case As Const stab.cod
-		case 100 '' file name
+		Case 100 '' file name
 			dbg_file(strg,value)
-		case 255 ''not as standard stab freebasic version and maybe other information
+		Case 255 ''not as standard stab freebasic version and maybe other information
 			'dbg_prt2 "compiled with=";strg
-		case 32,38,40,128,160 'init common/ var / uninit var / local / parameter
+		Case 32,38,40,128,160 'init common/ var / uninit var / local / parameter
 			parse_var(strg,value)',exebase-baseimg) ''todo
-		case 132 '' file name
+		Case 132 '' file name
 			'dbg_prt2 "dbg include=";strg
 			dbg_include(strg)
-		case 36 ''procedure
+		Case 36 ''procedure
 			dbg_proc(strg,stab.desc,value)
-		case 68 ''line
+		Case 68 ''line
 			dbg_line(stab.desc,value)
-		case 224 ''address epilog
+		Case 224 ''address epilog
 			dbg_epilog(value)
-		case 42 ''main entry point
+		Case 42 ''main entry point
 			'not used
-		case 0
-			#Ifdef __FB_64BIT__
+		Case 0
+			#ifdef __FB_64BIT__
 				If ofsmax<>ofstr+7 Then
 					ofstr=ofsmax
 				End If
 			#endif
-		case Else
+		Case Else
 			dbg_prt2 "Unknow stab cod=";stab.cod
 		End Select
-		#Ifdef __FB_64BIT__
+		#ifdef __FB_64BIT__
 			ofset+=16
 		#else
 			ofset+=12
@@ -9349,7 +9435,7 @@ Private Sub thread_resume(thd As Integer=-1)
 			If thread(ith).sts=KTHD_STOP Then ''not those BLKD or INIT and useless those RUN
 				''restore old value for execution
 				If thread(ith).sv>0 Then ''if attachment no saved line
-					writeprocessmemory(dbghand,Cast(LPVOID,rline(thread(ith).sv).ad),@rline(thread(ith).sv).sv,1,0)
+					WriteProcessMemory(dbghand,Cast(LPVOID,rline(thread(ith).sv).ad),@rline(thread(ith).sv).sv,1,0)
 				End If
 				thread(ith).sts=KTHD_RUN
 				thread(ith).rtype=runtype
@@ -9473,6 +9559,7 @@ Private Sub process_terminated()
 	#endif
 	Var Result = ExitCode
 	ShowMessages(Time & ": " & ML("Application finished. Returned code") & ": " & Result & " - " & Err2Description(Result))
+	CheckProfiler GetFolderName(exename), exename
 	ChangeEnabledDebug True, False, False
 	#ifndef __USE_GTK__
 		If CurrentTimer <> 0 Then KillTimer 0, CurrentTimer
@@ -10102,6 +10189,15 @@ Private Function var_sh1(i As Integer) As String '23/04/2014
 				If Cast(Integer,.arr)=-1 Then soffset+=Str(vrr(i).ini)+" >> "  '19/05/2014
 				text+="<"+var_sh2(.typ,vrr(i).ad,.pt,soffset)
 			End If
+			#ifdef __USE_WINAPI__
+				If InStr(text, "Ushort") > 0 Then
+					Dim As UString result = get_sh(i)
+					If Len(result) > 75 Then
+						result = Left(result, 75) & "..."
+					End If
+					text += ": """ + result + """"
+				End If
+			#endif
 			Return text
 		End With
 	Else
@@ -10128,7 +10224,16 @@ Private Function var_sh1(i As Integer) As String '23/04/2014
 				text+="<Common / "
 			End Select
 			If Cast(Integer,.arr)=-1 Then soffset+=Str(vrr(i).ini+SizeOf(Integer))+" >> "  '25/07/2015
-			text+=var_sh2(.typ,adr,.pt,soffset)
+			text += var_sh2(.typ, adr, .pt, soffset)
+			#ifdef __USE_WINAPI__
+				If InStr(text, "Ushort") > 0 Then
+					Dim As UString result = get_sh(i)
+					If Len(result) > 75 Then
+						result = Left(result, 75) & "..."
+					End If
+					text += ": """ + result + """"
+				End If
+			#endif
 			Return text
 		End With
 	End If
@@ -10733,7 +10838,7 @@ Private Sub proc_new()
 	libel+=proc(procsv).nm+":"+proc_retval(procsv)
 	If flagverbose Then libel+=" ["+Str(proc(procsv).db)+"]"
 	
-	procr(procrnb).tv=Tree_AddItem(0,libel,tv,tviewvar, 0)
+	procr(procrnb).tv = Tree_AddItem(0, libel, tv, tviewvar, 0)
 	thread(threadcur).plt=procr(procrnb).tv 'keep handle last item
 	
 	'add new proc to thread treeview
@@ -15002,6 +15107,7 @@ Sub RunWithDebug(Param As Any Ptr)
 				#endif
 				ThreadsEnter()
 				ShowMessages(Time & ": " & ML("Application finished. Returned code") & ": " & Result & " - " & Err2Description(Result))
+				CheckProfiler GetFolderName(exename), exename
 				ChangeEnabledDebug True, False, False
 				ThreadsLeave()
 			ElseIf CurrentDebuggerType = IntegratedIDEDebugger Then
@@ -15030,11 +15136,12 @@ Sub RunWithDebug(Param As Any Ptr)
 				Result = Shell(CommandLine)
 				ThreadsEnter()
 				ShowMessages(Time & ": " & ML("Application finished. Returned code") & ": " & Result & " - " & Err2Description(Result))
+				CheckProfiler GetFolderName(exename), exename
 				ChangeEnabledDebug True, False, False
 				ThreadsLeave()
 			End If
 		End If
-		WDeAllocate Arguments
+		WDeAllocate(Arguments)
 		'Shell "gdb " & CmdL
 	#else
 		ShowMessages(Time & ": " & ML("Run") & ": " & *CmdL + " ...")
@@ -15045,14 +15152,17 @@ Sub RunWithDebug(Param As Any Ptr)
 			Dim As Unsigned Long ExitCode
 			exename = GetFullPath(WGet(DebuggerPath))
 			pClass = CREATE_UNICODE_ENVIRONMENT Or CREATE_NEW_CONSOLE
-			If CreateProcessW(@exename, CmdL, ByVal NULL, ByVal NULL, False, pClass, NULL, Workdir, @SInfo, @PInfo) Then
-				WaitForSingleObject PInfo.hProcess, INFINITE
-				GetExitCodeProcess(PInfo.hProcess, @ExitCode)
-				CloseHandle(PInfo.hProcess)
-				CloseHandle(PInfo.hThread)
+			Dim As WString Ptr pEnv = NULL
+			If TurnOnEnvironmentVariables AndAlso *EnvironmentVariables <> "" Then pEnv = EnvironmentVariables
+			If CreateProcessW(@exename, CmdL, ByVal NULL, ByVal NULL, False, pClass, pEnv, Workdir, @SInfo, @pinfo) Then
+				WaitForSingleObject pinfo.hProcess, INFINITE
+				GetExitCodeProcess(pinfo.hProcess, @ExitCode)
+				CloseHandle(pinfo.hProcess)
+				CloseHandle(pinfo.hThread)
 			End If
 			Result = ExitCode
 			ShowMessages(Time & ": " & ML("Application finished. Returned code") & ": " & Result & " - " & Err2Description(Result))
+			CheckProfiler GetFolderName(exename), exename
 			ChangeEnabledDebug True, False, False
 			'Shell """" & WGet(Debugger) & """ """ & exename & """"
 		Else
@@ -15072,6 +15182,7 @@ Sub RunWithDebug(Param As Any Ptr)
 				iFlagStartDebug = 1
 				run_debug(1)
 				ShowMessages(Time & ": " & ML("Application finished. Returned code") & ": " & Result & " - " & Err2Description(Result))
+				CheckProfiler GetFolderName(exename), exename
 				ChangeEnabledDebug True, False, False
 			Else
 				If check_bitness(exename) = 0 Then Exit Sub ''bitness of debuggee and Integrated IDE Debugger not corresponding
@@ -15121,9 +15232,9 @@ Sub RunWithDebug(Param As Any Ptr)
 	ErrorHandler:
 	ThreadsEnter()
 	MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-	"in line " & Erl() & " " & _
-	"in function " & ZGet(Erfn()) & " " & _
-	"in module " & ZGet(Ermn())
+	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
 	ThreadsLeave()
 End Sub
 

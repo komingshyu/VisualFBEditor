@@ -87,7 +87,7 @@ pfOptions = @fOptions
 		pnlCodeEditor.Text = ""
 		pnlCodeEditor.Align = DockStyle.alClient
 		pnlCodeEditor.TabIndex = 78
-		pnlCodeEditor.SetBounds 10, 0, 417, 400
+		pnlCodeEditor.SetBounds 10, 0, 417, 390
 		pnlCodeEditor.ControlIndex = 4
 		pnlCodeEditor.Parent = @pplGeneral
 		' pnlColorsAndFonts
@@ -752,6 +752,7 @@ pfOptions = @fOptions
 		chkAutoIndentation.Constraints.Height = 21
 		chkAutoIndentation.AutoSize = True
 		chkAutoIndentation.SetBounds 0, 2, 137, 21
+		chkAutoIndentation.ControlIndex = 0
 		chkAutoIndentation.Parent = @vbxCodeEditor
 		' chkEnableAutoComplete
 		chkEnableAutoComplete.Name = "chkEnableAutoComplete"
@@ -762,6 +763,7 @@ pfOptions = @fOptions
 		chkEnableAutoComplete.Constraints.Height = 21
 		chkEnableAutoComplete.AutoSize = True
 		chkEnableAutoComplete.SetBounds 0, 23, 161, 21
+		chkEnableAutoComplete.ControlIndex = 1
 		chkEnableAutoComplete.Parent = @vbxCodeEditor
 		' chkEnableAutoSuggestions
 		With chkEnableAutoSuggestions
@@ -770,10 +772,9 @@ pfOptions = @fOptions
 			.TabIndex = 228
 			.Align = DockStyle.alTop
 			.ControlIndex = 1
-			'.Caption = ML("Enable Auto Suggestions")
 			.Constraints.Height = 21
 			.AutoSize = True
-			.SetBounds 0, 44, 174, 21
+			.SetBounds 0, 23, 174, 21
 			.Designer = @This
 			.Parent = @vbxCodeEditor
 		End With
@@ -786,7 +787,23 @@ pfOptions = @fOptions
 		chkShowSpaces.Constraints.Height = 21
 		chkShowSpaces.AutoSize = True
 		chkShowSpaces.SetBounds 0, 65, 118, 21
+		chkShowSpaces.ControlIndex = 3
 		chkShowSpaces.Parent = @vbxCodeEditor
+		' chkShowHolidayFrame
+		With chkShowHolidayFrame
+			.Name = "chkShowHolidayFrame"
+			.Text = ML("Show Holiday Frame")
+			.TabIndex = 252
+			.Align = DockStyle.alTop
+			.AutoSize = True
+			.ControlIndex = 8
+			.Caption = ML("Show Holiday Frame")
+			.Constraints.Height = 21
+			.SetBounds 0, 86, 152, 21
+			.Designer = @This
+			.Parent = @vbxCodeEditor
+		End With
+			'.Caption = ML("Enable Auto Suggestions")
 		' chkShowKeywordsTooltip
 		With chkShowKeywordsTooltip
 			.Name = "chkShowKeywordsTooltip"
@@ -949,7 +966,7 @@ pfOptions = @fOptions
 		cboCase.Align = DockStyle.alRight
 		cboCase.ExtraMargins.Bottom = 2
 		cboCase.TabIndex = 32
-		cboCase.SetBounds 215, 0, 182, 21
+		cboCase.SetBounds 198, 0, 150, 21
 		cboCase.Parent = @pnlChangeKeywordsCase
 		' chkTabAsSpaces
 		chkTabAsSpaces.Name = "chkTabAsSpaces"
@@ -972,7 +989,7 @@ pfOptions = @fOptions
 		cboTabStyle.ExtraMargins.Top = 0
 		cboTabStyle.ExtraMargins.Bottom = 2
 		cboTabStyle.TabIndex = 34
-		cboTabStyle.SetBounds 215, 0, 182, 21
+		cboTabStyle.SetBounds 198, 0, 150, 21
 		cboTabStyle.Parent = @pnlTreatTabAsSpaces
 		' lblTabSize
 		lblTabSize.Name = "lblTabSize"
@@ -988,12 +1005,12 @@ pfOptions = @fOptions
 		txtTabSize.Name = "txtTabSize"
 		txtTabSize.Text = ""
 		txtTabSize.ExtraMargins.Left = 0
-		txtTabSize.ExtraMargins.Right = 130
+		txtTabSize.ExtraMargins.Right = 20
 		txtTabSize.ExtraMargins.Top = 0
 		txtTabSize.Align = DockStyle.alRight
 		txtTabSize.ExtraMargins.Bottom = 2
 		txtTabSize.TabIndex = 36
-		txtTabSize.SetBounds 215, 0, 72, 18
+		txtTabSize.SetBounds 198, 0, 72, 18
 		txtTabSize.Parent = @pnlTabSize
 		' lstIncludePaths
 		lstIncludePaths.Name = "lstIncludePaths"
@@ -1062,12 +1079,12 @@ pfOptions = @fOptions
 		' txtHistoryLimit
 		txtHistoryLimit.Name = "txtHistoryLimit"
 		txtHistoryLimit.ExtraMargins.Top = 0
-		txtHistoryLimit.ExtraMargins.Right = 130
+		txtHistoryLimit.ExtraMargins.Right = 20
 		txtHistoryLimit.ExtraMargins.Left = 0
 		txtHistoryLimit.Align = DockStyle.alRight
 		txtHistoryLimit.ExtraMargins.Bottom = 2
 		txtHistoryLimit.TabIndex = 38
-		txtHistoryLimit.SetBounds 215, 0, 72, 18
+		txtHistoryLimit.SetBounds 198, 0, 72, 18
 		txtHistoryLimit.Text = ""
 		txtHistoryLimit.Parent = @pnlHistoryLimit
 		' grbGrid
@@ -2256,11 +2273,11 @@ pfOptions = @fOptions
 			.Text = ""
 			.ExtraMargins.Left = 0
 			.ExtraMargins.Top = 0
-			.ExtraMargins.Right = 130
+			.ExtraMargins.Right = 20
 			.Align = DockStyle.alRight
 			.ControlIndex = 2
 			.ExtraMargins.Bottom = 2
-			.SetBounds 215, 0, 72, 18
+			.SetBounds 198, 0, 72, 18
 			.Parent = @pnlIntellisenseLimit
 		End With
 		' chkTurnOnEnvironmentVariables
@@ -2360,11 +2377,11 @@ pfOptions = @fOptions
 			.Text = "3"
 			.TabIndex = 198
 			.ExtraMargins.Top = 0
-			.ExtraMargins.Right = 130
+			.ExtraMargins.Right = 20
 			.ExtraMargins.Left = 0
 			.Align = DockStyle.alRight
 			.ExtraMargins.Bottom = 2
-			.SetBounds 215, 0, 72, 18
+			.SetBounds 198, 0, 72, 18
 			.Designer = @This
 			.Parent = @pnlHistoryFileSavingDays
 		End With
@@ -2683,12 +2700,12 @@ pfOptions = @fOptions
 		With txtAutoSaveCharMax
 			.Name = "txtAutoSaveCharMax"
 			.ExtraMargins.Top = 0
-			.ExtraMargins.Right = 130
+			.ExtraMargins.Right = 20
 			.ExtraMargins.Left = 0
 			.Align = DockStyle.alRight
 			.ExtraMargins.Bottom = 2
 			.TabIndex = 232
-			.SetBounds 215, 0, 72, 18
+			.SetBounds 198, 0, 72, 18
 			.Text = "100"
 			.Parent = @pnlAutoSaveCharMax
 		End With
@@ -2816,6 +2833,41 @@ pfOptions = @fOptions
 			.OnClick = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @cmdAddConfiguration_Click)
 			.Parent = @hbxConfigurations
 		End With
+		' pnlCodeEditorHoverTime
+		With pnlCodeEditorHoverTime
+			.Name = "pnlCodeEditorHoverTime"
+			.Text = "Panel1"
+			.TabIndex = 254
+			.Align = DockStyle.alTop
+			.ControlIndex = 18
+			.SetBounds 0, 384, 72, 20
+			.Designer = @This
+			.Parent = @vbxCodeEditor
+		End With
+		' lblCodeEditorHoverTime
+		With lblCodeEditorHoverTime
+			.Name = "lblCodeEditorHoverTime"
+			.Text = ML("Hover time") & ":"
+			.TabIndex = 255
+			.Align = DockStyle.alClient
+			.Caption = ML("Hover time") & ":"
+			.ExtraMargins.Left = 40
+			.ExtraMargins.Top = 2
+			.SetBounds 0, 0, 0, 20
+			.Designer = @This
+			.Parent = @pnlCodeEditorHoverTime
+		End With
+		' txtCodeEditorHoverTime
+		With txtCodeEditorHoverTime
+			.Name = "txtCodeEditorHoverTime"
+			.TabIndex = 257
+			.Align = DockStyle.alRight
+			.ExtraMargins.Bottom = 2
+			.ExtraMargins.Right = 20
+			.SetBounds 198, 0, 72, 18
+			.Designer = @This
+			.Parent = @pnlCodeEditorHoverTime
+		End With
 	End Constructor
 	
 	Private Sub frmOptions._txtColorIndicator_KeyPress(ByRef Designer As My.Sys.Object, ByRef Sender As Control, Key As Integer)
@@ -2886,6 +2938,7 @@ Sub frmOptions.LoadSettings()
 		.TreeView1_SelChange *.tvOptions.Designer, .tvOptions, * (.tvOptions.Nodes.Item(0))
 		.chkTabAsSpaces.Checked = TabAsSpaces
 		.cboTabStyle.ItemIndex = ChoosedTabStyle
+		.txtCodeEditorHoverTime.Text = Str(CodeEditorHoverTime)
 		.cboCase.ItemIndex = ChoosedKeyWordsCase
 		.chkSyntaxHighlightingIdentifiers.Checked = SyntaxHighlightingIdentifiers 
 		.chkChangeIdentifiersCase.Checked = ChangeIdentifiersCase
@@ -2938,6 +2991,7 @@ Sub frmOptions.LoadSettings()
 		.chkShowSymbolsTooltipsOnMouseHover.Checked = GlobalSettings.ShowSymbolsTooltipsOnMouseHover
 		.chkShowClassesExplorerOnOpenWindow.Checked = GlobalSettings.ShowClassesExplorerOnOpenWindow
 		.chkShowHorizontalSeparatorLines.Checked = ShowHorizontalSeparatorLines
+		.chkShowHolidayFrame.Checked = ShowHolidayFrame
 		.chkHighlightBrackets.Checked = HighlightBrackets
 		.chkHighlightCurrentLine.Checked = HighlightCurrentLine
 		.chkHighlightCurrentWord.Checked = HighlightCurrentWord
@@ -3580,11 +3634,13 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		GlobalSettings.ShowSymbolsTooltipsOnMouseHover = .chkShowSymbolsTooltipsOnMouseHover.Checked
 		GlobalSettings.ShowClassesExplorerOnOpenWindow = .chkShowClassesExplorerOnOpenWindow.Checked
 		ShowHorizontalSeparatorLines = .chkShowHorizontalSeparatorLines.Checked
+		ShowHolidayFrame = .chkShowHolidayFrame.Checked
 		HighlightBrackets = .chkHighlightBrackets.Checked
 		HighlightCurrentLine = .chkHighlightCurrentLine.Checked
 		HighlightCurrentWord = .chkHighlightCurrentWord.Checked
 		TabAsSpaces = .chkTabAsSpaces.Checked
 		ChoosedTabStyle = .cboTabStyle.ItemIndex
+		CodeEditorHoverTime = Val(.txtCodeEditorHoverTime.Text)
 		GridSize = Val(.txtGridSize.Text)
 		ShowAlignmentGrid = .chkShowAlignmentGrid.Checked
 		SnapToGridOption = .chkSnapToGrid.Checked
@@ -3762,10 +3818,12 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		piniSettings->WriteBool "Options", "ShowSymbolsTooltipsOnMouseHover", GlobalSettings.ShowSymbolsTooltipsOnMouseHover
 		piniSettings->WriteBool "Options", "ShowClassesExplorerOnOpenWindow", GlobalSettings.ShowClassesExplorerOnOpenWindow
 		piniSettings->WriteBool "Options", "ShowHorizontalSeparatorLines", ShowHorizontalSeparatorLines
+		piniSettings->WriteBool "Options", "ShowHolidayFrame", ShowHolidayFrame
 		piniSettings->WriteBool "Options", "HighlightBrackets", HighlightBrackets
 		piniSettings->WriteBool "Options", "HighlightCurrentLine", HighlightCurrentLine
 		piniSettings->WriteBool "Options", "HighlightCurrentWord", HighlightCurrentWord
 		piniSettings->WriteBool "Options", "TabAsSpaces", TabAsSpaces
+		piniSettings->WriteInteger "Options", "CodeEditorHoverTime", CodeEditorHoverTime
 		piniSettings->WriteInteger "Options", "GridSize", GridSize
 		piniSettings->WriteBool "Options", "ShowAlignmentGrid", ShowAlignmentGrid
 		piniSettings->WriteBool "Options", "SnapToGrid", SnapToGridOption
@@ -3798,7 +3856,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		pfrmMain->RequestAlign
 		SetDarkMode DarkMode, False
 		#ifdef __USE_WINAPI__
-			If DarkMode Then
+			If DarkMode AndAlso g_darkModeSupported Then
 				txtLabelProperty.BackColor = darkBkColor
 				txtLabelEvent.BackColor = darkBkColor
 				fAddIns.txtDescription.BackColor = GetSysColor(COLOR_WINDOW)
