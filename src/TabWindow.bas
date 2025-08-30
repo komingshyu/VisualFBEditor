@@ -343,6 +343,8 @@ Sub ChangeMenuItemsEnabled
 	miOpenProjectFolder->Enabled = bEnabled
 	miExplorerOpenProjectFolder->Enabled = bEnabled
 	miImageManager->Enabled = bEnabled
+	miRename->Enabled = bEnabled
+	miExplorerRename->Enabled = bEnabled
 	miRemoveFileFromProject->Enabled = bEnabled
 	tbtRemoveFileFromProject->Enabled = bEnabled
 	miFind->Enabled = bEnabled
@@ -430,7 +432,8 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 			Next i
 		End If
 	End If
-	ptabCode->UpdateLock
+	'ptabCode->UpdateLock
+	frmMain.UpdateLock
 	If Not bFind Then
 		tb = _New( TabWindow(FileNameNew, bNew, TreeN))
 		If tb = 0 Then
@@ -439,6 +442,7 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 			Return 0
 		End If
 		With *tb
+			tb->txtCode.Visible = False
 			frmMain.Cursor = crWait
 			If FileName <> "" Then
 				#ifndef __USE_GTK__
@@ -536,17 +540,12 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 					Next
 				End If
 			Else
-				#ifdef __FB_WIN32__
-					tb->NewLineType = NewLineTypes.WindowsCRLF
-					tb->FileEncoding = FileEncodings.Utf8BOM
-				#else
-					tb->NewLineType = NewLineTypes.LinuxLF
-					tb->FileEncoding = FileEncodings.Utf8
-				#endif
+				tb->NewLineType = DefaultNewLineFormat
+				tb->FileEncoding = DefaultFileFormat
 			End If
 			ChangeFileEncoding tb->FileEncoding
 			ChangeNewLineType tb->NewLineType
-			.FormDesign(bNoActivate)
+			.FormDesign '(bNoActivate)
 			If CBool(FileName <> "") AndAlso CBool(tb->Project <> 0) AndAlso (EndsWith(FileName, "Form.frm") OrElse EndsWith(FileName, "UserControl.bas")) Then
 				If Not tb->Project->Components.Contains("Controls/MyFbFramework") Then tb->Project->Components.Add "Controls/MyFbFramework"
 			End If
@@ -558,6 +557,7 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 			.txtCode.ScrollToCaret
 			ChangeMenuItemsEnabled
 			frmMain.Cursor = 0
+			tb->txtCode.Visible = True
 		End With
 		If tb->cboClass.Items.Count < 2 Then
 			miForm->Enabled = False
@@ -580,8 +580,10 @@ Function AddTab(ByRef FileName As WString = "", bNew As Boolean = False, TreeN A
 		TabCtl.MoveCloseButtons ptabCode
 	End If
 	tb->txtCode.SetFocus
-	ptabCode->UpdateUnLock
-	ptabCode->Update
+	frmMain.UpdateUnLock
+	frmMain.Update
+	'ptabCode->UpdateUnLock
+	'ptabCode->Update
 	TextChanged = False
 	TabAdding = False
 	Return tb
@@ -881,6 +883,7 @@ Operator TabWindow.Cast As TabPage Ptr
 End Operator
 
 Sub DeleteFromTypeElement(te As TypeElement Ptr)
+	If te->Elements.Count < 1 Then Return 
 	If te->ElementType <> E_Enum Then
 		For j As Integer = te->Elements.Count - 1 To 0 Step -1
 			DeleteFromTypeElement(te->Elements.Object(j))
@@ -1953,10 +1956,10 @@ Sub DesignerDeleteControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 	If tb->Des->DesignControl = 0 Then Exit Sub
 	If Ctrl = 0 Then Exit Sub
 	Dim FLine As WString Ptr
-	Dim frmName As WString * 100
-	Dim frmTypeName As WString * 100
-	Dim CtrlName As WString * 100
-	Dim CtrlNameNew As WString * 100
+	Dim frmName As WString * 255
+	Dim frmTypeName As WString * 255
+	Dim CtrlName As WString * 255
+	Dim CtrlNameNew As WString * 255
 	Dim As SymbolsType Ptr stDesignControl = tb->Des->Symbols(tb->Des->DesignControl)
 	Dim As SymbolsType Ptr st = tb->Des->Symbols(Ctrl)
 	If stDesignControl = 0 OrElse stDesignControl->ReadPropertyFunc = 0 Then Exit Sub
@@ -2034,7 +2037,7 @@ Sub DesignerDeleteControl(ByRef Sender As Designer, Ctrl As Any Ptr)
 		k = iStart
 		Do While k <= IIf(ptxtCode = @tb->txtCode, i, ptxtCode->LinesCount - 1)
 			WLet(FLine, Trim(LCase(ptxtCode->Lines(k)), Any !"\t "))
-			If Not b AndAlso StartsWith(*FLine & " ", "constructor " & LCase(frmTypeName) & " ") Then
+			If Not b AndAlso (StartsWith(*FLine, "constructor " & LCase(frmTypeName) & "(") OrElse StartsWith(*FLine & " ", "constructor " & LCase(frmTypeName) & " ")) Then
 				b = True
 			ElseIf b AndAlso StartsWith(*FLine & " ", "end constructor ") Then
 				Exit Do, Do
@@ -2090,12 +2093,12 @@ Function ChangeControl(ByRef Sender As Designer, Cpnt As Any Ptr, ByRef Property
 	If Cpnt = 0 Then Return 0
 	If tb->Des->DesignControl = 0 Then Return 0
 	'Dim As Integer iLeft, iTop, iWidth, iHeight
-	Dim frmName As WString * 100
-	Dim frmTypeName As WString * 100
-	Dim CtrlName As WString * 100
-	Dim CtrlNameBase As WString * 100
-	Dim BeforeCtrlName As WString * 100
-	Dim AfterCtrlName As WString * 100
+	Dim frmName As WString * 255
+	Dim frmTypeName As WString * 255
+	Dim CtrlName As WString * 255
+	Dim CtrlNameBase As WString * 255
+	Dim BeforeCtrlName As WString * 255
+	Dim AfterCtrlName As WString * 255
 	Dim As SymbolsType Ptr stDesignControl = tb->Des->Symbols(tb->Des->DesignControl)
 	Dim As SymbolsType Ptr st = tb->Des->Symbols(Cpnt)
 	Dim As SymbolsType Ptr stBeforeCtrl = tb->Des->Symbols(BeforeCtrl)
@@ -2207,7 +2210,7 @@ Function ChangeControl(ByRef Sender As Designer, Cpnt As Any Ptr, ByRef Property
 	t = False
 	For i = i To tb->txtCode.LinesCount - 1
 		For k = iStart To IIf(ptxtCode = @tb->txtCode, i, ptxtCode->LinesCount - 1)
-			If StartsWith(Trim(LCase(ptxtCode->Lines(k)), Any !"\t ") & " ", "constructor " & LCase(frmName) & " ") Or StartsWith(Trim(LCase(ptxtCode->Lines(k)), Any !"\t ") & " ", "constructor " & LCase(frmName) & "type ") Then
+			If StartsWith(Trim(LCase(ptxtCode->Lines(k)), Any !"\t ") & " ", "constructor " & LCase(frmName) & " ") OrElse StartsWith(Trim(LCase(ptxtCode->Lines(k)), Any !"\t ") & " ", "constructor " & LCase(frmName) & "type ") OrElse StartsWith(Trim(LCase(ptxtCode->Lines(k)), Any !"\t "), "constructor " & LCase(frmName) & "(") OrElse StartsWith(Trim(LCase(ptxtCode->Lines(k)), Any !"\t "), "constructor " & LCase(frmName) & "type(") Then
 				sc = k
 				b = True
 				sl = Len(ptxtCode->Lines(k)) - Len(LTrim(ptxtCode->Lines(k), Any !"\t "))
@@ -2250,7 +2253,7 @@ Function ChangeControl(ByRef Sender As Designer, Cpnt As Any Ptr, ByRef Property
 					bWith = WithArgs.Count > 0 AndAlso WithArgs.Item(WithArgs.Count - 1) = CtrlName
 					Var p = InStr(ptxtCode->Lines(k), ".")
 					If p Then
-						If StartsWith(Trim(LCase(Mid(ptxtCode->Lines(k), p + 1)), Any !"\t "), "setbounds ") Then
+						If StartsWith(Trim(LCase(Mid(ptxtCode->Lines(k), p + 1)), Any !"\t "), "setbounds ") OrElse StartsWith(Trim(LCase(Mid(ptxtCode->Lines(k), p + 1)), Any !"\t "), "setbounds(") Then
 							n = k
 							If iLeft <> -1 AndAlso iTop <> -1 AndAlso iWidth <> -1 AndAlso iHeight <> - 1 Then
 								iLeft1 = iLeft
@@ -2261,7 +2264,7 @@ Function ChangeControl(ByRef Sender As Designer, Cpnt As Any Ptr, ByRef Property
 								tb->Des->GetControlBounds(Cpnt, iLeft1, iTop1, iWidth1, iHeight1)
 							End If
 							CheckBi(ptxtCode, txtCodeBi, ptxtCodeBi, tb)
-							ptxtCode->ReplaceLine k, ..Left(ptxtCode->Lines(k), p + 10) & iLeft1 & ", " & iTop1 & ", " & iWidth1 & ", " & iHeight1
+							ptxtCode->ReplaceLine k, ..Left(ptxtCode->Lines(k), p + 9) & " " &  iLeft1 & ", " & iTop1 & ", " & iWidth1 & ", " & iHeight1
 							'Ctrl2 = Cast(Control Ptr, Cpnt)
 							'.ReplaceLine i, ..Left(.Lines(i), p + Len(LCase(CtrlName)) + 10) & Ctrl2->Left & ", " & Ctrl2->Top & ", " & Ctrl2->Width & ", " & Ctrl2->Height
 							If LCase(PropertyName) = "left" OrElse LCase(PropertyName) = "top" OrElse LCase(PropertyName) = "width" OrElse LCase(PropertyName) = "height" Then t = True
@@ -2526,13 +2529,13 @@ Sub TabWindow.ChangeName(ByRef OldName As WString, ByRef NewName As WString)
 						ptxtCode->ReplaceLine k, ..Left(ptxtCode->Lines(k), Pos1) & NewName & Mid(ptxtCode->Lines(k), Len(OldName) + Pos1 + 1)
 					End If
 				End If
-			ElseIf StartsWith(LCase(LTrim(ptxtCode->Lines(k), Any !"\t ")) & " ", "constructor " & LCase(frmName) & " ") Then
+			ElseIf StartsWith(LCase(LTrim(ptxtCode->Lines(k), Any !"\t ")) & " ", "constructor " & LCase(frmName) & " ") OrElse StartsWith(LCase(LTrim(ptxtCode->Lines(k), Any !"\t ")), "constructor " & LCase(frmName) & "(") Then
 				If iIndex = 1 Then
 					CheckBi(ptxtCode, txtCodeBi, ptxtCodeBi, tb)
 					ptxtCode->ReplaceLine k, ..Left(ptxtCode->Lines(k), Len(ptxtCode->Lines(k)) - Len(LTrim(ptxtCode->Lines(k), Any !"\t "))) & ..Left(LTrim(ptxtCode->Lines(k), Any !"\t "), 12) & NewName & Mid(LTrim(ptxtCode->Lines(k), Any !"\t "), Len(frmName) + 13)
 				End If
 				b = True
-			ElseIf StartsWith(LCase(LTrim(ptxtCode->Lines(k), Any !"\t ")) & " ", "constructor " & LCase(frmName) & "type ") Then
+			ElseIf StartsWith(LCase(LTrim(ptxtCode->Lines(k), Any !"\t ")) & " ", "constructor " & LCase(frmName) & "type ") Orelse StartsWith(LCase(LTrim(ptxtCode->Lines(k), Any !"\t ")), "constructor " & LCase(frmName) & "type(") Then
 				If iIndex = 1 Then
 					CheckBi(ptxtCode, txtCodeBi, ptxtCodeBi, tb)
 					ptxtCode->ReplaceLine k, ..Left(ptxtCode->Lines(k), Len(ptxtCode->Lines(k)) - Len(LTrim(ptxtCode->Lines(k), Any !"\t "))) & ..Left(LTrim(ptxtCode->Lines(k), Any !"\t "), 12) & NewName & "Type" & Mid(LTrim(ptxtCode->Lines(k), Any !"\t "), Len(frmName & "Type") + 13)
@@ -3202,56 +3205,152 @@ Sub OnLineChangeEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, B
 	Var tb = Cast(TabWindow Ptr, Sender.Tag)
 	If tb = 0 Then Exit Sub
 	bNotFunctionChange = True
-	If TextChanged AndAlso tb->txtCode.SyntaxEdit Then
-		With tb->txtCode
-			'If Not .Focused Then bNotFunctionChange = False: Exit Sub
-			If OldLine > -1 AndAlso OldLine < .Content.Lines.Count Then
-				Dim As EditControlLine Ptr ecl = Cast(EditControlLine Ptr, .Content.Lines.Items[OldLine])
-				If CInt(ecl->CommentIndex = 0) Then
-					If CInt(EndsWith(RTrim(*ecl->Text), "++") OrElse EndsWith(RTrim(*ecl->Text), "--")) AndAlso CInt(IsArg(Asc(Mid(RTrim(*ecl->Text), Len(RTrim(*ecl->Text)) - 2, 1)))) Then
-						Dim As UString res(Any), b
-						Split(*ecl->Text, """", res())
-						For j As Integer = 0 To UBound(res)
-							If j = 0 Then
-								b = res(0)
-							ElseIf j Mod 2 = 0 Then
-								b &= """" & res(j)
-							Else
-								b &= """" & WSpace(Len(res(j)))
+	If tb->txtCode.SyntaxEdit Then
+		If CurrentLine > -1 AndAlso CurrentLine < tb->txtCode.Content.Lines.Count Then
+			Dim As EditControlLine Ptr ecl = Cast(EditControlLine Ptr, tb->txtCode.Content.Lines.Items[CurrentLine])
+			ecl->OldConstructionIndex = ecl->ConstructionIndex
+			ecl->OldConstructionPart = ecl->ConstructionPart
+		End If
+		If TextChanged Then
+			With tb->txtCode
+				'If Not .Focused Then bNotFunctionChange = False: Exit Sub
+				If OldLine > -1 AndAlso OldLine < .Content.Lines.Count Then
+					Dim As EditControlLine Ptr ecl = Cast(EditControlLine Ptr, .Content.Lines.Items[OldLine])
+					If CInt(ecl->CommentIndex = 0) Then
+						If CInt(EndsWith(RTrim(*ecl->Text), "++") OrElse EndsWith(RTrim(*ecl->Text), "--")) AndAlso CInt(IsArg(Asc(Mid(RTrim(*ecl->Text), Len(RTrim(*ecl->Text)) - 2, 1)))) Then
+							Dim As UString res(Any), b
+							Split(*ecl->Text, """", res())
+							For j As Integer = 0 To UBound(res)
+								If j = 0 Then
+									b = res(0)
+								ElseIf j Mod 2 = 0 Then
+									b &= """" & res(j)
+								Else
+									b &= """" & WSpace(Len(res(j)))
+								End If
+							Next
+							WLet(ecl->Text, RTrim(..Left(*ecl->Text, Len(RTrim(*ecl->Text)) - 2)) & Right(RTrim(*ecl->Text), 1) & "=1")
+							b &= "1"
+						End If
+						If ChangeKeyWordsCase Then
+							
+						End If
+						If AddSpacesToOperators Then
+							tb->AddSpaces OldLine, OldLine
+							'						Dim As UString c, cn, cp
+							'						For i As Integer = Len(b) To 1 Step -1
+							'							c = Mid(b, i, 1)
+							'							cn = Mid(b, i + 1, 1)
+							'							cp = Mid(b, i - 1, 1)
+							'							If InStr("+-*/\<>&=',:;", c) Then
+							'								If CInt(IsArg(Asc(cn)) OrElse InStr("{[("")]}*@", cn) > 0) AndAlso CInt(Mid(*ecl->Text, i, 2) <> "&H" AndAlso CInt(c <> "'")) AndAlso CInt(c <> "-" OrElse InStr("+-*/=", Right(RTrim(..Left(*ecl->Text, i - 1)), 1)) = 0 AndAlso LCase(Right(RTrim(..Left(*ecl->Text, i - 1)), 6)) <> "return") AndAlso CInt(Mid(*ecl->Text, i - 1, 2) <> "->") AndAlso CInt(CInt(c <> "*") OrElse CInt(IsNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn)))) OrElse CInt(InStr(",:;", c) > 0 AndAlso cn <> "" AndAlso cn <> " " AndAlso cn <> !"\t") Then
+							'									WLetEx ecl->Text, ..Left(*ecl->Text, i) & " " & Mid(*ecl->Text, i + 1), True
+							'								End If
+							'								If CInt(CInt(IsArg(Asc(cp)) OrElse InStr("{[("")]}", cp) > 0) AndAlso CInt(c <> ",") AndAlso CInt(c <> ":") AndAlso CInt(c <> ";") AndAlso CInt(Mid(*ecl->Text, i, 2) <> "->") AndAlso CInt(CInt(c <> "*") OrElse CInt(IsNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn))))) OrElse CInt(CInt(c = "-") AndAlso CInt(cp <> " ") AndAlso CInt(cp <> !"\t") AndAlso CInt(IsArg(Asc(cn))) AndAlso CInt(InStr("+-*/=", Right(RTrim(..Left(*ecl->Text, i - 1)), 1)) > 0)) Then
+							'									WLetEx ecl->Text, ..Left(*ecl->Text, i - 1) & " " & Mid(*ecl->Text, i), True
+							'								End If
+							'							End If
+							'						Next
+							'If Trim(*ecl->Text, Any !"\t ") <> "" Then WLetEx ecl->Text, RTrim(*ecl->Text, Any !"\t "), True
+						End If
+						If ChangeEndingType Then
+							Dim As EditControlStatement Ptr ecs, ecsOld
+							Dim As EditControlLine Ptr eclFirst
+							Dim As IntegerList iList
+							Dim As Boolean bFind
+							eclFirst = ecl
+							If eclFirst->OldConstructionIndex >= IIf(ChoosedConstructions = ConstructionTypes.OnlyProcedures, 18, 0) AndAlso eclFirst->OldConstructionPart = 0 _
+								AndAlso eclFirst->ConstructionIndex >= IIf(ChoosedConstructions = ConstructionTypes.OnlyProcedures, 18, 0) AndAlso eclFirst->ConstructionPart = 0 _
+								AndAlso eclFirst->OldConstructionIndex <> eclFirst->ConstructionIndex Then
+								For j As Integer = OldLine To .Content.Lines.Count - 1
+									ecl = Cast(EditControlLine Ptr, .Content.Lines.Items[j])
+									For i As Integer = 0 To ecl->Statements.Count - 1
+										ecs = ecl->Statements.Item(i)
+										If Not bFind Then
+											If ecs->ConstructionIndex = ecl->ConstructionIndex AndAlso ecs->ConstructionPart = 0 Then
+												bFind = True
+											End If
+										ElseIf bFind Then
+											If ecs->ConstructionIndex = eclFirst->OldConstructionIndex Then
+												If ecs->ConstructionPart = 0 Then
+													iList.Add eclFirst->OldConstructionIndex
+												ElseIf ecs->ConstructionPart = 2 Then
+													If iList.Count > 0 AndAlso ecs->ConstructionNextCount < iList.Count Then
+														iList.Remove iList.Count - 1
+														For k As Integer = 0 To ecs->ConstructionNextCount - 1
+															If iList.Count > 0 Then
+																iList.Remove iList.Count - 1
+															End If
+														Next
+													Else
+														Dim As UString Text, TextOld
+														Dim As Integer s = 1
+														For k As Integer = 0 To i - 1
+															ecsOld = ecl->Statements.Item(k)
+															Text &= Mid(*ecl->Text, s, Len(*ecsOld->Text)) & ":"
+															s += Len(*ecsOld->Text) + 1
+														Next
+														ecsOld = ecl->Statements.Item(i)
+														TextOld = Mid(*ecl->Text, s, Len(*ecsOld->Text))
+														Text &= Left(TextOld, Len(TextOld) - Len(LTrim(TextOld, Any !"\t ")))
+														For k As Integer = 0 To iList.Count - 1
+															Text &= Constructions(eclFirst->OldConstructionIndex).EndName & ": "
+														Next
+														Text &= Constructions(eclFirst->ConstructionIndex).EndName
+														For k As Integer = iList.Count To ecsOld->ConstructionNextCount - 1
+															Text &= ": " & Constructions(eclFirst->OldConstructionIndex).EndName
+														Next
+														s += Len(*ecsOld->Text) + 1
+														For k As Integer = i + 1 To ecl->Statements.Count - 1
+															ecsOld = ecl->Statements.Item(k)
+															Text &= ":" & Mid(*ecl->Text, s, Len(*ecsOld->Text))
+															s += Len(*ecsOld->Text) + 1
+														Next
+														.ReplaceLine j, Text
+														Exit For, For
+													End If
+												End If
+											Else
+												If iList.Count = 0 Then
+													If CBool(LCase(Trim(*ecs->Text, Any !"\t ")) = LCase("Exit " & Constructions(eclFirst->OldConstructionIndex).Name0)) _
+														OrElse EndsWith(LCase(Trim(*ecs->Text, Any !"\t ")), LCase(" Exit " & Constructions(eclFirst->OldConstructionIndex).Name0)) _
+														OrElse CBool(LCase(Trim(*ecs->Text, Any !"\t ")) = LCase("Continue " & Constructions(eclFirst->OldConstructionIndex).Name0)) _
+														OrElse EndsWith(LCase(Trim(*ecs->Text, Any !"\t ")), LCase(" Continue " & Constructions(eclFirst->OldConstructionIndex).Name0)) Then
+														Dim As UString Text, TextOld
+														Dim As Integer s = 1
+														For k As Integer = 0 To i - 1
+															ecsOld = ecl->Statements.Item(k)
+															Text &= Mid(*ecl->Text, s, Len(*ecsOld->Text)) & ":"
+															s += Len(*ecsOld->Text) + 1
+														Next
+														ecsOld = ecl->Statements.Item(i)
+														TextOld = Mid(*ecl->Text, s, Len(*ecsOld->Text))
+														Text &= Left(TextOld, Len(RTrim(TextOld, Any !"\t ")) - Len(Constructions(eclFirst->OldConstructionIndex).Name0)) & Constructions(eclFirst->ConstructionIndex).Name0
+														s += Len(*ecsOld->Text) + 1
+														For k As Integer = i + 1 To ecl->Statements.Count - 1
+															ecsOld = ecl->Statements.Item(k)
+															Text &= ":" & Mid(*ecl->Text, s, Len(*ecsOld->Text))
+															s += Len(*ecsOld->Text) + 1
+														Next
+														.ReplaceLine j, Text
+													End If
+												End If
+											End If
+										End If
+									Next
+									If Not bFind Then Exit For
+								Next
 							End If
-						Next
-						WLet(ecl->Text, RTrim(..Left(*ecl->Text, Len(RTrim(*ecl->Text)) - 2)) & Right(RTrim(*ecl->Text), 1) & "=1")
-						b &= "1"
-					End If
-					If ChangeKeyWordsCase Then
-						
-					End If
-					If AddSpacesToOperators Then
-						tb->AddSpaces OldLine, OldLine
-						'						Dim As UString c, cn, cp
-						'						For i As Integer = Len(b) To 1 Step -1
-						'							c = Mid(b, i, 1)
-						'							cn = Mid(b, i + 1, 1)
-						'							cp = Mid(b, i - 1, 1)
-						'							If InStr("+-*/\<>&=',:;", c) Then
-						'								If CInt(IsArg(Asc(cn)) OrElse InStr("{[("")]}*@", cn) > 0) AndAlso CInt(Mid(*ecl->Text, i, 2) <> "&H" AndAlso CInt(c <> "'")) AndAlso CInt(c <> "-" OrElse InStr("+-*/=", Right(RTrim(..Left(*ecl->Text, i - 1)), 1)) = 0 AndAlso LCase(Right(RTrim(..Left(*ecl->Text, i - 1)), 6)) <> "return") AndAlso CInt(Mid(*ecl->Text, i - 1, 2) <> "->") AndAlso CInt(CInt(c <> "*") OrElse CInt(IsNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn)))) OrElse CInt(InStr(",:;", c) > 0 AndAlso cn <> "" AndAlso cn <> " " AndAlso cn <> !"\t") Then
-						'									WLetEx ecl->Text, ..Left(*ecl->Text, i) & " " & Mid(*ecl->Text, i + 1), True
-						'								End If
-						'								If CInt(CInt(IsArg(Asc(cp)) OrElse InStr("{[("")]}", cp) > 0) AndAlso CInt(c <> ",") AndAlso CInt(c <> ":") AndAlso CInt(c <> ";") AndAlso CInt(Mid(*ecl->Text, i, 2) <> "->") AndAlso CInt(CInt(c <> "*") OrElse CInt(IsNumeric(cn)) OrElse CInt(Not IsArg(Asc(cn))))) OrElse CInt(CInt(c = "-") AndAlso CInt(cp <> " ") AndAlso CInt(cp <> !"\t") AndAlso CInt(IsArg(Asc(cn))) AndAlso CInt(InStr("+-*/=", Right(RTrim(..Left(*ecl->Text, i - 1)), 1)) > 0)) Then
-						'									WLetEx ecl->Text, ..Left(*ecl->Text, i - 1) & " " & Mid(*ecl->Text, i), True
-						'								End If
-						'							End If
-						'						Next
-						'If Trim(*ecl->Text, Any !"\t ") <> "" Then WLetEx ecl->Text, RTrim(*ecl->Text, Any !"\t "), True
+						End If
 					End If
 				End If
-			End If
-			If tb->tbrTop.Buttons.Item("Code")->Checked AndAlso CBool(OldLine = -1 OrElse (OldLine >= tb->ConstructorStart AndAlso OldLine <= tb->ConstructorEnd)) Then
-				tb->FormNeedDesign = True
-			End If
-			tb->FormDesign bNotDesignForms OrElse tb->tbrTop.Buttons.Item("Code")->Checked OrElse (CBool(OldLine < tb->ConstructorStart) AndAlso CBool(OldLine <> -1)) OrElse CBool(OldLine > tb->ConstructorEnd) 'Not EndsWith(tb->cboFunction.Text, " [Constructor]")
-		End With
-		TextChanged = False
+				If tb->tbrTop.Buttons.Item("Code")->Checked AndAlso CBool(OldLine = -1 OrElse (OldLine >= tb->ConstructorStart AndAlso OldLine <= tb->ConstructorEnd)) Then
+					tb->FormNeedDesign = True
+				End If
+				tb->FormDesign bNotDesignForms OrElse tb->tbrTop.Buttons.Item("Code")->Checked OrElse (CBool(OldLine < tb->ConstructorStart) AndAlso CBool(OldLine <> -1)) OrElse CBool(OldLine > tb->ConstructorEnd) 'Not EndsWith(tb->cboFunction.Text, " [Constructor]")
+			End With
+			TextChanged = False
+		End If
 	End If
 	'    If tb->cboClass.ItemIndex <> 0 Then
 	'        tb->cboClass.ItemIndex = 0
@@ -3377,7 +3476,7 @@ Sub FindEvent(tbw As TabWindow Ptr, Cpnt As Any Ptr, EventName As String)
 						End If
 					End If
 				ElseIf e Then
-					If (Not c) AndAlso StartsWith(LCase(Trim(ptxtCode->Lines(k), Any !"\t ")) & " ", "constructor " & LCase(frmTypeName) & " ") Then
+					If (Not c) AndAlso (StartsWith(LCase(Trim(ptxtCode->Lines(k), Any !"\t ")) & " ", "constructor " & LCase(frmTypeName) & " ") OrElse StartsWith(LCase(Trim(ptxtCode->Lines(k), Any !"\t ")), "constructor " & LCase(frmTypeName) & "(")) Then
 						c = True
 						ptxtCodeConstructor = ptxtCode
 					ElseIf c Then
@@ -5021,11 +5120,11 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 			End If
 			Index = pGlobalFunctions->IndexOf(sWord)
 			If Index > -1 Then
-				Dim As WString Ptr res(Any)
 				For i As Integer = Index To pGlobalFunctions->Count - 1
 					te = pGlobalFunctions->Object(i)
 					If CBool(te <> 0) AndAlso CBool(LCase(te->Name) = LCase(sWord)) Then 'AndAlso CBool(Not te->TypeProcedure)
 						If CInt(Not ParametersList.Contains(te->Parameters)) Then
+							Dim As WString Ptr res(Any)
 							Split te->Parameters, !"\r", res()
 							For n As Integer = 0 To UBound(res)
 								Parameter = *res(n) 'te->Parameters
@@ -5144,9 +5243,19 @@ Sub OnSelChangeEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, By
 	MouseHoverTimerVal = Timer
 	Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 	tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+	Dim As String UnicodeStr = Hex(tb->txtCode.Lines(iSelEndLine)[iSelEndChar], 4)
+	If Len(UnicodeStr) > 3 Then
+		If Mid(UnicodeStr, 1, 2) = "00" Then
+			UnicodeStr = " HEX: " & UnicodeStr & " (ASC: " & Val("&H" & UnicodeStr) & ")"
+		Else
+			UnicodeStr = " HEX: " & UnicodeStr & " (DEC: " & Val("&H" & UnicodeStr) & ")"
+		End If
+	Else
+		UnicodeStr = ""
+	End If
 	pstBar->Panels[1]->Caption = ML("Row") + " " + WStr(iSelEndLine + 1) + " : " + WStr(tb->txtCode.LinesCount) + WSpace(2) + _
-	ML("Column") + " " + WStr(iSelEndChar) + " : " + WStr(Len(tb->txtCode.Lines(iSelEndLine))) + WSpace(2) + _
-	ML("Selection") + " " + WStr(tb->txtCode.SelTextLength )
+	ML("Column") + " " + WStr(iSelEndChar + 1) + " : " + WStr(Len(tb->txtCode.Lines(iSelEndLine)) + 1) + WSpace(2) + _
+	ML("Selection") + " " + WStr(tb->txtCode.SelTextLength ) + " " + UnicodeStr
 	If Not tb->txtCode.ToolTipShowed Then Exit Sub
 	Dim sLine As WString Ptr = @tb->txtCode.Lines(iSelEndLine)
 	Dim As WStringList ParametersList
@@ -5260,7 +5369,7 @@ End Sub
 '	Return sTemp
 'End Function
 
-Function GetChangedCommas(Value As String, FromSecond As Boolean = False) As String
+Function GetChangedCommas(ByRef Value As WString, FromSecond As Boolean = False) As String
 	Dim As String ch, Text
 	Dim As Boolean b, bQ
 	Dim As Integer iCount = IIf(FromSecond, -1, 0)
@@ -6849,7 +6958,7 @@ Sub AnalyzeTab(Param As Any Ptr)
 											'Mid(*FECLine->Text, MatnBoshi + IIf(WithOldSymbol, 1, 0), j - MatnBoshi + 1) = OriginalCaseWord
 										End If
 									ElseIf tIndex = -1 Then
-										If isNumeric(Matn) OrElse isNumeric(MatnWithoutOldSymbol) Then
+										If IsNumeric(Matn) OrElse IsNumeric(MatnWithoutOldSymbol) Then
 											If InStr(Matn, ".") Then
 												sc = @RealNumbers
 											Else
@@ -7230,7 +7339,8 @@ End Sub
 Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As WString, ByRef FileName As WString, func As TypeElement Ptr, LineIndex As Integer, ECLine As EditControlLine Ptr, ByRef ECLines As List, ByRef InCondition As String, Declaration As Boolean, AddArgs As Boolean, tb As TabWindow Ptr = 0, u1 As Integer = 0)
 	If Parameters <> "" Then
 		If CBool(ECLine <> 0) AndAlso AddArgs Then ECLine->Args.Add func
-		Dim As UString CurType, res1(Any), ElementValue
+		Dim As WString * 255 CurType, ElementValue
+		Dim As WString Ptr res1(Any)
 		Dim As Integer Pos1, Pos2, l, c, u = u1, uu, ct
 		For i As Integer = Pos5 To Len(bTrim) - 1
 			l += 1
@@ -7249,56 +7359,56 @@ Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As
 		uu = u
 		For n As Integer = 0 To UBound(res1)
 			u = uu
-			uu += Len(res1(n)) + 1
-			u += Len(res1(n)) - Len(LTrim(res1(n)))
-			res1(n) = Trim(Replace(res1(n), ";", ","))
-			Pos1 = InStr(res1(n), "=")
+			uu += Len(*res1(n)) + 1
+			u += Len(*res1(n)) - Len(LTrim(*res1(n)))
+			*res1(n) = Trim(Replace(*res1(n), ";", ","))
+			Pos1 = InStr(*res1(n), "=")
 			If Pos1 > 0 Then
-				ElementValue = Trim(Mid(res1(n), Pos1 + 1))
-				u += Len(res1(n)) - Len(LTrim(res1(n)))
-				res1(n) = Trim(..Left(res1(n), Pos1 - 1))
+				ElementValue = Trim(Mid(*res1(n), Pos1 + 1))
+				u += Len(*res1(n)) - Len(LTrim(*res1(n)))
+				*res1(n) = Trim(..Left(*res1(n), Pos1 - 1))
 			Else
 				ElementValue = ""
 			End If
-			Pos1 = InStr(LCase(res1(n)), " as ")
+			Pos1 = InStr(LCase(*res1(n)), " as ")
 			If Pos1 > 0 Then
-				CurType = Trim(Mid(res1(n), Pos1 + 4))
+				CurType = Trim(Mid(*res1(n), Pos1 + 4))
 				CurType = Replace(CurType, "`", "=")
 				'Pos2 = InStr(CurType, "*")  'David Change,  a As WString*2
-				'If Pos2 > 1 Then CurType = Trim(Mid(res1(n), Pos1 + Len("as") + 2, Pos2 - Pos1 - Len("as") - 1)) Else CurType = Trim(Mid(res1(n), Pos1 + Len("as") + 2))
-				'If Pos1 > 0 Then 
-					u += Len(res1(n)) - Len(LTrim(res1(n)))
-					res1(n) = Trim(..Left(res1(n), Pos1 - 1))
+				'If Pos2 > 1 Then CurType = Trim(Mid(*res1(n), Pos1 + Len("as") + 2, Pos2 - Pos1 - Len("as") - 1)) Else CurType = Trim(Mid(*res1(n), Pos1 + Len("as") + 2))
+				'If Pos1 > 0 Then
+				u += Len(*res1(n)) - Len(LTrim(*res1(n)))
+				*res1(n) = Trim(..Left(*res1(n), Pos1 - 1))
 				'End If
 			End If
 			Var te = _New( TypeElement)
-			If res1(n).ToLower.StartsWith("byref") Then
-				u += Len(res1(n)) - Len(LTrim(Mid(res1(n), 6)))
-				res1(n) = Trim(Mid(res1(n), 6))
+			If StartsWith(LCase(*res1(n)), "byref") Then
+				u += Len(*res1(n)) - Len(LTrim(Mid(*res1(n), 6)))
+				*res1(n) = Trim(Mid(*res1(n), 6))
 				te->ElementType = E_ByRefParameter
-			ElseIf res1(n).ToLower.StartsWith("byval") Then
-				u += Len(res1(n)) - Len(LTrim(Mid(res1(n), 6)))
-				res1(n) = Trim(Mid(res1(n), 6))
+			ElseIf StartsWith(LCase(*res1(n)), "byval") Then
+				u += Len(*res1(n)) - Len(LTrim(Mid(*res1(n), 6)))
+				*res1(n) = Trim(Mid(*res1(n), 6))
 				te->ElementType = E_ByValParameter
 			Else
 				te->ElementType = E_ByValParameter
 			End If
-			Pos1 = InStr(res1(n), "(")
+			Pos1 = InStr(*res1(n), "(")
 			If Pos1 > 0 Then
-				u += Len(res1(n)) - Len(LTrim(res1(n)))
-				res1(n) = Trim(..Left(res1(n), Pos1 - 1))
+				u += Len(*res1(n)) - Len(LTrim(*res1(n)))
+				*res1(n) = Trim(..Left(*res1(n), Pos1 - 1))
 			End If
-			u += Len(res1(n)) - Len(LTrim(res1(n).TrimAll))
-			res1(n) = res1(n).TrimAll
-			If (Not (CurType.ToLower.StartsWith("sub") OrElse CurType.ToLower.StartsWith("function"))) AndAlso LCase(CurType) <> "my.sys.object" Then
+			u += Len(*res1(n)) - Len(Trim(*res1(n)))
+			*res1(n) = Trim(*res1(n))
+			If (Not (StartsWith(LCase(CurType), "sub") OrElse StartsWith(LCase(CurType), "function"))) AndAlso LCase(CurType) <> "my.sys.object" Then
 				Pos1 = InStrRev(CurType, ".")
 				If Pos1 > 0 Then CurType = Mid(CurType, Pos1 + 1)
 			End If
-			te->Name = res1(n)
+			te->Name = *res1(n)
 			te->InCondition = InCondition
 			te->Declaration = Declaration
-			te->DisplayName = res1(n)
-			te->TypeIsPointer = CurType.ToLower.EndsWith(" pointer") OrElse CurType.ToLower.EndsWith(" ptr")
+			te->DisplayName = *res1(n)
+			te->TypeIsPointer = EndsWith(LCase(CurType), " pointer") OrElse EndsWith(LCase(CurType), " ptr")
 			'te->ElementType = IIf(StartsWith(LCase(te->TypeName), "sub("), "Event", "Property")
 			te->TypeName = CurType
 			te->TypeName = WithoutPointers(te->TypeName)
@@ -7307,8 +7417,8 @@ Sub SplitParameters(ByRef bTrim As WString, Pos5 As Integer, ByRef Parameters As
 			te->StartLine = LineIndex
 			te->EndLine = LineIndex
 			te->StartChar = u
-			te->EndChar = u + Len(res1(n))
-			te->Parameters = res1(n) & " As " & CurType
+			te->EndChar = u + Len(*res1(n))
+			te->Parameters = *res1(n) & " As " & CurType
 			te->FileName = FileName
 			te->Tag = tb
 			SetLineAndCharParameters te, ECLines
@@ -8170,10 +8280,6 @@ Sub LoadFunctionsWithContent(ByRef FileName As WString, ByRef Project As Project
 									If UBound(res1) > -1 Then
 										CurType = ..Left(CurType, Pos1 + Len(*res1(0)))
 									End If
-									For n As Integer = 0 To UBound(res1)
-										Deallocate res1(n)
-									Next n
-									Erase res1
 								End If
 							Else
 								Split GetChangedCommas(b2), ",", res1()
@@ -8509,6 +8615,17 @@ Sub AddTypeNodes(tn As TreeNode Ptr, te As TypeElement Ptr)
 		AddTypeNodes(tnChild, te->Elements.Object(i))
 	Next
 End Sub
+
+Function TrimAll(ByRef Value As WString) As UString
+	Dim As Integer CountReplaced
+	Dim As UString ChangedValue = Value
+	Do
+		ChangedValue = Replace(ChangedValue, "  ", " ", , , , CountReplaced)
+	Loop While CountReplaced > 0
+	ChangedValue = Replace(ChangedValue, "( ", "(")
+	ChangedValue = Replace(ChangedValue, " )", ")")
+	Return ChangedValue
+End Function
 
 Sub TabWindow.FormDesign(NotForms As Boolean = False)
 	On Error Goto ErrorHandler
@@ -8892,6 +9009,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 			'For jj As Integer = 0 To UBound(res)
 			For jj As Integer = 0 To ECLine->Statements.Count - 1
 				ECStatement = ECLine->Statements.Items[jj]
+				ECStatement->ConstructionPartCount = ECStatement->ConstructionNextCount
 				If ptxtCode = @txtCode Then
 					ECStatement->InConstruction = 0
 					ECStatement->InConstructionBlock = 0
@@ -8936,9 +9054,9 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 				'l = Len(res(jj))
 				l = Len(b2)
 				b = Mid(b1, k, l)
-				b0 = Mid(b2, k, l)
+				b0 = Mid(b1, k, l)
 				bTrim = Trim(b, Any !"\t ")
-				b0Trim = Trim(Mid(b2, k, l))
+				b0Trim = Trim(Mid(b1, k, l))
 				bTrimLCase = LCase(bTrim)
 				b0TrimLCase = LCase(Trim(b0, Any !"\t "))
 				u = k
@@ -9164,6 +9282,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									End If
 									te->TypeName = WithoutPointers(te->TypeName)
 								End If
+								te->Parameters = TrimAll(te->Parameters)
 								Select Case ECStatement->ConstructionIndex
 								Case C_P_Macro: te->ElementType = E_Macro
 								Case C_Enum: te->ElementType = E_Enum
@@ -9541,11 +9660,11 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 								Var Pos2 = InStr(LCase(b2), "), @")
 								'b2 = Trim(Mid(b0Trim, InStr(b0Trim, " ")))
 							End If
-							Dim As WString * 255 CurType, ElementValue
+							Dim As WString * 2048 CurType, ElementValue
 							Dim As WString Ptr res1(Any)
 							Dim As Boolean bShared, bOldAs
-							'Pos1 = InStr(b2, "'")
-							'If Pos1 > 0 Then b2 = Trim(..Left(b2, Pos1 - 1))
+							Pos1 = InStr(b2, "'")
+							If Pos1 > 0 Then b2 = Trim(..Left(b2, Pos1 - 1))
 							If StartsWith(LCase(b2), "shared ") Then bShared = True: u += Len(b2) - Len(Trim(Mid(b2, 7))): b2 = Trim(Mid(b2, 7))
 							If StartsWith(LCase(b2), "import ") Then u += Len(b2) - Len(Trim(Mid(b2, 7))): b2 = Trim(Mid(b2, 7))
 							If StartsWith(LCase(b2), "byref ") Then u += Len(b2) - Len(Trim(Mid(b2, 6))): b2 = Trim(Mid(b2, 6))
@@ -9571,10 +9690,6 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									If UBound(res1) > -1 Then
 										CurType = ..Left(CurType, Pos1 + Len(*res1(0)))
 									End If
-									'For n As Integer = 0 To UBound(res1)
-									'	Deallocate res1(n)
-									'Next n
-									'Erase res1
 								End If
 							Else
 								Split GetChangedCommas(b2), ",", res1()
@@ -9690,7 +9805,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									End If
 								End If
 								If te->ElementType = E_Event Then
-									Dim As WString * 255 bTrim = CurType
+									Dim As WString * 2048 bTrim = CurType
 									Pos2 = InStrRev(bTrim, ")")
 									Pos5 = InStr(bTrim, "(")
 									If Pos2 > 0 AndAlso Pos5 > 0 Then
@@ -9698,7 +9813,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 									End If
 								ElseIf StartsWith(LCase(te->Value), "cast(sub(") Then
 									te->ElementType = ElementTypes.E_ByRefParameter
-									Dim As WString * 255 bTrim = te->Value
+									Dim As WString * 2048 bTrim = te->Value
 									Pos5 = 9
 									Pos2 = InStr(Pos5 + 1, bTrim, ")")
 									If Pos2 > 0 AndAlso Pos5 > 0 Then
@@ -9890,7 +10005,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 								End If
 							End If
 						End If
-					ElseIf CInt(Not c) AndAlso CInt(StartsWith(LTrim(LCase(*FLine), Any !"\t ") & " ", "constructor " & LCase(frmTypeName) & " ")) Then
+					ElseIf CInt(Not c) AndAlso (CInt(StartsWith(LTrim(LCase(*FLine), Any !"\t ") & " ", "constructor " & LCase(frmTypeName) & " ")) OrElse CInt(StartsWith(LTrim(LCase(*FLine), Any !"\t "), "constructor " & LCase(frmTypeName) & "("))) Then
 						ConstructorStart = j
 						c = True
 					ElseIf CInt(c) AndAlso Trim(LCase(*FLine), Any !"\t ") = "end constructor" Then
@@ -9961,9 +10076,14 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 											End If
 										End If
 									End If
-								ElseIf LCase(Mid(*FLine, p + 1, 10)) = "setbounds " Then
+								ElseIf LCase(Mid(*FLine, p + 1, 10)) = "setbounds " OrElse LCase(Mid(*FLine, p + 1, 10)) = "setbounds(" Then
 									lLeft = 0: lTop = 0: lWidth = 0: lHeight = 0
-									sText = Mid(*FLine, p + 10)
+									p1 = InStr(p + 10, *FLine, "(")
+									If p1 > 0 Then 
+										sText = Trim(Mid(*FLine, p1 + 1))
+									Else
+										sText = Trim(Mid(*FLine, p + 10))
+									End If
 									p1 = InStr(sText, ",")
 									If p1 > 0 Then
 										lLeft = Val(..Left(sText, p1 - 1))
@@ -10013,9 +10133,9 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 		If Not bSelControlFind Then
 			Des->SelectedControl = Des->DesignControl
 			#ifdef __USE_GTK__
-				Dim As GtkWidget Ptr Widget
-				If Des->SymbolsReadProperty(Des->SelectedControl) Then Widget = Des->Symbols(Des->SelectedControl)->ReadPropertyFunc(Des->SelectedControl, "Widget")
-				If Widget <> 0 Then gtk_widget_show_all(Widget)
+				Dim As GtkWidget Ptr widget
+				If Des->SymbolsReadProperty(Des->SelectedControl) Then widget = Des->Symbols(Des->SelectedControl)->ReadPropertyFunc(Des->SelectedControl, "Widget")
+				If widget <> 0 Then gtk_widget_show_all(widget)
 			#else
 				Dim As HWND Ptr DesCtrlHandle
 				If Des->SymbolsReadProperty(Des->SelectedControl) Then DesCtrlHandle = Des->Symbols(Des->SelectedControl)->ReadPropertyFunc(Des->DesignControl, "Handle")
@@ -10023,7 +10143,7 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 			#endif
 			If Des->SelectedControls.Count > 1 Then Des->MoveDots Des->SelectedControl, False
 		End If
-	Dim As WString * 255 PropertyName, TempWS
+		Dim As WString * 2048 PropertyName, TempWS
 		For i As Integer = 0 To plvProperties->Nodes.Count - 1
 			PropertyName = GetItemText(plvProperties->Nodes.Item(i))
 			TempWS = ReadObjProperty(Des->SelectedControl, PropertyName)
@@ -10241,9 +10361,17 @@ mnuCode.Add(ML("Define"), "", "Define", @mClick)
 mnuCode.Add("-")
 mnuCode.Add(ML("Convert to Lowercase"), "", "ConvertToLowercase", @mClick)
 mnuCode.Add(ML("Convert to Uppercase"), "", "ConvertToUppercase", @mClick)
+mnuCode.Add(ML("Capitalize only the first letter"), "", "ConvertToUppercaseFirstLetter", @mClick)
+mnuCode.Add("-")
+mnuCode.Add(ML("Convert to Unicode Hex String"), "", "ConvertToHexStrUnicode", @mClick)
+mnuCode.Add(ML("Convert From Unicode Hex String"), "", "ConvertFromHexStrUnicode", @mClick)
+mnuCode.Add("-")
+mnuCode.Add(ML("Split Lines"), "", "SplitLines", @mClick)
+mnuCode.Add(ML("Combine Lines"), "", "CombineLines", @mClick)
 mnuCode.Add("-")
 mnuCode.Add(ML("Sort Lines"), "", "SortLines", @mClick)
 mnuCode.Add(ML("Format With Basis Word"), "", "FormatWithBasisWord", @mClick)
+
 Sub pnlForm_Message(ByRef Designer As My.Sys.Object, ByRef Sender As Control, ByRef msg As Message)
 	Dim As Panel Ptr pnl = Cast(Panel Ptr, @Sender)
 	Dim As TabWindow Ptr tb = Cast(TabWindow Ptr, pnl->Parent)
@@ -10987,7 +11115,7 @@ End Sub
 
 Function SplitError(ByRef sLine As WString, ByRef ErrFileName As WString Ptr, ByRef ErrTitle As WString Ptr, ByRef ErrorLine As Integer) As UShort
 	Dim As Integer Pos0, Pos1, Pos2, Pos3 'David Change for ML
-	Dim As WString * 50 bFlagErr = ""
+	Dim As WString * 255 bFlagErr = ""
 	WLet(ErrFileName, "")
 	WLet(ErrTitle, sLine)
 	ErrorLine = 0
@@ -12097,7 +12225,7 @@ Sub RunEmulator(Param As Any Ptr)
 					Split sOutput, Chr(10), res1()
 					For n As Integer = 0 To UBound(res1)
 						If i = 0 Then
-
+							AvdName = *res1(n)
 							If EndsWith(AvdName, Chr(13)) Then
 								AvdName = Left(AvdName, Len(AvdName) - 1)
 							End If
@@ -12219,7 +12347,7 @@ Sub TypeNameConstruct(ByRef Result As String, ByRef TypeNameRef As String, ByRef
 End Sub
 
 Function DemangleGccClangName(ByRef mangledName As String) As String
-	If Left(mangledName, 3) <> "__Z" Then
+	If Left(mangledName, 3) <> "__Z" AndAlso Left(mangledName, 2) <> "_Z" Then
 		Return mangledName
 	End If
 	
@@ -12260,7 +12388,7 @@ Function DemangleGccClangName(ByRef mangledName As String) As String
 		While pos1 <= Len(demangled)
 			Select Case Mid(demangled, pos1, 1)
 			Case "E"
-				If EndsWith(demangledResult, ", ") Then 
+				If EndsWith(demangledResult, ", ") Then
 					demangledResult = Left(demangledResult, Len(demangledResult) - 2) & "(), "
 				Else
 					demangledResult = Replace(demangledResult, "(", "") & "("
@@ -12329,6 +12457,8 @@ Function DemangleGccClangName(ByRef mangledName As String) As String
 	Return demangledResult
 End Function
 
+#include once "mff/DoubleList.bi"
+
 Sub CheckProfiler(ByRef WorkDir As WString, ByRef ExeName As WString)
 	If Not mnuUseProfiler->Checked Then Exit Sub
 	Dim As Integer Result, i, l, n, f = FreeFile_
@@ -12336,6 +12466,7 @@ Sub CheckProfiler(ByRef WorkDir As WString, ByRef ExeName As WString)
 	Dim As Boolean bStarted
 	Dim As ProfilingFunction Ptr pfunc
 	Dim As WStringList Ptr oldList
+	Dim As DoubleList dList
 	Dim As TreeListViewItem Ptr tlvi, oldtlvi, Globaltlvi
 	lvProfiler.Nodes.Clear
 	For i As Integer = ProfilingFunctions.Count - 1 To 0 Step -1
@@ -12367,17 +12498,32 @@ Sub CheckProfiler(ByRef WorkDir As WString, ByRef ExeName As WString)
 			ElseIf bStarted Then
 				'tlvi = Globaltlvi->Nodes.Add(Trim(Left(Buff, l - 30)))
 				'tlvi = lvProfiler.Nodes.Add(Trim(Left(Buff, l - 30)), , 1)
-				tlvi = lvProfiler.Nodes.Add(DemangleGccClangName(Trim(Left(Buff, l - 31))) & vbTab & Trim(Mid(Buff, l - (40 - n), 8)) & vbTab & Trim(Mid(Buff, l - (32 - n), 12)) & vbTab & Trim(Mid(Buff, l - (20 - n), 11)) & vbTab & Trim(Mid(Buff, l - (9 - n), 10)) & vbTab & Trim(Left(Buff, l - 31)), , 1)
-				'tlvi->Nodes.Add
-			Else
 				pfunc = New ProfilingFunction
-				pfunc->Count = Trim(Mid(Buff, l - (40 - n), 8))
+				pfunc->Count = Trim(Mid(Buff, l - (45 - n), 13))
 				pfunc->Time = Trim(Mid(Buff, l - (32 - n), 12))
 				pfunc->Total = Trim(Mid(Buff, l - (20 - n), 11))
 				pfunc->Proc = Trim(Mid(Buff, l - (9 - n), 10))
-				pfunc->Mangled = Trim(Left(Buff, l - 30))
+				pfunc->Mangled = Trim(Left(Buff, l - 36))
+				'If EndsWith(pfunc->Mangled, "lld") Then pfunc->Mangled = Trim(Left(pfunc->Mangled, Len(pfunc->Mangled) - 3))
+				dList.Add Val(pfunc->Time), pfunc
+				'tlvi = lvProfiler.Nodes.Add( _
+				'DemangleGccClangName(Trim(Left(Buff, l - 31))) & vbTab & _
+				'Trim(Mid(Buff, l - (40 - n), 8)) & vbTab & _
+				'Trim(Mid(Buff, l - (32 - n), 12)) & vbTab & _
+				'Trim(Mid(Buff, l - (20 - n), 11)) & vbTab & _
+				'Trim(Mid(Buff, l - (9 - n), 10)) & vbTab & _
+				'Trim(Left(Buff, l - 31)), , 1)
+				'tlvi->Nodes.Add
+			Else
+				pfunc = New ProfilingFunction
+				pfunc->Count = Trim(Mid(Buff, l - (45 - n), 13))
+				pfunc->Time = Trim(Mid(Buff, l - (32 - n), 12))
+				pfunc->Total = Trim(Mid(Buff, l - (20 - n), 11))
+				pfunc->Proc = Trim(Mid(Buff, l - (9 - n), 10))
+				pfunc->Mangled = Trim(Left(Buff, l - 35))
+				'If EndsWith(pfunc->Mangled, "lld") Then pfunc->Mangled = Trim(Left(pfunc->Mangled, Len(pfunc->Mangled) - 3))
 				oldList = @pfunc->Items
-				ProfilingFunctions.Add DemangleGccClangName(Trim(Left(Buff, l - 30))), pfunc
+				ProfilingFunctions.Add DemangleGccClangName(pfunc->Mangled), pfunc
 			'	tlvi = lvProfiler.Nodes.Add(Trim(Left(Buff, l - 30)), , 1)
 			'	oldtlvi = tlvi
 				Continue Do
@@ -12393,35 +12539,44 @@ Sub CheckProfiler(ByRef WorkDir As WString, ByRef ExeName As WString)
 			'tlvi->Text(4) = Trim(Mid(Buff, l - (9 - n), 10))
 		Else
 			pfunc = New ProfilingFunction
-			pfunc->Count = Trim(Mid(Buff, l - (40 - n), 8))
+			pfunc->Count = Trim(Mid(Buff, l - (45 - n), 13))
 			pfunc->Time = Trim(Mid(Buff, l - (32 - n), 12))
 			pfunc->Total = Trim(Mid(Buff, l - (20 - n), 11))
 			pfunc->Proc = Trim(Mid(Buff, l - (9 - n), 10))
-			pfunc->Mangled = Trim(Left(Buff, l - 40))
-			oldList->Add DemangleGccClangName(Trim(Left(Buff, l - 40))), pfunc
+			pfunc->Mangled = Trim(Left(Buff, l - 45))
+			'If EndsWith(pfunc->Mangled, "lld") Then pfunc->Mangled = Trim(Left(pfunc->Mangled, Len(pfunc->Mangled) - 3))
+			oldList->Add DemangleGccClangName(pfunc->Mangled), pfunc
 		End If
 	Loop
 	Close #f
+	dList.Sort
+	For i As Integer = dList.Count - 1 To 0 Step -1
+		pfunc = dList.Object(i)
+		tlvi = lvProfiler.Nodes.Add( _
+				DemangleGccClangName(pfunc->Mangled) & vbTab & _
+				pfunc->Count & vbTab & _
+				pfunc->Time & vbTab & _
+				pfunc->Total & vbTab & _
+				pfunc->Proc & vbTab & _
+				pfunc->Mangled, , 1)
+		_Delete(Cast(ProfilingFunction Ptr, pfunc))
+	Next
 	lvProfiler.Nodes.Count = lvProfiler.Nodes.Count
 	lvProfiler.UpdateUnLock
 End Sub
 
-Sub RunPr(Debugger As String = "")
+Sub RunPr(Debugger As String = "", ByRef ProjectFileName As WString, ByRef ProjectCommandLineArguments As WString, ByRef MainFile As WString, ByRef CompileLine As WString, ByRef FirstLine As WString)
 	On Error Goto ErrorHandler
 	Dim Result As Integer
-	Dim As ProjectElement Ptr Project
-	Dim As TreeNode Ptr ProjectNode
-	Dim As UString CompileLine, MainFile = GetMainFile(, Project, ProjectNode)
-	Dim As UString FirstLine = GetFirstCompileLine(MainFile, Project, CompileLine)
 	Dim ExeFileName As WString Ptr
-	If CBool(Project <> 0) AndAlso (Not EndsWith(*Project->FileName, ".vfp")) AndAlso FileExists(*Project->FileName & "/local.properties") Then
-		Dim As String ApkFileName = *Project->FileName & "/app/build/outputs/apk/debug/app-debug.apk"
+	If CBool(ProjectFileName <> "") AndAlso (Not EndsWith(ProjectFileName, ".vfp")) AndAlso FileExists(ProjectFileName & "/local.properties") Then
+		Dim As String ApkFileName = ProjectFileName & "/app/build/outputs/apk/debug/app-debug.apk"
 		If Not FileExists(ApkFileName) Then
 			ShowMessages ML("Do not found apk file!")
 			Exit Sub
 		End If
 		Dim As Integer Fn = FreeFile_
-		Open *Project->FileName & "/local.properties" For Input As #Fn
+		Open ProjectFileName & "/local.properties" For Input As #Fn
 		Dim SDKDir As UString
 		Dim pBuff As WString Ptr
 		Dim As Integer FileSize
@@ -12439,12 +12594,12 @@ Sub RunPr(Debugger As String = "")
 			ShowMessages ML("Sdk.dir not specified in file local.properties!")
 			Exit Sub
 		End If
-		If Not FileExists(*Project->FileName & "/app/build.gradle") Then
-			ShowMessages ML("File") & " " & *Project->FileName & "/app/build.gradle " & ML("not found") & "!"
+		If Not FileExists(ProjectFileName & "/app/build.gradle") Then
+			ShowMessages ML("File") & " " & ProjectFileName & "/app/build.gradle " & ML("not found") & "!"
 			Exit Sub
 		End If
 		Fn = FreeFile_
-		Open *Project->FileName & "/app/build.gradle" For Input As #Fn
+		Open ProjectFileName & "/app/build.gradle" For Input As #Fn
 		Dim applicationId As String
 		FileSize = LOF(Fn)
 		WReAllocate(pBuff, FileSize)
@@ -12563,7 +12718,7 @@ Sub RunPr(Debugger As String = "")
 			'	    Else
 			Dim As WString Ptr Arguments
 			WLet(Arguments, *RunArguments)
-			If Project Then WLet(Arguments, *Arguments & " " & WGet(Project->CommandLineArguments))
+			If ProjectCommandLineArguments <> "" Then WLet(Arguments, *Arguments & " " & ProjectCommandLineArguments)
 			If 0 Then
 				Result = Shell("""" & WGet(TerminalPath) & """ --wait -- """ & build_create_shellscript(GetFolderName(*ExeFileName), *ExeFileName, False, , *Arguments) & """")
 			Else
@@ -12606,7 +12761,7 @@ Sub RunPr(Debugger As String = "")
 				WLet(CmdL, "explorer http://localhost:8000/" & GetFileName(*ExeFileName))
 			Else
 				WLet(CmdL, """" & *ExeFileName & """ " & *RunArguments)
-				If Project Then WLetEx CmdL, *CmdL & " " & WGet(Project->CommandLineArguments), True
+				If ProjectCommandLineArguments <> "" Then WLetEx CmdL, *CmdL & " " & ProjectCommandLineArguments, True
 				Var Pos1 = InStrRev(*ExeFileName, Slash)
 				If Pos1 = 0 Then Pos1 = Len(*ExeFileName)
 				WLet(Workdir, Left(*ExeFileName, Pos1))
@@ -12742,7 +12897,15 @@ Sub RunPr(Debugger As String = "")
 End Sub
 
 Sub RunProgram(Param As Any Ptr)
-	RunPr
+	Dim As ProjectElement Ptr Project
+	Dim As TreeNode Ptr ProjectNode
+	Dim As UString CompileLine, MainFile = GetMainFile(, Project, ProjectNode)
+	Dim As UString FirstLine = GetFirstCompileLine(MainFile, Project, CompileLine)
+	If Project <> 0 Then
+		RunPr , *Project->FileName, *Project->CommandLineArguments, MainFile, CompileLine, FirstLine
+	Else
+		RunPr , "", "", MainFile, CompileLine, FirstLine
+	End If
 End Sub
 
 Sub TabWindow.AddSpaces(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
@@ -12891,6 +13054,7 @@ Sub NumberingOn(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1, 
 			If bChanged Then
 				FECLine->Ends.Clear
 				FECLine->EndsCompleted = False
+				.ChangeCollapsibility i
 			End If
 		Next i
 		.Changed("Raqamlash")
@@ -13113,11 +13277,13 @@ Sub NumberingOff(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1,
 					WLet(FECLine->Text, Space(n) & Mid(LTrim(*FECLine->Text), Pos1 + 1))
 					FECLine->Ends.Clear
 					FECLine->EndsCompleted = False
+					.ChangeCollapsibility i
 				End If
 			ElseIf StartsWith(LTrim(*FECLine->Text, Any !"\t "), "_L ") Then
 				WLet(FECLine->Text, Mid(LTrim(*FECLine->Text), 4))
 				FECLine->Ends.Clear
 				FECLine->EndsCompleted = False
+				.ChangeCollapsibility i
 			End If
 		Next i
 		.Changed("Raqamlarni olish")
@@ -13173,6 +13339,106 @@ Sub TabWindow.ProcessMessage(ByRef msg As Message)
 		End Select
 	#endif
 	Base.ProcessMessage(msg)
+End Sub
+
+Sub TabWindow.SplitLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 Then Exit Sub
+	With tb->txtCode
+		.UpdateLock
+		.Changing("Split Lines")
+		If StartLine = -1 Or EndLine = -1 Then
+			Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			StartLine = iSelStartLine
+			EndLine = iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+		End If
+		Dim As EditControlLine Ptr FECLine, FFirstECLine
+		Dim As Integer n = 0, i = StartLine, l = 0, iCountTab = 0
+		Dim As Boolean bFirst, bInSideString
+		Dim As WStringList Lines
+		FFirstECLine = .Content.Lines.Items[StartLine]
+		If Not EndsWith(RTrim(*FFirstECLine->Text, Any !"\t "), " _") Then
+			Do While i <= EndLine + l
+				FECLine = .Content.Lines.Items[i]
+				For j As Integer = 0 To Len(*FECLine->Text) - 1
+					If FECLine->Text[j] = 34 Then bInSideString = Not bInSideString
+					If FECLine->Text[j] = Asc("(") OrElse (FECLine->Text[j] = Asc(",") AndAlso bInSideString = False) Then
+						If Not bFirst Then
+							If TabWidth = 0 Then
+								iCountTab = 0
+							Else
+								iCountTab = j / TabWidth
+							End If
+							bFirst = True
+						End If
+						bInSideString = False
+						txtCode.InsertLine i + 1, WString(iCountTab, !"\t") & Trim(Mid(*FECLine->Text, j + 2), Any !"\t ")
+						txtCode.ReplaceLine i, ..Left(*FECLine->Text, j + 1) & " _"
+						l += 1
+						Exit For
+					ElseIf FECLine->Text[j] = Asc(")") AndAlso Trim(..Left(*FECLine->Text, j), Any !"\t ") <> "" Then
+						txtCode.InsertLine i + 1, WString(iCountTab, !"\t") & Trim(Mid(*FECLine->Text, j + 1), Any !"\t ")
+						txtCode.ReplaceLine i, ..Left(*FECLine->Text, j) & " _"
+						bInSideString = False
+						l += 1
+						Exit For
+					End If
+				Next
+				i += 1
+			Loop
+		End If
+		.Changed("Split Lines")
+		.UpdateUnLock
+	End With
+End Sub
+
+Sub TabWindow.CombineLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 Then Exit Sub
+	With tb->txtCode
+		.UpdateLock
+		.Changing("Combine Lines")
+		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		If StartLine = -1 Or EndLine = -1 Then
+			.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			iSelEndLine = iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+		Else
+			iSelStartLine = StartLine: iSelEndLine = EndLine
+		End If
+		If iSelStartLine < 0 OrElse iSelStartLine > .LinesCount - 1 OrElse iSelEndLine > .LinesCount - 1 Then Exit Sub
+		Dim As EditControlLine Ptr FECLine, FFirstECLine
+		Dim As Integer iStartLine = iSelStartLine, l = 0
+		Dim As WString Ptr LineText
+		For j As Integer = iSelStartLine - 1 To 0 Step -1
+			FFirstECLine = .Content.Lines.Items[j]
+			If EndsWith(RTrim(*FFirstECLine->Text, Any !"\t "), " _") OrElse Trim(*FFirstECLine->Text, Any !"\t ") = "_" Then
+				iStartLine = j
+			Else
+				Exit For
+			End If
+		Next
+		FFirstECLine = .Content.Lines.Items[iStartLine]
+		Dim As Boolean bLineWith_ = EndsWith(RTrim(*FFirstECLine->Text, Any !"\t "), " _") OrElse Trim(*FFirstECLine->Text, Any !"\t ") = "_", bWithBracket
+		If bLineWith_ Then
+			WLet(LineText, RTrim(..Left(*FFirstECLine->Text, Len(RTrim(*FFirstECLine->Text, Any !"\t ")) - 2), Any !"\t "))
+			Do
+				FECLine = .Content.Lines.Items[iStartLine + 1]
+				bLineWith_ = EndsWith(RTrim(*FECLine->Text, Any !"\t "), " _") OrElse Trim(*FECLine->Text, Any !"\t ") = "_"
+				bWithBracket = StartsWith(Trim(*FECLine->Text, Any !"\t "), ")") OrElse EndsWith(*LineText, "(")
+				If bLineWith_ Then
+					WAdd(LineText, IIf(bWithBracket, "", " ") & Trim(..Left(*FECLine->Text, Len(RTrim(*FECLine->Text, Any !"\t ")) - 2), Any !"\t "))
+				Else
+					WAdd(LineText, IIf(bWithBracket, "", " ") & Trim(*FECLine->Text, Any !"\t "))
+				End If
+				.DeleteLine iStartLine
+			Loop While bLineWith_
+			.ReplaceLine iStartLine, *LineText
+			WDeAllocate(LineText)
+		End If
+		.Changed("Combine Lines")
+		.UpdateUnLock
+	End With
 End Sub
 
 Sub TabWindow.SortLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
@@ -13381,6 +13647,193 @@ Sub TabWindow.ConvertToUppercase(ByVal StartLine As Integer = -1, ByVal EndLine 
 		End If
 		_Deallocate(LineStr)
 		.Changed("ConvertToUppercase")
+		.UpdateUnLock
+	End With
+End Sub
+
+Sub TabWindow.ConvertToHexStrUnicode(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 Then Exit Sub
+	With tb->txtCode
+		.UpdateLock
+		.Changing("ConvertToHexStrUnicode")
+		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		If StartLine = -1 Or EndLine = -1 Then
+			.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			iSelEndLine = iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+		Else
+			iSelStartLine = StartLine :  iSelEndLine = EndLine
+			iSelStartChar = 1 : iSelEndChar = -1
+		End If
+		If iSelStartLine < 0 OrElse iSelStartLine > .LinesCount - 1 OrElse iSelEndLine > .LinesCount - 1 Then Exit Sub
+		Dim As EditControlLine Ptr FECLine = .Content.Lines.Items[iSelStartLine]
+		Dim As WString Ptr LineStr, SelectedStr
+		WLet(LineStr, *FECLine->Text)
+		FECLine->Ends.Clear
+		FECLine->EndsCompleted = False
+		If iSelStartLine >= 0 AndAlso iSelEndLine <> iSelStartLine Then
+			WLet(LineStr, *FECLine->Text)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, iSelStartChar + 1))
+				WLet(FECLine->Text, Mid(*LineStr, 1, iSelStartChar) & ToHexStrUnicode(*SelectedStr)) : .ChangeCollapsibility iSelStartLine
+			End If
+			FECLine = .Content.Lines.Items[iSelEndLine]
+			WLet(LineStr, *FECLine->Text)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, 1, iSelEndChar))
+				WLet(FECLine->Text, ToHexStrUnicode(*SelectedStr) & Mid(*LineStr, iSelEndChar + 1)) : .ChangeCollapsibility iSelEndLine
+			End If
+		Else
+			If iSelEndChar = -1 Then iSelEndChar = Len(*LineStr)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, iSelStartChar + 1, iSelEndChar - iSelStartChar))
+				WLet(FECLine->Text, Mid(*LineStr, 1, iSelStartChar) & ToHexStrUnicode(*SelectedStr) & Mid(*LineStr, iSelEndChar + 1)) : .ChangeCollapsibility iSelStartLine
+			End If
+		End If
+		If iSelEndLine > iSelStartLine + 1 Then
+			For j As Integer = iSelStartLine + 1 To iSelEndLine - 1
+				FECLine = .Content.Lines.Items[j]
+				FECLine->Ends.Clear
+				FECLine->EndsCompleted = False
+				WLet(SelectedStr, *FECLine->Text)
+				If Trim(*SelectedStr, Any !"\t ") <> "" AndAlso InStr(*SelectedStr, "\u") > 0 Then
+					WLet(FECLine->Text, ToHexStrUnicode(*SelectedStr)): .ChangeCollapsibility j
+				End If
+			Next
+		End If
+		_Deallocate(LineStr)
+		_Deallocate(SelectedStr)
+		.Changed("ConvertToHexStrUnicode")
+		.UpdateUnLock
+	End With
+End Sub
+
+Sub TabWindow.ConvertFromHexStrUnicode(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 Then Exit Sub
+	With tb->txtCode
+		.UpdateLock
+		.Changing("ConvertFromHexStrUnicode")
+		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		If StartLine = -1 Or EndLine = -1 Then
+			.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			iSelEndLine = iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+		Else
+			iSelStartLine = StartLine :  iSelEndLine = EndLine
+			iSelStartChar = 1 : iSelEndChar = -1
+		End If
+		If iSelStartLine < 0 OrElse iSelStartLine > .LinesCount - 1 OrElse iSelEndLine > .LinesCount - 1 Then Exit Sub
+		Dim As EditControlLine Ptr FECLine = .Content.Lines.Items[iSelStartLine]
+		Dim As WString Ptr LineStr, SelectedStr
+		WLet(LineStr, *FECLine->Text)
+		FECLine->Ends.Clear
+		FECLine->EndsCompleted = False
+		If iSelStartLine >= 0 AndAlso iSelEndLine <> iSelStartLine Then
+			WLet(LineStr, *FECLine->Text)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, iSelStartChar + 1))
+				WLet(FECLine->Text, Mid(*LineStr, 1, iSelStartChar) & FromHexStrUnicode(*SelectedStr)) : .ChangeCollapsibility iSelStartLine
+			End If
+			FECLine = .Content.Lines.Items[iSelEndLine]
+			WLet(LineStr, *FECLine->Text)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, 1, iSelEndChar))
+				WLet(FECLine->Text, FromHexStrUnicode(*SelectedStr) & Mid(*LineStr, iSelEndChar + 1)) : .ChangeCollapsibility iSelEndLine
+			End If
+		Else
+			If iSelEndChar = -1 Then iSelEndChar = Len(*LineStr)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, iSelStartChar + 1, iSelEndChar - iSelStartChar))
+				WLet(FECLine->Text, Mid(*LineStr, 1, iSelStartChar) & FromHexStrUnicode(*SelectedStr) & Mid(*LineStr, iSelEndChar + 1)) : .ChangeCollapsibility iSelStartLine
+			End If
+		End If
+		If iSelEndLine > iSelStartLine + 1 Then
+			For j As Integer = iSelStartLine + 1 To iSelEndLine - 1
+				FECLine = .Content.Lines.Items[j]
+				FECLine->Ends.Clear
+				FECLine->EndsCompleted = False
+				WLet(SelectedStr, *FECLine->Text)
+				If Trim(*SelectedStr, Any !"\t ") <> "" Then
+					WLet(FECLine->Text, FromHexStrUnicode(*SelectedStr)): .ChangeCollapsibility j
+				End If
+			Next
+		End If
+		_Deallocate(LineStr)
+		_Deallocate(SelectedStr)
+		.Changed("ConvertFromHexStrUnicode")
+		.UpdateUnLock
+	End With
+End Sub
+
+Sub TabWindow.ConvertToUppercaseFirstLetter(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Var tb = Cast(TabWindow Ptr, ptabCode->SelectedTab)
+	If tb = 0 Then Exit Sub
+	With tb->txtCode
+		.UpdateLock
+		.Changing("ConvertToUppercaseFirstLetter")
+		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+		If StartLine = -1 Or EndLine = -1 Then
+			.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
+			iSelEndLine = iSelEndLine - IIf(iSelEndChar = 0, 1, 0)
+		Else
+			iSelStartLine = StartLine :  iSelEndLine = EndLine
+			iSelStartChar = 1 : iSelEndChar = -1
+		End If
+		If iSelStartLine < 0 OrElse iSelStartLine > .LinesCount - 1 OrElse iSelEndLine > .LinesCount - 1 Then Exit Sub
+		Dim As EditControlLine Ptr FECLine = .Content.Lines.Items[iSelStartLine]
+		Dim As WString Ptr LineStr, SelectedStr
+		WLet(LineStr, *FECLine->Text)
+		FECLine->Ends.Clear
+		FECLine->EndsCompleted = False
+		If iSelStartLine >= 0 AndAlso iSelEndLine <> iSelStartLine Then
+			WLet(LineStr, *FECLine->Text)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, iSelStartChar + 1))
+				If ((*SelectedStr)[0] > 96 AndAlso (*SelectedStr)[0] < 123) Then (*SelectedStr)[0] = (*SelectedStr)[0] - 32
+				For i As Integer = 0 To Len(*SelectedStr) - 1
+					If (((*SelectedStr)[i + 1 ] > 96 AndAlso (*SelectedStr)[i + 1] < 123)) AndAlso (((*SelectedStr)[i] > 31 AndAlso (*SelectedStr)[i] < 48) OrElse ((*SelectedStr)[i] > 57 AndAlso (*SelectedStr)[i] < 65) OrElse ((*SelectedStr)[i] > 90 AndAlso (*SelectedStr)[i] < 97)) Then (*SelectedStr)[i + 1] = (*SelectedStr)[i + 1] - 32: .ChangeCollapsibility iSelStartLine
+				Next
+				WLet(FECLine->Text, Mid(*LineStr, 1, iSelStartChar) & *SelectedStr)
+			End If
+			FECLine = .Content.Lines.Items[iSelEndLine]
+			WLet(LineStr, *FECLine->Text)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, 1, iSelEndChar))
+				If ((*SelectedStr)[0] > 96 AndAlso (*SelectedStr)[0] < 123) Then (*SelectedStr)[0] = (*SelectedStr)[0] - 32
+				For i As Integer = 0 To Len(*SelectedStr) - 1
+					If (((*SelectedStr)[i + 1 ] > 96 AndAlso (*SelectedStr)[i + 1] < 123)) AndAlso (((*SelectedStr)[i] > 31 AndAlso (*SelectedStr)[i] < 48) OrElse ((*SelectedStr)[i] > 57 AndAlso (*SelectedStr)[i] < 65) OrElse ((*SelectedStr)[i] > 90 AndAlso (*SelectedStr)[i] < 97)) Then (*SelectedStr)[i + 1] = (*SelectedStr)[i + 1] - 32: .ChangeCollapsibility iSelEndLine
+				Next
+				WLet(FECLine->Text, *SelectedStr & Mid(*LineStr, iSelEndChar + 1))
+			End If
+		Else
+			If iSelEndChar = -1 Then iSelEndChar = Len(*LineStr)
+			If Trim(*LineStr, Any !"\t ") <> "" Then
+				WLet(SelectedStr, Mid(*LineStr, iSelStartChar + 1, iSelEndChar - iSelStartChar))
+				If ((*SelectedStr)[0] > 96 AndAlso (*SelectedStr)[0] < 123) Then (*SelectedStr)[0] = (*SelectedStr)[0] - 32
+				For i As Integer = 0 To Len(*SelectedStr) - 1
+					If (((*SelectedStr)[i + 1 ] > 96 AndAlso (*SelectedStr)[i + 1] < 123)) AndAlso (((*SelectedStr)[i] > 31 AndAlso (*SelectedStr)[i] < 48) OrElse ((*SelectedStr)[i] > 57 AndAlso (*SelectedStr)[i] < 65) OrElse ((*SelectedStr)[i] > 90 AndAlso (*SelectedStr)[i] < 97)) Then (*SelectedStr)[i + 1] = (*SelectedStr)[i + 1] - 32: .ChangeCollapsibility iSelStartLine
+				Next
+				WLet(FECLine->Text, Mid(*LineStr, 1, iSelStartChar) & *SelectedStr & Mid(*LineStr, iSelEndChar + 1))
+			End If
+		End If
+		If iSelEndLine > iSelStartLine + 1 Then
+			For j As Integer = iSelStartLine + 1 To iSelEndLine - 1
+				FECLine = .Content.Lines.Items[j]
+				FECLine->Ends.Clear
+				FECLine->EndsCompleted = False
+				WLet(SelectedStr, *FECLine->Text)
+				If Trim(*LineStr, Any !"\t ") <> "" Then
+					If ((*SelectedStr)[0] > 96 AndAlso (*SelectedStr)[0] < 123) Then (*SelectedStr)[0] = (*SelectedStr)[0] - 32
+					For i As Integer = 0 To Len(*SelectedStr) - 1
+						If (((*SelectedStr)[i + 1 ] > 96 AndAlso (*SelectedStr)[i + 1] < 123)) AndAlso (((*SelectedStr)[i] > 31 AndAlso (*SelectedStr)[i] < 48) OrElse ((*SelectedStr)[i] > 57 AndAlso (*SelectedStr)[i] < 65) OrElse ((*SelectedStr)[i] > 90 AndAlso (*SelectedStr)[i] < 97)) Then (*SelectedStr)[i + 1] = (*SelectedStr)[i + 1] - 32
+					Next
+					WLet(FECLine->Text, *SelectedStr): .ChangeCollapsibility j
+				End If
+			Next
+		End If
+		_Deallocate(LineStr)
+		_Deallocate(SelectedStr)
+		.Changed("ConvertToUppercaseFirstLetter")
 		.UpdateUnLock
 	End With
 End Sub
@@ -13737,3 +14190,4 @@ Sub TabWindow.Define
 		End If
 	End With
 End Sub
+

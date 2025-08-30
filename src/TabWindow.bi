@@ -21,6 +21,7 @@
 #include once "mff/Splitter.bi"
 #include once "mff/ProgressBar.bi"
 #include once "file.bi"
+#include once "MD2RTF.bi"
 
 Common Shared As TreeNode Ptr MainNode
 
@@ -256,11 +257,16 @@ Public:
 	Declare Sub ProcedureNumberOff
 	Declare Sub PreprocessorNumberOn
 	Declare Sub PreprocessorNumberOff
+	Declare Sub SplitLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub CombineLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub SortLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub DeleteBlankLines(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub FormatWithBasisWord(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub ConvertToLowercase(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub ConvertToUppercase(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub ConvertToUppercaseFirstLetter(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub ConvertFromHexStrUnicode(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
+	Declare Sub ConvertToHexStrUnicode(ByVal StartLine As Integer = -1, ByVal EndLine As Integer = -1)
 	Declare Sub Comment
 	Declare Sub UnComment
 	Declare Sub Indent
@@ -432,7 +438,7 @@ Declare Sub SetCodeVisible(tb As TabWindow Ptr)
 
 Declare Sub Versioning(ByRef FileName As WString, ByRef sFirstLine As WString, ByRef Project As ProjectElement Ptr = 0, ByRef ProjectNode As TreeNode Ptr = 0)
 
-Declare Sub RunPr(Debugger As String = "")
+Declare Sub RunPr(Debugger As String = "", ByRef ProjectFileName As WString, ByRef ProjectCommandLineArguments As WString, ByRef MainFile As WString, ByRef CompileLine As WString, ByRef FirstLine As WString)
 
 Declare Sub RunProgram(Param As Any Ptr)
 

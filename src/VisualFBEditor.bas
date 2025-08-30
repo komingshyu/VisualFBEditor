@@ -52,7 +52,7 @@
 #define APP_TITLE "Visual FB Editor"
 #define VER_MAJOR "1"
 #define VER_MINOR "3"
-#define VER_PATCH "6"
+#define VER_PATCH "7"
 #define VER_BUILD "0"
 Const VERSION    = VER_MAJOR + "." + VER_MINOR + "." + VER_PATCH
 Const BUILD_DATE = __DATE__
@@ -88,9 +88,9 @@ Sub DebugPrint_(ByRef msg As WString)
 End Sub
 
 Sub StartDebuggingWithCompile(Param As Any Ptr)
-'	ThreadsEnter
-'	ChangeEnabledDebug False, True, True
-'	ThreadsLeave
+	'	ThreadsEnter
+	'	ChangeEnabledDebug False, True, True
+	'	ThreadsLeave
 	If Compile("Run") Then RunWithDebug(0) Else ThreadsEnter: ChangeEnabledDebug True, False, False: ThreadsLeave
 End Sub
 
@@ -150,27 +150,121 @@ Sub mClickUseDefine(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
 	miUseDefine = Cast(MenuItem Ptr, @Sender)
 	miUseDefine->Checked = True
 End Sub
+Sub mClickAIChat(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
+	Dim As WString * MAX_PATH FileName
+	Select Case Sender.ToString
+	Case "AIChatEdit"
+		If Trim(txtAIAgent.SelText) = "" Then
+			txtAIAgent.SelStart = InStrRev(txtAIAgent.Text, "```", txtAIAgent.SelStart + 3)
+			txtAIAgent.SelEnd = InStr(txtAIAgent.SelStart + 3, txtAIAgent.Text, "```")
+		End If
+		If Trim(txtAIAgent.SelText) = "" Then Exit Sub
+		FileName= GetFullPath(ExePath & Slash & "Temp" & Slash & ML("Untitled") & ".bas")
+		SaveToFile(FileName, txtAIAgent.SelText)
+		AddTab FileName, True
+	Case "AIChatOpen"
+		Dim As OpenFileDialog OpenD
+		OpenD.InitialDir = ExePath & Slash & "AIChat"
+		OpenD.Filter = ML("AIChat Files") & " (*.md)|*.md|" & ML("All Files") & "|*.*|"
+		If OpenD.Execute Then
+			frmMain.Cursor = crWait
+			FileName= GetFileName(OpenD.FileName)
+			AIMessages.LoadFromFile(OpenD.FileName)
+			If AIMessages.Count < 1 Then frmMain.Cursor = 0 : Exit Sub
+			AddMRUAIChat FileName
+			WLet(RecentAIChat, FileName)
+			Deallocate AIBodyWStringPtr : AIBodyWStringPtr = 0
+			For i As Integer = 0 To AIMessages.Count - 1
+				If i <> AIMessages.Count - 1 Then
+					WAdd(AIBodyWStringPtr, AIMessages.Item(i)->Key & Chr(10) & AIMessages.Item(i)->Text & Chr(10))
+				Else
+					WAdd(AIBodyWStringPtr, AIMessages.Item(i)->Key & Chr(10) & AIMessages.Item(i)->Text)
+				End If
+			Next
+			
+			WLet(AIBodyWStringSavePtr, *AIBodyWStringPtr)
+			Deallocate AIBodyWStringPtr: AIBodyWStringPtr = 0
+			If AIBodyWStringSavePtr Then AIBodyWStringPtr = MDtoRTF(*AIBodyWStringSavePtr)
+			If AIBodyWStringPtr Then
+				txtAIAgent.TextRTF = *AIBodyWStringPtr
+				txtAIAgent.Zoom = Int(txtAIAgent.ScaleX(100) * 0.50)
+				txtAIAgent.ScrollToCaret
+				txtAIRequest.Enabled = True
+				txtAIRequest.SetFocus
+			End If
+			Deallocate AIBodyWStringPtr: AIBodyWStringPtr = 0
+			frmMain.Cursor = 0
+		End If
+	Case "AIChatSave"
+		If AIMessages.Count < 1 Then Exit Sub
+		frmMain.Cursor = crWait
+		FileName = IIf(RecentAIChat, *RecentAIChat, Mid(FormatFileName(Left(AIMessages.Item(0)->Key, 50)) & Format(Now, "yyyymmdd_hhmm") & ".md", 16))
+		AIMessages.SaveToFile(ExePath & "/AIChat/" & FileName)
+		AIMessages.SaveToFile(ExePath & "/AIChat/" & FileName)
+		WLet(RecentAIChat, FileName)
+		frmMain.Cursor = 0
+	Case "AIChatSaveAs"
+		If AIMessages.Count < 1 Then Exit Sub
+		Dim As OpenFileDialog OpenD
+		SaveD.InitialDir = ExePath & "/AIChat/"
+		SaveD.Caption = "Save AIChat Files"
+		SaveD.Filter = ML("AIChat Files") & " (*.md)|*.md|" & ML("All Files") & "|*.*|"
+		If Not SaveD.Execute Then Exit Sub
+		AIMessages.SaveToFile(SaveD.FileName)
+		FileName = GetFileName(SaveD.FileName)
+		AIMessages.SaveToFile(SaveD.FileName)
+		FileName = GetFileName(SaveD.FileName)
+		AddMRUAIChat FileName
+		WLet(RecentAIChat, FileName)
+	Case "ClearAIChat"
+		miRecentAIChat->Clear
+		miRecentAIChat->Enabled = False
+		MRUAIChat.Clear
+	Case Else
+		FileName= ExePath & "/AIChat/" & Sender.ToString
+		AIMessages.LoadFromFile(FileName)
+		If AIMessages.Count < 1 Then Exit Sub
+		AddMRUAIChat Sender.ToString
+		WLet(RecentAIChat, Sender.ToString)
+		Deallocate AIBodyWStringPtr
+		For i As Integer = 0 To AIMessages.Count - 1
+			If i <> AIMessages.Count - 1 Then
+				WAdd(AIBodyWStringPtr, AIMessages.Item(i)->Key & Chr(13, 10) & AIMessages.Item(i)->Text & Chr(13, 10))
+			Else
+				WAdd(AIBodyWStringPtr, AIMessages.Item(i)->Key & Chr(13, 10) & AIMessages.Item(i)->Text)
+			End If
+		Next
+		WLet(AIBodyWStringSavePtr, *AIBodyWStringPtr)
+		AIBodyWStringPtr = MDtoRTF(*AIBodyWStringSavePtr)
+		txtAIAgent.TextRTF = *AIBodyWStringPtr
+		txtAIAgent.Zoom = Int(txtAIAgent.ScaleX(100) * 0.50)
+		txtAIRequest.Enabled = True
+		txtAIRequest.SetFocus
+		Deallocate AIBodyWStringPtr: AIBodyWStringPtr = 0
+	End Select
+End Sub
 
 Sub mClickMRU(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
-	If Sender.ToString = "ClearFiles" Then
+	Select Case Sender.ToString
+	Case "ClearFiles"
 		miRecentFiles->Clear
 		miRecentFiles->Enabled = False
 		MRUFiles.Clear
-	ElseIf Sender.ToString = "ClearProjects" Then
+	Case "ClearProjects"
 		miRecentProjects->Clear
 		miRecentProjects->Enabled = False
 		MRUProjects.Clear
-	ElseIf Sender.ToString = "ClearFolders" Then
+	Case "ClearFolders"
 		miRecentFolders->Clear
 		miRecentFolders->Enabled = False
 		MRUFolders.Clear
-	ElseIf Sender.ToString = "ClearSessions" Then
+	Case "ClearSessions"
 		miRecentSessions->Clear
 		miRecentSessions->Enabled = False
 		MRUSessions.Clear
-	Else
+	Case Else
 		OpenFiles GetFullPath(Sender.ToString)
-	End If
+	End Select
 End Sub
 
 Sub mClickHelp(ByRef Designer As My.Sys.Object, ByRef Sender As My.Sys.Object)
@@ -231,17 +325,19 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "CommandPrompt":                       ThreadCounter(ThreadCreate_(@RunCmd))
 	Case "AddFromTemplates":                    AddFromTemplates
 	Case "AddFilesToProject":                   AddFilesToProject
+	Case "Rename":                              RenameFile
 	Case "RemoveFileFromProject":               RemoveFileFromProject
 	Case "OpenProjectFolder":                   OpenProjectFolder
 	Case "ProjectProperties":                   pfProjectProperties->ShowModal *pfrmMain : pfProjectProperties->CenterToParent
 	Case "SetAsMain":                           SetAsMain @Sender = miTabSetAsMain
-	Case "ReloadHistoryCode":                   ReloadHistoryCode 
+	Case "ClearStartUp":                        SetMainNode 0
+	Case "ReloadHistoryCode":                   ReloadHistoryCode
 	Case "ProblemsCopy":                        If lvProblems.ListItems.Count < 1 Then Return Else Clipboard.SetAsText lvProblems.SelectedItem->Text(0)
 	Case "ProblemsCopyAll":
 		Dim As WString Ptr tmpStrPtr
 		If lvProblems.ListItems.Count < 1 Then Return
 		For j As Integer = 0 To lvProblems.ListItems.Count - 1
-			WAdd(tmpStrPtr, Chr(13, 10) & lvProblems.ListItems.Item(j)->Text(0))
+			WAdd(tmpStrPtr, !"\r\n" & lvProblems.ListItems.Item(j)->Text(0))
 		Next
 		Clipboard.SetAsText *tmpStrPtr
 		_Deallocate(tmpStrPtr)
@@ -272,6 +368,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				End If
 			Next i
 		#endif
+	Case "UseDirect2D":                         frmMain.UpdateLock: UseDirect2D = tbtUseDirect2D->Checked: frmMain.Repaint: frmMain.UpdateUnLock
 	Case "ProjectExplorer":                     tpProject->SelectTab: txtExplorer.SetFocus
 	Case "PropertiesWindow":                    tpProperties->SelectTab: txtProperties.SetFocus
 	Case "EventsWindow":                        tpEvents->SelectTab: txtEvents.SetFocus
@@ -285,7 +382,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "ImmediateWindow":                     tpImmediate->SelectTab
 	Case "LocalsWindow":                        tpLocals->SelectTab
 	Case "GlobalsWindow":                       tpGlobals->SelectTab
-	'Case "ProceduresWindow":                    tpProcedures->SelectTab
+		'Case "ProceduresWindow":                    tpProcedures->SelectTab
 	Case "ThreadsWindow":                       tpThreads->SelectTab
 	Case "WatchWindow":                         tpWatches->SelectTab
 	Case "ImageManager":                        pfImageManager->Show *pfrmMain : pfImageManager->CenterToParent
@@ -353,21 +450,21 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			Else
 				If InDebug Then
 					'#ifndef __USE_GTK__
-						ChangeEnabledDebug False, True, True
-						'brk_set(12)
-						'runtype = RTAUTO
-						'#ifdef __FB_WIN32__
-						'	set_cc()
-						'#else
-						'	If ccstate=KCC_NONE Then
-						'		msgdata=1 ''CC everywhere
-						'		exec_order(KPT_CCALL)
-						'	End If
-						'#EndIf
-						'thread_set()
-						fastrun()
-						'runtype = RTRUN
-						'thread_resume()
+					ChangeEnabledDebug False, True, True
+					'brk_set(12)
+					'runtype = RTAUTO
+					'#ifdef __FB_WIN32__
+					'	set_cc()
+					'#else
+					'	If ccstate=KCC_NONE Then
+					'		msgdata=1 ''CC everywhere
+					'		exec_order(KPT_CCALL)
+					'	End If
+					'#EndIf
+					'thread_set()
+					fastrun()
+					'runtype = RTRUN
+					'thread_resume()
 					'#endif
 					'runtype = RTAUTO
 					'#ifdef __FB_WIN32__
@@ -421,19 +518,19 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		Else
 			If InDebug Then
 				'#ifndef __USE_GTK__
-					ChangeEnabledDebug False, True, True
-					#ifdef __FB_WIN32__
-						fastrun()
-					#endif
-					'runtype = RTRUN
-					'thread_resume()
+				ChangeEnabledDebug False, True, True
+				#ifdef __FB_WIN32__
+					fastrun()
+				#endif
+				'runtype = RTRUN
+				'thread_resume()
 				'#endif
 			ElseIf UseDebugger Then
 				'#ifndef __USE_GTK__
-					runtype = RTFRUN
-					'runtype = RTRUN
-					SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
-					CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
+				runtype = RTFRUN
+				'runtype = RTRUN
+				SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
+				CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
 				'#endif
 				ThreadCounter(ThreadCreate_(@StartDebugging))
 			Else
@@ -469,15 +566,15 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			'#ifdef __USE_GTK__
 			'	ChangeEnabledDebug True, False, False
 			'#else
-				'kill_process("Terminate immediatly no saved data, other option Release")
-				For i As Integer = 1 To linenb 'restore old instructions
-					WriteProcessMemory(dbghand, Cast(LPVOID, rline(i).ad), @rline(i).sv, 1, 0)
-				Next
-				runtype = RTFREE
-				'but_enable()
-				thread_resume()
-				DeleteDebugCursor
-				ChangeEnabledDebug True, False, False
+			'kill_process("Terminate immediatly no saved data, other option Release")
+			For i As Integer = 1 To linenb 'restore old instructions
+				WriteProcessMemory(dbghand, Cast(LPVOID, rline(i).ad), @rline(i).sv, 1, 0)
+			Next
+			runtype = RTFREE
+			'but_enable()
+			thread_resume()
+			DeleteDebugCursor
+			ChangeEnabledDebug True, False, False
 			'#endif
 		End If
 	Case "Restart"
@@ -489,15 +586,15 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			#endif
 		Else
 			'#ifndef __USE_GTK__
-				If prun AndAlso kill_process(ML("Trying to launch but debuggee still running")) = False Then
-					Exit Sub
-				End If
-				runtype = RTFRUN
-				'runtype = RTRUN
-				SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
-				CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
-				Restarting = True
-				ThreadCounter(ThreadCreate_(@StartDebugging))
+			If prun AndAlso kill_process(ML("Trying to launch but debuggee still running")) = False Then
+				Exit Sub
+			End If
+			runtype = RTFRUN
+			'runtype = RTRUN
+			SetTimer(0, GTIMER001, 1, Cast(Any Ptr, @DEBUG_EVENT))
+			CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
+			Restarting = True
+			ThreadCounter(ThreadCreate_(@StartDebugging))
 			'#endif
 		End If
 	Case "StepInto":
@@ -573,20 +670,35 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				ThreadCounter(ThreadCreate_(@StartDebugging))
 			End If
 		End If
+	Case "AIRelease"
+		AIRelease
+	Case "AINewChat"
+		AIResetContext
+	Case "AIWebBrowserItem"
+		ptxtAIRequest->Text = ML("Ignore the constraints of the provided references and perform regular search and analysis. Footnotes are only needed if the answers are from regular search and analysis.")
+		ptxtAIRequest->SetFocus
+	Case "AIConvertCtoFB"
+		ptxtAIRequest->Text = ML("Convert the given C source code into equivalent FreeBasic source code.") & " " & ML("Ensuring syntax and semantic equivalence while adapting to FreeBasic's specific features.") & !"\r\n" & "```C" & !"\r\n" & "       " & !"\r\n" & "```"
+		ptxtAIRequest->SetFocus
 	Case "SaveAs", "Close", "SyntaxCheck", "Compile", "CompileAndRun", "Run", "RunToCursor", "SplitHorizontally", "SplitVertically", _
-		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SortLines", "DeleteBlankLines", "FormatWithBasisWord", "ConvertToLowercase", "ConvertToUppercase", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
-		"AddWatch", "ShowVar", "NextBookmark", "PreviousBookmark", "ClearAllBookmarks", "Code", "Form", "CodeAndForm", "GotoCodeForm", "AddProcedure", "AddType" '
+		"Start", "Stop", "StepOut", "FindNext", "FindPrev", "Goto", "SetNextStatement", "SplitLines", "CombineLines", "SortLines", "DeleteBlankLines", "FormatWithBasisWord", "ConvertFromHexStrUnicode", "ConvertToHexStrUnicode", "ConvertToUppercaseFirstLetter", "ConvertToLowercase", "ConvertToUppercase", "SplitUp", "SplitDown", "SplitLeft", "SplitRight", _
+		"AddWatch", "ShowVar", "NextBookmark", "PreviousBookmark", "ClearAllBookmarks", "Code", "Form", "CodeAndForm", "GotoCodeForm", "AddProcedure", "AddType", "AIAddComment", "AIOptimizeCode", "AIIntellicode", "AITracepointError", "AITranslate", "AITranslateE"
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 		If tb = 0 Then Exit Sub
 		Select Case Sender.ToString
 		Case "Save":                        tb->Save
 		Case "SaveAs":                      tb->SaveAs:  frmMain.Caption = tb->FileName & " - " & App.Title
 		Case "Close":                       CloseTab(tb)
+		Case "SplitLines":                  tb->SplitLines
+		Case "CombineLines":                tb->CombineLines
 		Case "SortLines":                   tb->SortLines
 		Case "DeleteBlankLines":            tb->DeleteBlankLines
 		Case "FormatWithBasisWord" :        tb->FormatWithBasisWord
-		Case "ConvertToLowercase":           tb->ConvertToLowercase
-		Case "ConvertToUppercase":           tb->ConvertToUppercase
+		Case "ConvertToLowercase":          tb->ConvertToLowercase
+		Case "ConvertToUppercase":          tb->ConvertToUppercase
+		Case "ConvertToHexStrUnicode":          tb->ConvertToHexStrUnicode
+		Case "ConvertFromHexStrUnicode":          tb->ConvertFromHexStrUnicode
+		Case "ConvertToUppercaseFirstLetter": tb->ConvertToUppercaseFirstLetter
 		Case "SplitHorizontally":           tb->txtCode.SplittedHorizontally = Not mnuSplitHorizontally->Checked
 		Case "SplitVertically":             tb->txtCode.SplittedVertically = Not mnuSplitVertically->Checked
 		Case "SplitUp", "SplitDown", "SplitLeft", "SplitRight":
@@ -647,6 +759,54 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			#endif
 			ptabCode = @ptabPanelNew->tabCode
 			TabPanels.Add ptabPanelNew
+		Case "AITracepointError"
+			If lvProblems.ListItems.Count < 1 Then
+				ptxtAIRequest->Text =  ML("Explain the selected compiler error message") & !":\r\n" & "```freeBasic" & !"\r\n" & !"\r\n" & "```"
+				ptxtAIRequest->SetFocus
+			Else
+				Dim As WString Ptr CodeStrPtr
+				Dim As Integer j, LineStart = Val(lvProblems.SelectedItem->Text(1)) - 1
+				Dim As EditControlLine Ptr FFirstECLine
+				For j = LineStart To 0 Step -1
+					FFirstECLine = tb->txtCode.Content.Lines.Items[j]
+					If Trim(*FFirstECLine->Text, Any !"\t ") = "" OrElse Not (EndsWith(RTrim(*FFirstECLine->Text, Any !"\t "), " _") OrElse Trim(*FFirstECLine->Text, Any !"\t ") = "_")  Then
+						Exit For
+					End If
+				Next
+				If LineStart = j Then
+					WLet(CodeStrPtr, tb->txtCode.Lines(LineStart))
+				Else
+					LineStart = j + 1
+					WLet(CodeStrPtr, tb->txtCode.Lines(LineStart))
+					For j As Integer = LineStart + 1 To tb->txtCode.LinesCount - 1
+						FFirstECLine = tb->txtCode.Content.Lines.Items[j]
+						WAdd(CodeStrPtr, !"\r\n" & tb->txtCode.Lines(j))
+						If Trim(*FFirstECLine->Text, Any !"\t ") = "" OrElse  Not (EndsWith(RTrim(*FFirstECLine->Text, Any !"\t "), " _") OrElse Trim(*FFirstECLine->Text, Any !"\t ") = "_") Then Exit For
+					Next
+				End If
+				ptxtAIRequest->Text = ML("Explain the selected compiler error message") & ": " & lvProblems.SelectedItem->Text(0) & !"\r\n" & "```freeBasic" & !"\r\n" & *CodeStrPtr & !"\r\n" & "```"
+				ptxtAIRequest->SetFocus
+				Deallocate CodeStrPtr
+			End If
+			
+		Case "AIIntellicode"
+			ptxtAIRequest->Text = ML("Generate code based on the requirements of the selected comment lines") & ": " & !"\r\n" & "```freeBasic" & !"\r\n" & tb->txtCode.SelText & !"\r\n" & "```"
+			ptxtAIRequest->SetFocus
+		Case "AIAddComment" '"AIOptimizeCode", "AIIntellicode" , "AITracepointError", "AIRelease"
+			'ML("You are FreeBasic programming expert. Follow MyFbFramework GUI form guidelines.") & " " &
+			ptxtAIRequest->Text = ML("Comment selected code") & ": " & !"\r\n" & "```freeBasic" & !"\r\n" & tb->txtCode.SelText & !"\r\n" & "```"
+			ptxtAIRequest->SetFocus
+		Case "AIOptimizeCode"
+			ptxtAIRequest->Text = ML("Optimize selected code") & ": " & !"\r\n" & "```freeBasic" & !"\r\n" & tb->txtCode.SelText & !"\r\n" & "```"
+			ptxtAIRequest->SetFocus
+		Case "AITranslate"
+			ptxtAIRequest->Text = ML("Output with MARKDOWN source code, translate the selected message to") & " " & ML(App.CurLanguage) & !"\r\n" & "```MARKDOWN" & !"\r\n" & tb->txtCode.SelText & !"\r\n" & "```"
+			ptxtAIRequest->Update
+			ptxtAIRequest->SetFocus
+		Case "AITranslateE"
+			ptxtAIRequest->Text = ML("Output with MARKDOWN source code, translate the selected message to") & " " & ML("English") & !"\r\n" & "```MARKDOWN" & !"\r\n" & tb->txtCode.SelText & !"\r\n" & "```"
+			ptxtAIRequest->SetFocus
+			
 		Case "SetNextStatement":
 			ClearThreadsWindow
 			Dim As DebuggerTypes CurrentDebugger = IIf(tbt32Bit->Checked, CurrentDebuggerType32, CurrentDebuggerType64)
@@ -661,9 +821,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 					exe_mod()
 				#endif
 			End If
-		Case "ShowVar":                 
+		Case "ShowVar":
 			'#ifndef __USE_GTK__
-				var_tip(1)
+			var_tip(1)
 			'#endif
 		Case "StepOut":
 			ClearThreadsWindow
@@ -715,14 +875,14 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 					RunningToCursor = True
 					runtype = RTFRUN
 					'#ifndef __USE_GTK__
-						CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
+					CurrentTimer = SetTimer(0, 0, 1, @TIMERPROC)
 					'#endif
 					ThreadCounter(ThreadCreate_(@StartDebugging))
 				End If
 			End If
 		Case "AddWatch":
 			'#ifndef __USE_GTK__
-				var_tip(2)
+			var_tip(2)
 			'#endif
 		Case "FindNext":                    pfFind->Find(True)
 		Case "FindPrev":                    pfFind->Find(False)
@@ -733,7 +893,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		Case "Code":                        tb->tbrTop.Buttons.Item("Code")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Code")
 		Case "Form":                        tb->tbrTop.Buttons.Item("Form")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("Form")
 		Case "CodeAndForm":                 tb->tbrTop.Buttons.Item("CodeAndForm")->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item("CodeAndForm")
-		Case "GotoCodeForm":                
+		Case "GotoCodeForm":
 			If tb->txtCode.Focused Then
 				If tb->tbrTop.Buttons.Item("Code")->Checked Then tb->tbrTop.Buttons.Item(tb->LastButton)->Checked = True: tbrTop_ButtonClick *tb->tbrTop.Designer, tb->tbrTop, *tb->tbrTop.Buttons.Item(tb->LastButton)
 				If tb->Des Then DesignerChangeSelection(*tb->Des, tb->Des->SelectedControl)
@@ -761,7 +921,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 	Case "PinBottom":                       SetBottomClosedStyle Not tbBottom.Buttons.Item("PinBottom")->Checked, False
 	Case "EraseOutputWindow":               txtOutput.Text = ""
 	Case "EraseImmediateWindow":            txtImmediate.Text = ""
-	Case "Update":                          
+	Case "Update":
 		#if Not (defined(__FB_WIN32__) AndAlso defined(__USE_GTK__))
 			iStateMenu = IIf(tbBottom.Buttons.Item("Update")->Checked, 2, 1): If Running = False Then command_debug("")
 		#endif
@@ -799,9 +959,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 			tb->NewLineType = NewLineType
 			tb->Modified = True
 		End If
-		Case "VariableDump":                var_dump(tviewvar)
-		Case "PointedDataDump":             var_dump(tviewvar, 1)
-		Case "MemoryDumpWatch":             var_dump(tviewwch)
+	Case "VariableDump":                var_dump(tviewvar)
+	Case "PointedDataDump":             var_dump(tviewvar, 1)
+	Case "MemoryDumpWatch":             var_dump(tviewwch)
 		#ifndef __USE_GTK__
 		Case "ShowStringWatch":             string_sh(tviewwch)
 		Case "ShowExpandVariableWatch":     shwexp_new(tviewwch)
@@ -814,7 +974,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		"CollapseCurrent", "UnCollapseCurrent", "CompleteWord", "ParameterInfo", "OnErrorGoto", "OnErrorGotoResumeNext", "OnLocalErrorGoto", "OnLocalErrorGotoResumeNext", "RemoveErrorHandling", "Define"
 		Dim As Form Ptr ActiveForm = Cast(Form Ptr, pApp->ActiveForm)
 		If ActiveForm = 0 Then Exit Sub
-		If ActiveForm->ActiveControl = 0 Then 
+		If ActiveForm->ActiveControl = 0 Then
 			Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
 			If tb <> 0 AndAlso tb->cboClass.ItemIndex > 0 Then
 				Dim des As Designer Ptr = tb->Des
@@ -835,9 +995,9 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 		Select Case Sender.ToString
 		Case "Indent", "Outdent":           SelectNextControl
 		End Select
-		If ActiveForm->ActiveControl->ClassName <> "EditControl" AndAlso ActiveForm->ActiveControl->ClassName <> "TextBox" AndAlso ActiveForm->ActiveControl->ClassName <> "Panel" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEdit" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEx" Then Exit Sub
+		If ActiveForm->ActiveControl->ClassName <> "EditControl" AndAlso ActiveForm->ActiveControl->ClassName <> "TextBox" AndAlso ActiveForm->ActiveControl->ClassName <> "RichTextBox" AndAlso ActiveForm->ActiveControl->ClassName <> "Panel" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEdit" AndAlso ActiveForm->ActiveControl->ClassName <> "ComboBoxEx" Then Exit Sub
 		Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, ptabCode->SelectedTab)
-		If ActiveForm->ActiveControl->ClassName = "TextBox" Then
+		If ActiveForm->ActiveControl->ClassName = "TextBox" OrElse ActiveForm->ActiveControl->ClassName = "RichTextBox" Then
 			Dim txt As TextBox Ptr = Cast(TextBox Ptr, pfrmMain->ActiveControl)
 			Select Case Sender.ToString
 			Case "Undo":                    txt->Undo
@@ -920,7 +1080,7 @@ Sub mClick(ByRef Designer_ As My.Sys.Object, Sender As My.Sys.Object)
 				Case "ProcedureNumberOff":      tb->ProcedureNumberOff
 				Case "PreprocessorNumberOn":    tb->PreprocessorNumberOn
 				Case "PreprocessorNumberOff":   tb->PreprocessorNumberOff
-				'Case "OnErrorResumeNext":       tb->SetErrorHandling "On Error Resume Next", ""
+					'Case "OnErrorResumeNext":       tb->SetErrorHandling "On Error Resume Next", ""
 				Case "OnErrorGoto":             tb->SetErrorHandling "On Error Goto ErrorHandler", ""
 				Case "OnErrorGotoResumeNext":   tb->SetErrorHandling "On Error Goto ErrorHandler", "Resume Next"
 				Case "OnLocalErrorGoto":           tb->SetErrorHandling "On Local Error Goto ErrorHandler", ""
@@ -954,7 +1114,6 @@ pApp->Run
 End
 AA:
 MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
-	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
-	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
- 
+"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "

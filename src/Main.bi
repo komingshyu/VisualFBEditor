@@ -23,6 +23,7 @@
 #include once "mff/TextBox.bi"
 #include once "mff/StatusBar.bi" 'David Change
 #include once "mff/IniFile.bi"
+#include once "mff/HTTP.bi"
 #ifndef __USE_GTK__
 	#include once "mff/PageSetupDialog.bi"
 	#include once "mff/PrintDialog.bi"
@@ -113,8 +114,14 @@ Declare Function HK(Key As String, Default As String = "", WithSpace As Boolean 
 Declare Function MP(ByRef V As WString) ByRef As WString
 Declare Function MLCompilerFun(ByRef V As WString) ByRef As WString
 Declare Function MC(ByRef V As WString) ByRef As WString
+Declare Sub AIResetContext()
+Declare Sub AIRequest(Param As Any Ptr)
+Declare Function EscapeJsonForPrompt(ByRef iText As WString) As String
+Declare Function EscapeFromJson(ByRef iText As WString) As WString Ptr
+Declare Sub SplitAIText(ByRef iText As String, Chunks() As String, chunkSize As Integer = 4000, Overlap As Integer = 0)
 Declare Sub PopupClick(ByRef Designer As My.Sys.Object, ByRef Sender As My.Sys.Object)
 Declare Sub mClick(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
+Declare Sub mClickAIChat(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
 Declare Sub mClickMRU(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
 Declare Sub mClickHelp(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
 Declare Sub mClickTool(ByRef Designer As My.Sys.Object, Sender As My.Sys.Object)
@@ -129,10 +136,10 @@ Common Shared As SaveFileDialog Ptr pSaveD
 Common Shared As ListView Ptr plvSearch, plvToDo
 Common Shared As StatusBar Ptr pstBar 'David Changed
 Common Shared As TreeListView Ptr plvProperties, plvEvents
-Common Shared As ImageList Ptr pimgList, pimgListTools
+Common Shared As ImageList Ptr pimgList, pimgListTools, pimgListAIProviders32, pimgListAIModels32
 Common Shared As ProgressBar Ptr pprProgress
 Common Shared As CommandButton Ptr pbtnPropertyValue
-Common Shared As TextBox Ptr ptxtPropertyValue
+Common Shared As TextBox Ptr ptxtPropertyValue, ptxtAIRequest
 Common Shared As ToolBar Ptr ptbStandard
 Common Shared As ToolButton Ptr SelectedTool
 Common Shared As TabControl Ptr ptabCode, ptabLeft, ptabBottom, ptabRight
@@ -140,7 +147,9 @@ Common Shared As TreeView Ptr ptvExplorer
 Common Shared As IniFile Ptr piniSettings, piniTheme
 Common Shared As MenuItem Ptr mnuUseDebugger, mnuUseProfiler, miHelps, miXizmat, miWindow
 Common Shared As MenuItem Ptr miPlainText, miUtf8, miUtf8BOM, miUtf16BOM, miUtf32BOM, miWindowsCRLF, miLinuxLF, miMacOSCR, miUseDefine
-
+Common Shared As HTTPConnection Ptr pHTTPAIAgent
+Common Shared As FileEncodings DefaultFileFormat
+Common Shared As NewLineTypes DefaultNewLineFormat
 Common Shared As Boolean AutoIncrement
 Common Shared As Boolean AutoComplete
 Common Shared As Boolean AutoSuggestions, ProjectAutoSuggestions
@@ -153,7 +162,7 @@ Common Shared As Boolean CreateNonStaticEventHandlers, CreateFormTypesWithoutTyp
 Common Shared As Boolean PlaceStaticEventHandlersAfterTheConstructor, CreateStaticEventHandlersWithAnUnderscoreAtTheBeginning, CreateEventHandlersWithoutStaticEventHandlerIfEventAllowsIt
 Common Shared As Boolean LimitDebug, DisplayWarningsInDebug, TurnOnEnvironmentVariables
 Common Shared As Boolean UseDebugger, ParameterInfoShow
-Common Shared As Boolean CompileGUI
+Common Shared As Boolean CompileGUI, bAIAgentFirstRun
 Common Shared As Boolean mFormFindInFile
 Common Shared As Boolean InDebug, FormClosing, Restarting, FastRunning, RunningToCursor
 Common Shared As Boolean HighlightCurrentLine, HighlightCurrentWord, HighlightBrackets
@@ -168,15 +177,16 @@ Common Shared As Integer IncludeMFFPath
 Common Shared As Integer gSearchItemIndex
 Common Shared As Integer InterfaceFontSize
 Common Shared As Integer LastOpenedFileType
-Common Shared As Integer LoadFunctionsCount
-Common Shared As String  UseDefine
-'CurLanguage
+Common Shared As Integer LoadFunctionsCount, AIAgentPort
+Common Shared As Boolean AIAgentStream
+Common Shared As Double  AIAgentTop_P, AIAgentTemperature '介于 0 和 2 之间.
+Common Shared As String  UseDefine, AIAgentHost, AIAgentAddress, AIAgentAPIKey, AIAgentModelName, AIAgentProvider, AIAgentName, AIRTF_HEADER, AIEditorFontName
 Common Shared As WString Ptr DefaultProjectFile
 Common Shared As WString Ptr InterfaceFontName
 Common Shared As WString Ptr gSearchSave, EnvironmentVariables
 Common Shared As WString Ptr ProjectsPath, LastOpenPath, CommandPromptFolder
 Common Shared As WString Ptr DefaultHelp, HelpPath, KeywordsHelpPath, AsmKeywordsHelpPath, DefaultBuildConfiguration
-Common Shared As WString Ptr DefaultMakeTool, CurrentMakeTool1, CurrentMakeTool2
+Common Shared As WString Ptr DefaultMakeTool, CurrentMakeTool1, CurrentMakeTool2, DefaultAIAgent, CurrentAIAgent
 Common Shared As WString Ptr DefaultDebugger32, DefaultDebugger64, GDBDebugger32, GDBDebugger64, CurrentDebugger32, CurrentDebugger64, DefaultTerminal, CurrentTerminal
 Common Shared As WString Ptr DefaultCompiler32, CurrentCompiler32, DefaultCompiler64, CurrentCompiler64
 Common Shared As WString Ptr MakeToolPath1, MakeToolPath2, Debugger32Path, Debugger64Path, GDBDebugger32Path, GDBDebugger64Path, TerminalPath, Compiler32Path, Compiler64Path
@@ -207,6 +217,19 @@ Type ToolType
 	Declare Function GetCommand(ByRef FileName As WString = "", WithoutProgram As Boolean = False) As UString
 End Type
 
+Type ModelInfo
+	Name As String
+	Host As String
+	Address As String
+	APIKey As String
+	ModelName As String
+	Provider As String
+	Port As Integer
+	Stream As Boolean
+	Temperature As Single '介于 0 和 2 之间.
+	Top_P As Single ' 《=1
+	Response_Format As String 'json_object
+End Type
 'Type FileType
 '	FileName As UString
 '	DateChanged As Double
@@ -226,7 +249,7 @@ Common Shared As List Ptr pTools, pControlLibraries
 Common Shared As WStringOrStringList Ptr pComps, pGlobalNamespaces, pGlobalTypes, pGlobalEnums, pGlobalDefines, pGlobalFunctions, pGlobalTypeProcedures, pGlobalArgs
 Common Shared As WStringList Ptr pAddIns, pIncludeFiles, pLoadPaths, pIncludePaths, pLibraryPaths
 'Common Shared As WStringList Ptr pLocalTypes, pLocalEnums, pLocalProcedures, pLocalFunctions, pLocalFunctionsOthers, pLocalArgs,
-Common Shared As Dictionary Ptr pHelps, pCompilers, pMakeTools, pDebuggers, pTerminals, pOtherEditors
+Common Shared As Dictionary Ptr pHelps, pCompilers, pMakeTools, pDebuggers, pTerminals, pOtherEditors, pAIAgents
 
 Enum LoadParam
 	OnlyFilePath
@@ -303,8 +326,8 @@ Declare Sub SaveAll()
 Declare Sub FormatProject(UnFormat As Any Ptr)
 Declare Sub SetSaveDialogParameters(ByRef FileName As WString)
 Declare Function IfNegative(Value As Integer, NonNegative As Integer) As Integer
-Declare Function GetChangedCommas(Value As String, FromSecond As Boolean = False) As String
-Declare Function GetFileName(ByRef FileName As WString) As UString
+Declare Function GetChangedCommas(ByRef Value As WString, FromSecond As Boolean = False) As String
+Declare Function GetFileName(ByRef FileName As WString, WithExtension As Boolean = True) As UString
 Declare Function GetExeFileName(ByRef FileName As WString, ByRef sLine As WString) As UString
 Declare Function GetBakFileName(ByRef FileName As WString) As UString
 Declare Function GetShortFileName(ByRef FileName As WString, ByRef FilePath As WString) As UString

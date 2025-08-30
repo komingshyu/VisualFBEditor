@@ -36,6 +36,7 @@
 #include once "mff/VerticalBox.bi"
 #include once "mff/HorizontalBox.bi"
 #include once "mff/PagePanel.bi"
+#include once "mff/NumericUpDown.bi"
 
 Using My.Sys.Forms
 
@@ -143,18 +144,24 @@ Common Shared As Integer oldIndex, newIndex
 		Declare Sub cmdRemoveConfiguration_Click(ByRef Sender As Control)
 		Declare Sub cmdClearConfigurations_Click(ByRef Sender As Control)
 		Declare Sub lvConfigurations_ItemActivate(ByRef Sender As ListView, ByVal ItemIndex As Integer)
+		Declare Sub cmdAddAIAgent_Click(ByRef Sender As Control)
+		Declare Sub cmdRemoveAIAgent_Click(ByRef Sender As Control)
+		Declare Sub cmdChangeAIAgent_Click(ByRef Sender As Control)
+		Declare Sub cmdClearAIAgent_Click(ByRef Sender As Control)
+		Declare Sub cboAIAgent_Selected(ByRef Sender As ComboBoxEdit, ItemIndex As Integer)
+		Declare Sub lvAIAgentTypes_ItemActivate(ByRef Sender As ListView, ByVal ItemIndex As Integer)
 		Declare Constructor
 		Declare Destructor
 		
 		Dim As TreeView tvOptions
 		Dim As CommandButton cmdOK, cmdCancel, cmdApply, cmdAddCompiler, cmdMFFPath, cmdAddInclude, cmdRemoveInclude, cmdAddLibrary, cmdRemoveLibrary, cmdChangeDebugger, cmdChangeTerminal, cmdChangeMakeTool, cmdAdd, cmdRemove, cmdForeground, cmdFont, cmdProjectsPath, cmdBackground, cmdIndicator, cmdRemoveCompiler, cmdClearCompilers, cmdAddDebugger, cmdRemoveDebugger, cmdClearDebuggers, cmdAddMakeTool, cmdRemoveMakeTool, cmdClearMakeTools, cmdAddTerminal, cmdRemoveTerminal, cmdClearTerminals, cmdSetShortcut
-		Dim As Label lblBlack, lblCompiler32, lblCompiler64, lblTabSize, lblHistoryLimit, lblGridSize, lblFont, lblProjectsPath, lblForeground, lblBackground, lblIndicator, lblOthers, lblShortcut
+		Dim As Label lblBlack, lblCompiler32, lblCompiler64, lblTabSize, lblHistoryLimit, lblGridSize, lblFont, lblProjectsPath, lblForeground, lblBackground, lblIndicator, lblOthers, lblShortcut, lblDefaultFileFormat
 		Dim As ScrollControl pnlGeneral, pnlCodeEditor, pnlDesigner, sccColors
-		Dim As Panel pnlLocalization, pnlThemes, pnlShortcuts, pnlColorsAndFonts, pnlCompiler, pnlMake, pnlDebugger, pnlTerminal, pnlHelp, pnlIncludes, pnlIncludeMFFPath, pnlInterfaceFont, pnlGrid, pnlOtherEditors, pnlLine, pnlLanguage, pnlProjectsPath, pnlSelectShortcut, pnlAutoSaveCharMax, pnlBuildConfigurations
-		Dim As HorizontalBox pnlChangeKeywordsCase, pnlTreatTabAsSpaces, pnlTabSize, pnlHistoryLimit, pnlIntellisenseLimit, pnlHistoryFileSavingDays, hbxEditors, hbxCompilers, hbxHelp, hbxTerminal, hbxDebugger, hbxMakeTool, hbxColors, hbxThemeCommands, hbxForeground, hbxBackground, hbxFrame, hbxIndicator, pnlCommands, hbxConfigurations, pnlCodeEditorHoverTime
+		Dim As Panel pnlLocalization, pnlThemes, pnlShortcuts, pnlColorsAndFonts, pnlCompiler, pnlMake, pnlDebugger, pnlTerminal, pnlHelp, pnlIncludes, pnlIncludeMFFPath, pnlInterfaceFont, pnlGrid, pnlOtherEditors, pnlLine, pnlLanguage, pnlProjectsPath, pnlSelectShortcut, pnlAutoSaveCharMax, pnlBuildConfigurations, pnlAIAgent, pnlDefaults
+		Dim As HorizontalBox pnlChangeKeywordsCase, pnlTreatTabAsSpaces, pnlTabSize, pnlHistoryLimit, pnlIntellisenseLimit, pnlHistoryFileSavingDays, hbxEditors, hbxCompilers, hbxHelp, hbxTerminal, hbxDebugger, hbxMakeTool, hbxColors, hbxThemeCommands, hbxForeground, hbxBackground, hbxFrame, hbxIndicator, pnlCommands, hbxConfigurations, pnlCodeEditorHoverTime, hbxAIAgent, pnlChangeEndingType, hbxDefaultFileFormat, hbxDefaultNewLineFormat
 		Dim As TextBox txtColorForeground, txtColorBackground, txtColorIndicator, txtColorFrame
 		Dim As TextBox txtMFFpath, txtTabSize, txtHistoryLimit, txtGridSize, txtProjectsPath, txtInFolder, txtIntellisenseLimit, txtEnvironmentVariables, txtHistoryCodeDays,  txtFoldsHtml(0), txtFoldsLng, txtAutoSaveCharMax, txtCodeEditorHoverTime
-		Dim As ComboBoxEdit cboLanguage, cboCase, cboTabStyle, cboTheme, cboCompiler32, cboCompiler64, cboDebugger32, cboMakeTool, cboTerminal, cboHelp, cboDebugger64, cboDefaultProjectFile, cboOpenedFile, cboGDBDebugger32, cboGDBDebugger64, cboConfiguration
+		Dim As ComboBoxEdit cboLanguage, cboCase, cboTabStyle, cboTheme, cboCompiler32, cboCompiler64, cboDebugger32, cboMakeTool, cboTerminal, cboHelp, cboDebugger64, cboDefaultProjectFile, cboDefaultFileFormat, cboDefaultNewLineFormat, cboOpenedFile, cboGDBDebugger32, cboGDBDebugger64, cboConfiguration, cboAIAgent, cboConstructions
 		Dim As CheckBox CheckBox1, chkAutoCreateRC, chkAutoSaveCurrentFileBeforeCompiling, chkEnableAutoComplete, chkTabAsSpaces, chkAutoIndentation, chkShowSpaces, chkShowAlignmentGrid, chkSnapToGrid, chkChangeKeywordsCase, chkBold, chkItalic, chkUnderline, chkUseMakeOnStartWithCompile
 		Dim As HotKey hkShortcut
 		Dim OpenD As OpenFileDialog
@@ -171,22 +178,22 @@ Common Shared As Integer oldIndex, newIndex
 		Dim As Boolean HotKeysChanged
 		Dim As Integer LibraryPathsCount
 		Dim As ListControl lstIncludePaths, lstLibraryPaths, lstColorKeys
-		Dim As GroupBox grbGrid, grbColors, grbThemes, grbFont, grbDefaultCompilers, grbCompilerPaths, grbDefaultDebuggers, grbDebuggerPaths, grbMakeToolPaths, grbDefaultMakeTool, grbDefaultTerminal, grbTerminalPaths, grbIncludePaths, grbLibraryPaths, grbLanguage, grbDefaultHelp, grbHelpPaths, grbWhenCompiling, grbShortcuts, grbOtherEditors, grbWhenVFBEStarts, grbCommandPromptOptions, grbDefaultConfiguration, grbConfigurations
-		Dim As ListView lvCompilerPaths, lvDebuggerPaths, lvMakeToolPaths, lvTerminalPaths, lvHelpPaths, lvShortcuts, lvOtherEditors, lvConfigurations
+		Dim As GroupBox grbGrid, grbColors, grbThemes, grbFont, grbDefaultCompilers, grbCompilerPaths, grbDefaultDebuggers, grbDebuggerPaths, grbMakeToolPaths, grbDefaultMakeTool, grbDefaultTerminal, grbTerminalPaths, grbIncludePaths, grbLibraryPaths, grbLanguage, grbDefaultHelp, grbHelpPaths, grbWhenCompiling, grbShortcuts, grbOtherEditors, grbWhenVFBEStarts, grbCommandPromptOptions, grbDefaultConfiguration, grbConfigurations, grbAIAgent, grbAIAgentType, grbDefaultAIAgent, grbDefaults
+		Dim As ListView lvCompilerPaths, lvDebuggerPaths, lvMakeToolPaths, lvTerminalPaths, lvHelpPaths, lvShortcuts, lvOtherEditors, lvConfigurations, lvAIAgentTypes
 		Dim As Label lblInterfaceFont
 		Dim As CommandButton cmdInterfaceFont
 		Dim As Label lblInterfaceFontLabel
 		Dim As CheckBox chkDisplayIcons, chkShowMainToolbar, chkAutoCreateBakFiles, chkShowToolBoxLocal, chkShowPropLocal
-		Dim As Label lblFrame, lblDebugger32, lblDebugger64, lblFindCompilersFromComputer, lblOpenCommandPromptIn, lblIntellisenseLimit, lblDebugger321, lblDebugger641, lblHistoryDay, lblShowMsg, lbAutoSaveCharMax, lblCodeEditorHoverTime
-		Dim As CommandButton cmdFrame, cmdChangeCompiler, cmdAddHelp, cmdChangeHelp, cmdRemoveHelp, cmdClearHelps, cmdAddEditor, cmdChangeEditor, cmdRemoveEditor, cmdClearEditor, cmdFindCompilers, cmdInFolder, cmdUpdateLng,  cmdUpdateLngHTMLFolds(0),  cmdReplaceInFiles(0), cmdClearConfigurations, cmdRemoveConfiguration, cmdChangeConfiguration, cmdAddConfiguration
+		Dim As Label lblFrame, lblDebugger32, lblDebugger64, lblFindCompilersFromComputer, lblOpenCommandPromptIn, lblIntellisenseLimit, lblDebugger321, lblDebugger641, lblHistoryDay, lblShowMsg, lbAutoSaveCharMax, lblCodeEditorHoverTime, lblDefaultNewLineFormat
+		Dim As CommandButton cmdFrame, cmdChangeCompiler, cmdAddHelp, cmdChangeHelp, cmdRemoveHelp, cmdClearHelps, cmdAddEditor, cmdChangeEditor, cmdRemoveEditor, cmdClearEditor, cmdFindCompilers, cmdInFolder, cmdUpdateLng,  cmdUpdateLngHTMLFolds(0),  cmdReplaceInFiles(0), cmdClearConfigurations, cmdRemoveConfiguration, cmdChangeConfiguration, cmdAddConfiguration, cmdClearAIAgent, cmdRemoveAIAgent, cmdChangeAIAgent, cmdAddAIAgent
 		Dim As CheckBox chkAllLNG, chkFrame, chkForeground, chkBackground, chkIndicator
 		Dim As CheckBox chkHighlightCurrentWord
 		Dim As CheckBox chkHighlightCurrentLine
-		Dim As CheckBox chkHighlightBrackets, chkIncludeMFFPath, chkLimitDebug, chkDisplayWarningsInDebug, chkCreateNonStaticEventHandlers, chkShowKeywordsTooltip, chkShowSymbolsTooltipsOnMouseHover, chkShowClassesExplorerOnOpenWindow, chkAddSpacesToOperators, chkCreateFormTypesWithoutTypeWord, chkTurnOnEnvironmentVariables, chkDarkMode, chkPlaceStaticEventHandlersAfterTheConstructor, chkCreateStaticEventHandlersWithAnUnderscoreAtTheBeginning, chkAddRelativePathsToRecent, chkShowTooltipsAtTheTop, chkChangeIdentifiersCase, chkSyntaxHighlightingIdentifiers, chkEnableAutoSuggestions, chkShowHorizontalSeparatorLines, chkCreateEventHandlersWithoutStaticEventHandlerIfEventAllowsIt, chkAutoSaveSession, chkShowHolidayFrame
+		Dim As CheckBox chkHighlightBrackets, chkIncludeMFFPath, chkLimitDebug, chkDisplayWarningsInDebug, chkCreateNonStaticEventHandlers, chkShowKeywordsTooltip, chkShowSymbolsTooltipsOnMouseHover, chkShowClassesExplorerOnOpenWindow, chkAddSpacesToOperators, chkCreateFormTypesWithoutTypeWord, chkTurnOnEnvironmentVariables, chkDarkMode, chkPlaceStaticEventHandlersAfterTheConstructor, chkCreateStaticEventHandlersWithAnUnderscoreAtTheBeginning, chkAddRelativePathsToRecent, chkShowTooltipsAtTheTop, chkChangeIdentifiersCase, chkSyntaxHighlightingIdentifiers, chkEnableAutoSuggestions, chkShowHorizontalSeparatorLines, chkCreateEventHandlersWithoutStaticEventHandlerIfEventAllowsIt, chkAutoSaveSession, chkShowHolidayFrame, ShowClassesExplorerOnOpenWindow, chkChangeEndingType, chkUseDirect2D
 		Dim As Boolean oldDisplayMenuIcons
 		Dim As RadioButton optSaveCurrentFile, optDoNotSave, optSaveAllFiles, optPromptForProjectAndFile, optCreateProjectFile, optOpenLastSession, optDoNotNothing, optPromptToSave, optMainFileFolder, optInFolder
 		Dim As VerticalBox vbxCodeEditor, vbxGeneral, vbxColors
-		Dim As VerticalBox vbxTheme
+		Dim As VerticalBox vbxTheme, vbxDefaults
 		Dim As PagePanel pplGeneral
 	End Type
 '#End Region
@@ -200,3 +207,4 @@ Common Shared pfOptions As frmOptions Ptr
 #ifndef __USE_MAKE__
 	#include once "frmOptions.frm"
 #endif
+

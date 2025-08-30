@@ -6,8 +6,10 @@
 '#########################################################
 
 #include once "EditControl.bi"
-#ifndef __USE_GTK__
+#ifdef __USE_WINAPI__
 	#include once "win/mmsystem.bi"
+	#include once "mff/D2D1/D2D1.bi"
+	#include once "crt/limits.bi"
 #endif
 
 Dim Shared As WStringList KeywordLists 'keywords0, keywords1, keywords2, keywords3
@@ -51,7 +53,7 @@ Constructions(C_P_Macro)            = Type<Construction>("#Macro",        "",   
 Constructions(C_Extern)             = Type<Construction>("Extern",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Extern",      "As ",   True,  False)
 Constructions(C_Try)                = Type<Construction>("Try",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Catch",    "Finally",    "",        "EndTry",          "",      True,  False)
 Constructions(C_Asm)                = Type<Construction>("Asm",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "End Asm",         " ",     True,  False)
-Constructions(C_Select_Case)        = Type<Construction>("Select Case",   "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Case",     "",           "",        "End Select",      "",      True,  False)
+Constructions(C_Select_Case)        = Type<Construction>("Select",        "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "Case",     "",           "",        "End Select",      "",      True,  False)
 Constructions(C_For)                = Type<Construction>("For",           "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Next",            "",      True,  False)
 Constructions(C_Do)                 = Type<Construction>("Do",            "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Loop",            "",      True,  False)
 Constructions(C_While)              = Type<Construction>("While",         "",                   "",                    "",                   "",                          "",                           "",                "",                       "",                        "",         "",           "",        "Wend",            "",      True,  False)
@@ -234,6 +236,18 @@ Namespace My.Sys.Forms
 				End If
 			End If
 		End Sub
+		
+		Sub EditControl.EC_TimerProcBlink(hwnd As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
+			If FocusEC Then
+				FocusEC->CaretPosShowed += 1
+				FocusEC->CaretOn = Not FocusEC->CaretOn
+				If FocusEC->CaretPosShowed < 4 Then
+					FocusEC->PaintControl
+				Else
+					FocusEC->PaintControl False, True
+				End If
+			End If
+		End Sub
 	#endif
 	
 	Sub EditControl.Breakpoint
@@ -411,6 +425,7 @@ Namespace My.Sys.Forms
 				FECLine->ConstructionIndex = .ConstructionIndex
 				FECLine->ConstructionPart = .ConstructionPart
 				FECLine->ConstructionPartCount = .ConstructionPartCount
+				FECLine->ConstructionNextCount = .ConstructionNextCount
 				FECLine->InAsm = .InAsm
 				FECLine->InConstructionIndex = .InConstructionIndex
 				FECLine->InConstructionPart = .InConstructionPart
@@ -427,6 +442,7 @@ Namespace My.Sys.Forms
 						FECStatement->ConstructionIndex = .ConstructionIndex
 						FECStatement->ConstructionPart = .ConstructionPart
 						FECStatement->ConstructionPartCount = .ConstructionPartCount
+						FECStatement->ConstructionNextCount = .ConstructionNextCount
 						FECStatement->InAsm = .InAsm
 						FECStatement->InConstructionIndex = .InConstructionIndex
 						FECStatement->InConstructionPart = .InConstructionPart
@@ -484,6 +500,7 @@ Namespace My.Sys.Forms
 				FECLine->ConstructionIndex = .ConstructionIndex
 				FECLine->ConstructionPart = .ConstructionPart
 				FECLine->ConstructionPartCount = .ConstructionPartCount
+				FECLine->ConstructionNextCount = .ConstructionNextCount
 				FECLine->InAsm = .InAsm
 				FECLine->InConstructionIndex = .InConstructionIndex
 				FECLine->InConstructionPart = .InConstructionPart
@@ -500,6 +517,7 @@ Namespace My.Sys.Forms
 						FECStatement->ConstructionIndex = .ConstructionIndex
 						FECStatement->ConstructionPart = .ConstructionPart
 						FECStatement->ConstructionPartCount = .ConstructionPartCount
+						FECStatement->ConstructionNextCount = .ConstructionNextCount
 						FECStatement->InAsm = .InAsm
 						FECStatement->InConstructionIndex = .InConstructionIndex
 						FECStatement->InConstructionPart = .InConstructionPart
@@ -854,6 +872,7 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	Sub EditControlContent.ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "", EC As Any Ptr = 0)
+		If LineIndex < 0 OrElse LineIndex >= Lines.Count Then Exit Sub
 		Dim As EditControlLine Ptr ecl = Lines.Items[LineIndex], eclOld, eclOld_
 		Dim As Integer i, j, OldLineIndex = LineIndex - 1
 		If OldLineIndex > -1 Then
@@ -864,22 +883,30 @@ Namespace My.Sys.Forms
 			_Delete(Cast(EditControlStatement Ptr, ecl->Statements.Item(ii)))
 		Next
 		ecl->Statements.Clear
-		Dim As UString LineText_
+		Dim As WString Ptr LineTextOld, LineText_
 		'If LineText <> "" Then
-		'	LineText_ = LineText
+		'	*LineText_ = LineText
 		'Else
-		LineText_ = TextWithoutQuotesAndComments(*ecl->Text, IIf(eclOld = 0, 0, eclOld->CommentIndex))
+		WLet(LineTextOld, LCase(TextWithoutQuotesAndComments(*ecl->Text, IIf(eclOld = 0, 0, eclOld->CommentIndex))))
 		'End If
 		Dim As Boolean Collapsible
 		Dim As List Statements
-		Dim As UString res()
-		Split(LineText_, ":", res())
+		Dim As WString Ptr res(Any)
+		WLet(LineText_, *LineTextOld)
+		*LineText_ = Replace(*LineText_, " then ", " then:")
+		*LineText_ = Replace(*LineText_, ")then ", ")then:")
+		*LineText_ = Replace(*LineText_, " else ", " else:")
+		*LineText_ = Replace(*LineText_, ":else ", ":else:")
+		If StartsWith(*LineText_, "else ") Then WLetEx(LineText_, "else:" & Mid(*LineText_, 6), True)
+		Split(*LineText_, ":", res())
+		Dim As Integer iPosSymbol = -1
 		Dim As EditControlStatement Ptr ecs, ecs_, ecsOld_
 		For ii As Integer = 0 To UBound(res)
 			ecs = _New(EditControlStatement)
-			WLet(ecs->Text, res(ii))
+			WLet(ecs->Text, *res(ii))
 			ecl->Statements.Add ecs
-			LineText_ = *ecs->Text
+			WLet(LineText_, *ecs->Text)
+			iPosSymbol = iPosSymbol + Len(*LineText_) + 1
 			If ii = 0 Then
 				ecsOld_ = 0
 				If eclOld > 0 AndAlso eclOld->Statements.Count > 0 Then
@@ -894,32 +921,32 @@ Namespace My.Sys.Forms
 							If Not EndsWith(Trim(*ecs_->Text), " _") Then
 								Exit For, For
 							End If
-							LineText_ = ..Left(Trim(*ecs_->Text), Len(Trim(*ecs_->Text)) - 1) & LineText_
+							WLetEx(LineText_, ..Left(Trim(*ecs_->Text), Len(Trim(*ecs_->Text)) - 1) & *LineText_, True)
 							ecsOld_ = ecs_
 						Next iiii
 					Next
-					i = GetConstruction(LineText_, j, 0, ecsOld_->InAsm)
+					i = GetConstruction(*LineText_, j, 0, ecsOld_->InAsm)
 					If ecsOld_->ConstructionIndex <> i OrElse ecsOld_->ConstructionPart <> j Then
 						ecsOld_->ConstructionIndex = i
 						ecsOld_->ConstructionPart = j
 						If EC Then
-							Cast(EditControl Ptr, EC)->ChangeCollapsibility iii + 1, LineText_
+							Cast(EditControl Ptr, EC)->ChangeCollapsibility iii + 1, *LineText_
 						Else
-							ChangeCollapsibility iii + 1, LineText_
+							ChangeCollapsibility iii + 1, *LineText_
 						End If
 					End If
-					LineText_ = ""
+					WLet(LineText_, "")
 					ecs->ConstructionIndex = -1
 					ecs->ConstructionPart = -1
 					Continue For
 				End If
 			End If
-			If (LineText_ <> "") AndAlso EndsWith(Trim(LineText_), " _") AndAlso (ii = UBound(res)) Then
+			If (*LineText_ <> "") AndAlso EndsWith(Trim(*LineText_), " _") AndAlso (ii = UBound(res)) Then
 				For iii As Integer = LineIndex + 1 To Lines.Count - 1
 					eclOld_ = Lines.Items[iii]
 					For iiii As Integer = 0 To eclOld_->Statements.Count - 1
 						ecs_ = eclOld_->Statements.Items[iiii]
-						LineText_ = ..Left(LineText_, Len(LineText_) - IIf(EndsWith(Trim(LineText_), " _"), 1, 0)) & Trim(*ecs_->Text)
+						WLetEx(LineText_, ..Left(*LineText_, Len(*LineText_) - IIf(EndsWith(Trim(*LineText_), " _"), 1, 0)) & Trim(*ecs_->Text))
 						If Not EndsWith(Trim(*ecs_->Text), " _") Then
 							Exit For, For
 						End If
@@ -933,10 +960,17 @@ Namespace My.Sys.Forms
 				i = C_P_Region
 				j = 2
 			Else
-				i = GetConstruction(LineText_, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
+				If Len(RTrim(*LineTextOld)) > iPosSymbol AndAlso Mid(RTrim(*LineTextOld), iPosSymbol + 1, 1) = " " Then
+					WAdd(LineText_, " 1")
+				End If
+				i = GetConstruction(*LineText_, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
 			End If
 			ecs->ConstructionIndex = i
 			ecs->ConstructionPart = j
+			If ecs->ConstructionIndex = C_For AndAlso ecs->ConstructionPart = 2 Then
+				ecs->ConstructionNextCount = InStrCount(*LineText_, ",")
+				ecs->ConstructionPartCount = ecs->ConstructionNextCount
+			End If
 			If i > -1 Then
 				If j = 0 OrElse j = 1 Then
 					Statements.Add ecs
@@ -957,7 +991,11 @@ Namespace My.Sys.Forms
 					End If
 				End If
 			End If
+			Deallocate res(ii)
 		Next
+		WDeAllocate(LineText_)
+		WDeAllocate(LineTextOld)
+		Erase res
 		'i = Content.GetConstruction(*ecl->Text, j, IIf(eclOld = 0, 0, eclOld->CommentIndex), ecl->InAsm)
 		ecl->MainStatement = 0
 		For iii As Integer = 0 To Statements.Count - 1
@@ -974,6 +1012,8 @@ Namespace My.Sys.Forms
 		j = ecl->MainStatement->ConstructionPart
 		ecl->ConstructionIndex = i
 		ecl->ConstructionPart = j
+		ecl->ConstructionPartCount = ecl->MainStatement->ConstructionPartCount
+		ecl->ConstructionNextCount = ecl->MainStatement->ConstructionNextCount
 	End Sub
 	
 	Sub EditControl.ChangeCollapsibility(LineIndex As Integer, ByRef LineText As UString = "")
@@ -1667,7 +1707,7 @@ Namespace My.Sys.Forms
 	Property EditControl.SelText(ByRef Value As WString)
 		ChangeText Value, 0, "Matn qo`shildi"
 	End Property
-
+	
 	Function EditControl.SelTextLength As Integer
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar,  iSelLen
 		GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
@@ -1707,7 +1747,7 @@ Namespace My.Sys.Forms
 		ModifiedLine = False
 		#ifdef __USE_WINAPI__
 			Buff = FileName
-			If Buff <> FileName Then
+			If True OrElse Buff <> FileName Then
 				FileLoaded = True
 				Dim As .HANDLE hFile
 				Dim As DWORD dwBytesToRead, dwBytesRead
@@ -1767,9 +1807,10 @@ Namespace My.Sys.Forms
 					Dim As WString Ptr FText
 					Dim As EditControlLine Ptr FECLine
 					WLet(FText, "")
-					For j As Integer = 0 To Len(*wsFileContents)
+					Dim As Integer j = 0, jCount = Len(*wsFileContents)
+					Do While j <= jCount - 1
 						WAdd FText, WChr((*wsFileContents)[j])
-						If (*wsFileContents)[j] = 10 OrElse (*wsFileContents)[j] = 0 Then
+						If (*wsFileContents)[j] = 13 OrElse (*wsFileContents)[j] = 10 OrElse (*wsFileContents)[j] = 0 Then
 							FECLine = _New(EditControlLine)
 							OlddwClientX = 0
 							If FECLine = 0 Then
@@ -1790,8 +1831,10 @@ Namespace My.Sys.Forms
 							OldiC = iC
 							i += 1
 							WLet(FText, "")
+							If (*wsFileContents)[j] = 13 AndAlso (*wsFileContents)[j + 1] = 10 Then j += 1
 						End If
-					Next
+						j += 1
+					Loop
 					CalculateLeftMargin
 					If Not WithoutScroll Then ScrollToCaret
 				End If
@@ -1870,7 +1913,9 @@ Namespace My.Sys.Forms
 					pBuff = 0
 					If OldFileEncoding = FileEncodings.Utf8 Then
 						Line Input #Fn, Buff
-						WLet(pBuff, FromUtf8(StrPtr(Buff)))
+						Dim As WString Ptr Temp = FromUtf8(StrPtr(Buff))
+						WLet(pBuff, *Temp)
+						WDeAllocate(Temp)
 					Else
 						LineInputWstr Fn, BuffRead, MaxChars
 						WLet(pBuff, *BuffRead)
@@ -1900,7 +1945,7 @@ Namespace My.Sys.Forms
 			WLet(FECLine->Text, "")
 			Content.Lines.Add(FECLine)
 		End If
-		If FileSize> 100000 Then pstBar->Panels[1]->Caption = ML("Elapsed time") &" (s):" & Format((Timer - timeElapse) , "#0.000")
+		pstBar->Panels[1]->Caption = ML("Elapsed time") & " (s):" & Format((Timer - timeElapse) , "#0.000")
 	End Sub
 	
 	Sub EditControl.SaveToFile(ByRef FileName As WString, FileEncoding As FileEncodings, NewLineType As NewLineTypes)
@@ -1913,8 +1958,8 @@ Namespace My.Sys.Forms
 			'	FileEncodingText = "utf-8"
 			'	FileEncodingSymbols = Chr(&HEF, &HBB, &HBF)
 			'#else
-				FileEncodingText = "ascii"
-				FileEncodingSymbols = ""
+			FileEncodingText = "ascii"
+			FileEncodingSymbols = ""
 			'#endif
 		ElseIf FileEncoding = FileEncodings.Utf8BOM Then
 			FileEncodingText = "utf-8"
@@ -2281,7 +2326,7 @@ Namespace My.Sys.Forms
 		If Index >= 0 And Index < Content.Lines.Count Then Return *Cast(EditControlLine Ptr, Content.Lines.Item(Index))->Text
 	End Function
 	
-	Function EditControl.LineLength(Index As Integer) As Integer '...'
+	Function EditControl.LineLength(Index As Integer) As Integer
 		If Index >= 0 And Index < Content.Lines.Count Then Return Len(*Cast(EditControlLine Ptr, Content.Lines.Item(Index))->Text) Else Return 0
 	End Function
 	
@@ -2536,6 +2581,12 @@ Namespace My.Sys.Forms
 			End If
 			'gtk_render_insertion_cursor(gtk_widget_get_style_context(widget), cr, 10, 10, layout, 0, PANGO_DIRECTION_LTR)
 		#else
+			If pRenderTarget <> 0 Then
+				If Scroll Then
+					CaretOn = True
+					PaintControl
+				End If
+			End If
 			'			If OldCaretVisible <> CaretVisible Then
 			'				If CaretVisible Then
 			'					ShowCaret FHandle
@@ -2549,7 +2600,7 @@ Namespace My.Sys.Forms
 		#endif
 		OldLine = FSelEndLine
 		OldChar = FSelEndChar
-		
+		CaretPosShowed = 0
 	End Sub
 	
 	Sub EditControl.ClearCarets
@@ -2753,14 +2804,14 @@ Namespace My.Sys.Forms
 		Return MaxLW
 	End Function
 	
-	Sub EditControl.SetScrollsInfo()
+	Sub EditControl.SetScrollsInfo(WithChange As Boolean = False)
 		
 		Var OldHScrollEnabledRight = CBool(HScrollMaxRight)
 		Var OldHScrollMaxRight = HScrollMaxRight
 		Var OldHScrollVCRight = HScrollVCRight
 		HScrollMaxRight = 10000 'Max(0, (MaxLineWidth - (dwClientX - LeftMargin - dwCharX))) \ dwCharX
 		HScrollVCRight = 10
-		If OldHScrollMaxRight <> HScrollMaxRight OrElse OldHScrollVCRight <> HScrollVCRight Then
+		If CBool(OldHScrollMaxRight <> HScrollMaxRight) OrElse CBool(OldHScrollVCRight <> HScrollVCRight) OrElse WithChange Then
 			#ifdef __USE_GTK__
 				gtk_adjustment_set_upper(adjustmenthRight, HScrollMaxRight)
 				'gtk_adjustment_configure(adjustmenth, gtk_adjustment_get_value(adjustmenth), 0, HScrollMax, 1, 10, HScrollMax)
@@ -2786,7 +2837,7 @@ Namespace My.Sys.Forms
 			HScrollVCLeft = 10
 			Var HScrollEnabledLeft = CBool(HScrollMaxLeft)
 			
-			If OldHScrollMaxLeft <> HScrollMaxLeft OrElse OldHScrollVCLeft <> HScrollVCLeft Then
+			If CBool(OldHScrollMaxLeft <> HScrollMaxLeft) OrElse CBool(OldHScrollVCLeft <> HScrollVCLeft) OrElse WithChange Then
 				#ifdef __USE_GTK__
 					gtk_adjustment_set_upper(adjustmenthLeft, HScrollMaxRight)
 					'gtk_adjustment_configure(adjustmentv, gtk_adjustment_get_value(adjustmentv), 0, VScrollMax, 1, 10, VScrollMax / 10)
@@ -2816,7 +2867,7 @@ Namespace My.Sys.Forms
 		CalculateLeftMargin
 		Var VScrollEnabledBottom = CBool(VScrollMaxBottom)
 		
-		If OldVScrollMaxBottom <> VScrollMaxBottom OrElse OldVScrollVCBottom <> VScrollVCBottom Then
+		If CBool(OldVScrollMaxBottom <> VScrollMaxBottom) OrElse CBool(OldVScrollVCBottom <> VScrollVCBottom) OrElse WithChange Then
 			#ifdef __USE_GTK__
 				gtk_adjustment_set_upper(adjustmentvBottom, VScrollMaxBottom)
 				gtk_adjustment_set_page_size(adjustmentvBottom, 0)
@@ -2846,7 +2897,7 @@ Namespace My.Sys.Forms
 			CalculateLeftMargin
 			Var VScrollEnabledTop = CBool(VScrollMaxTop)
 			
-			If OldVScrollMaxTop <> VScrollMaxTop OrElse OldVScrollVCTop <> VScrollVCTop Then
+			If CBool(OldVScrollMaxTop <> VScrollMaxTop) OrElse CBool(OldVScrollVCTop <> VScrollVCTop) OrElse WithChange Then
 				#ifdef __USE_GTK__
 					gtk_adjustment_set_upper(adjustmentvTop, VScrollMaxTop)
 					gtk_adjustment_set_page_size(adjustmentvTop, 0)
@@ -2910,7 +2961,18 @@ Namespace My.Sys.Forms
 			pango_layout_line_get_pixel_extents(pll, NULL, @extend)
 			Return UnScaleX(extend.width)
 		#else
-			Return Canvas.TextWidth(sText)
+			If pRenderTarget <> 0 Then
+				Dim pLayout As IDWriteTextLayout Ptr = 0
+				Dim Metrics As DWRITE_TEXT_METRICS
+				CreateTextLayout(pDWriteFactory, @sText, Len(sText), pFormat, FLT_MAX, FLT_MAX, @pLayout)
+				If pLayout <> 0 Then
+					pLayout->lpVtbl->GetMetrics(pLayout, @Metrics)
+					pLayout->lpVtbl->Release(pLayout): pLayout = 0
+					Return UnScaleX(Metrics.widthIncludingTrailingWhitespace)
+				End If
+			Else
+				Return Canvas.TextWidth(sText)
+			End If
 		#endif
 	End Function
 	
@@ -2943,7 +3005,7 @@ Namespace My.Sys.Forms
 		End Sub
 	#endif
 	
-	Sub EditControl.PaintText(CodePane As Integer, iLine As Integer, ByRef sText As WString, iStart As Integer, iEnd As Integer, ByRef Colors As ECColorScheme, ByRef addit As WString = "", Bold As Boolean = False, Italic As Boolean = False, Underline As Boolean = False)
+	Sub EditControl.PaintText(CodePane As Integer, iLine As Integer, ByRef sText As WString, iStart As Integer, iEnd As Integer, ByRef Colors As ECColorScheme, ByRef addit As WString = "", Bold As Boolean = False, Italic As Boolean = False, Underline As Boolean = False, ByRef CameOut As Boolean = False)
 		'Dim s As WString Ptr
 		'WLet s, sText 'Mid(sText, 1, HScrollPos + This.Width / dwCharX)
 		'		If LeftMargin + (-HScrollPos + iStart) * dwCharX > dwClientX Then
@@ -2987,16 +3049,18 @@ Namespace My.Sys.Forms
 				.cairo_rectangle (cr, ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + extend.width + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)), ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0)), extend2.width, ScaleY(dwCharY))
 				cairo_fill (cr)
 			End If
-			cairo_move_to(cr, ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0) + extend.width - 0.5), _
-			ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + dwCharY - 5 - 0.5 + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0)))
+			Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0) + extend.width - 0.5)
+			Var y = ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + dwCharY - 5 - 0.5 + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0))
+			cairo_move_to(cr, x, y)
 			'GetColor TextColor, iRed, iGreen, iBlue
 			cairo_set_source_rgb(cr, Colors.ForegroundRed, Colors.ForegroundGreen, Colors.ForegroundBlue)
 			pango_cairo_show_layout_line(cr, pl)
+			CameOut = x + extend2.width + 1 > ScaleX(dwClientX)
 		#else
 			If HighlightCurrentWord AndAlso @Colors <> @Selection AndAlso CurWord = Trim(*FLineRight) AndAlso CurWord <> "" Then
 				If StartsWith(*FLineRight, " ") Then
 					Var n = Len(*FLineRight) - Len(Trim(*FLineRight))
-					PaintText(CodePane, iLine, sText, iStart + n, iEnd, Colors, addit, Bold, Italic, Underline)
+					PaintText(CodePane, iLine, sText, iStart + n, iEnd, Colors, addit, Bold, Italic, Underline, CameOut)
 					Exit Sub
 				End If
 				SetBkColor(bufDC, CurrentWord.Background)
@@ -3006,35 +3070,75 @@ Namespace My.Sys.Forms
 				If Colors.Background = -1 OrElse Colors.Background = NormalText.Background Then
 					SetBkMode(bufDC, TRANSPARENT)
 				Else
+					
 					SetBkColor(bufDC, Colors.Background)
 				End If
 			End If
-			SetTextColor(bufDC, Colors.Foreground)
-			GetTextExtentPoint32(bufDC, FLineLeft, Len(*FLineLeft), @sz)
-			If Bold Or Italic Or Underline Then
-				Canvas.Font.Bold = Bold
-				Canvas.Font.Italic = Italic
-				Canvas.Font.Underline = Underline
-				SelectObject(bufDC, This.Canvas.Font.Handle)
-			End If
-			'TextOut(bufDC, ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, Sz.cx), ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0)), FLineRight, Len(*FLineRight))
-			'Dim As POLYTEXT ppt
-			Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, sz.cx)
-			Var y = ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0))
-			SetRect(@rc, IIf(bDividedX And CodePane = 1, ScaleX(iDividedX + 7), 0), y, _
-			ScaleX(IIf(bDividedX AndAlso CodePane = 0, iDividedX, dwClientX)), y + ScaleY(dwCharY))
-			'ppt.lpstr = FLineRight
-			'ppt.n = Len(*FLineRight)
-			'ppt.uiFlags = ETO_CLIPPED Or ETO_OPAQUE
-			'DrawText(bufDC, FLineRight, Len(*FLineRight), @rc, DT_SINGLELINE Or DT_NOPREFIX)
-			ExtTextOut bufDC, x, y, ETO_CLIPPED, @rc, FLineRight, Len(*FLineRight), 0
-			'PolyTextOut bufDC, @ppt, 1
-			If Colors.Background = -1 OrElse Colors.Background = NormalText.Background Then SetBkMode(bufDC, OPAQUE)
-			If Bold Or Italic Or Underline Then
-				Canvas.Font.Bold = False
-				Canvas.Font.Italic = False
-				Canvas.Font.Underline = False
-				SelectObject(bufDC, This.Canvas.Font.Handle)
+			If pRenderTarget <> 0 Then
+				Dim pBrushForeground As ID2D1Brush Ptr = 0
+				Dim pBrushBackground As ID2D1Brush Ptr = 0
+				pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Colors.ForegroundRed, Colors.ForegroundGreen, Colors.ForegroundBlue, 1.0), 0, @pBrushForeground)
+				Dim pLayout As IDWriteTextLayout Ptr = 0
+				Dim Metrics As DWRITE_TEXT_METRICS
+				CreateTextLayout(pDWriteFactory, FLineLeft, Len(*FLineLeft), pFormat, FLT_MAX, FLT_MAX, @pLayout)
+				If pLayout <> 0 Then
+					pLayout->lpVtbl->GetMetrics(pLayout, @Metrics)
+					sz.cx = Metrics.widthIncludingTrailingWhitespace
+					sz.cy = Metrics.height
+					pLayout->lpVtbl->Release(pLayout): pLayout = 0
+				End If
+				Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, sz.cx)
+				Var y = ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0)) + 1
+				SetRect(@rc, IIf(bDividedX And CodePane = 1, ScaleX(iDividedX + 7), 0), y, _
+				ScaleX(IIf(bDividedX AndAlso CodePane = 0, iDividedX, dwClientX)), y + ScaleY(dwCharY))
+				CreateTextLayout(pDWriteFactory, FLineRight, Len(*FLineRight), pFormat, FLT_MAX, FLT_MAX, @pLayout)
+				If pLayout <> 0 Then
+					pLayout->lpVtbl->GetMetrics(pLayout, @Metrics)
+					sz.cx = Metrics.widthIncludingTrailingWhitespace
+					sz.cy = Metrics.height + 1
+					If HighlightCurrentWord AndAlso @Colors <> @Selection AndAlso CurWord = Trim(*FLineRight) AndAlso CurWord <> "" Then
+						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(CurrentWord.BackgroundRed, CurrentWord.BackgroundGreen, CurrentWord.BackgroundBlue, 1.0), 0, @pBrushBackground)
+						pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(x - 1, y - 1, x + sz.cx + 1, y + sz.cy - 1 - (sz.cy - ScaleY(dwCharY))), pBrushBackground)
+					ElseIf Colors.Background <> -1 AndAlso Colors.Background <> NormalText.Background Then
+						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Colors.BackgroundRed, Colors.BackgroundGreen, Colors.BackgroundBlue, 1.0), 0, @pBrushBackground)
+						pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(x - 1, y - 1, x + sz.cx + 1, y + sz.cy - 1 - (sz.cy - ScaleY(dwCharY))), pBrushBackground)
+					End If
+					pRenderTarget->lpVtbl->DrawTextLayout(pRenderTarget, Type<D2D1_POINT_2F>(x, y - (sz.cy - ScaleY(dwCharY))), pLayout, Cast(ID2D1Brush Ptr, pBrushForeground), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT)
+					pLayout->lpVtbl->Release(pLayout): pLayout = 0
+					CameOut = x + sz.cx + 1 > ScaleX(dwClientX)
+				End If
+				If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+				If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+			Else
+				GetTextExtentPoint32(Canvas.Handle, FLineLeft, Len(*FLineLeft), @sz)
+				Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, sz.cx)
+				Var y = ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0))
+				SetRect(@rc, IIf(bDividedX And CodePane = 1, ScaleX(iDividedX + 7), 0), y, _
+				ScaleX(IIf(bDividedX AndAlso CodePane = 0, iDividedX, dwClientX)), y + ScaleY(dwCharY))
+				GetTextExtentPoint32(bufDC, FLineRight, Len(*FLineRight), @sz)
+				SetTextColor(bufDC, Colors.Foreground)
+				If Bold Or Italic Or Underline Then
+					Canvas.Font.Bold = Bold
+					Canvas.Font.Italic = Italic
+					Canvas.Font.Underline = Underline
+					SelectObject(bufDC, This.Canvas.Font.Handle)
+				End If
+				'TextOut(bufDC, ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, Sz.cx), ScaleY((iLine - IIf(CodePane = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso CodePane = 1, iDividedY + 7, 0)), FLineRight, Len(*FLineRight))
+				'Dim As POLYTEXT ppt
+				'ppt.lpstr = FLineRight
+				'ppt.n = Len(*FLineRight)
+				'ppt.uiFlags = ETO_CLIPPED Or ETO_OPAQUE
+				'DrawText(bufDC, FLineRight, Len(*FLineRight), @rc, DT_SINGLELINE Or DT_NOPREFIX)
+				ExtTextOut bufDC, x, y, ETO_CLIPPED, @rc, FLineRight, Len(*FLineRight), 0
+				'PolyTextOut bufDC, @ppt, 1
+				If Colors.Background = -1 OrElse Colors.Background = NormalText.Background Then SetBkMode(bufDC, OPAQUE)
+				If Bold Or Italic Or Underline Then
+					Canvas.Font.Bold = False
+					Canvas.Font.Italic = False
+					Canvas.Font.Underline = False
+					SelectObject(bufDC, This.Canvas.Font.Handle)
+				End If
+				CameOut = x + sz.cx + 1 > ScaleX(dwClientX)
 			End If
 		#endif
 		If CBool(CurExecutedLine <> iLine) AndAlso CBool(OldExecutedLine <> iLine) AndAlso CBool(Not FECLine->EndsCompleted) Then
@@ -3042,6 +3146,93 @@ Namespace My.Sys.Forms
 		End If
 		'WDeallocate s
 	End Sub
+	
+	#ifdef __USE_WINAPI__
+		Sub EditControl.SetClientSize()
+			If g_Direct2DEnabled AndAlso UseDirect2D Then
+				If pRenderTarget Then
+					pRenderTarget->lpVtbl->SetTarget(pRenderTarget, 0)
+					pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
+				End If
+				If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
+				If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
+				If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
+				If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
+				If pSwapChain Then pSwapChain->lpVtbl->Release(pSwapChain): pSwapChain = 0
+				If FHandle <> 0 Then
+					'Dim rtProps As D2D1_RENDER_TARGET_PROPERTIES
+					'With rtProps
+					'	.type_ = D2D1_RENDER_TARGET_TYPE_DEFAULT
+					'	.pixelFormat.format = DXGI_FORMAT_UNKNOWN
+					'	.pixelFormat.alphaMode = D2D1_ALPHA_MODE_UNKNOWN
+					'	.dpiX = 96.0
+					'	.dpiY = 96.0
+					'	.usage = D2D1_RENDER_TARGET_USAGE_NONE
+					'	.minLevel = D2D1_FEATURE_LEVEL_DEFAULT
+					'		.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM
+					'		.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED
+					'End With
+					'
+					'Dim hwndProps As D2D1_HWND_RENDER_TARGET_PROPERTIES
+					'With hwndProps
+					'	.hwnd = FHandle
+					'	.pixelSize.Width = dwClientX
+					'	.pixelSize.height = dwClientY
+					'	.presentOptions = D2D1_PRESENT_OPTIONS_NONE
+					'End With
+					
+					'Var hr = CreateHwndRenderTarget(pD2D1Factory1, @rtProps, @hwndProps, @pRenderTarget)
+					
+					Var hr = pD2D1Device->lpVtbl->CreateDeviceContext(pD2D1Device, D2D1_DEVICE_CONTEXT_OPTIONS_NONE, @pRenderTarget)
+					If hr = 0 Then
+						pRenderTarget->lpVtbl->SetUnitMode(pRenderTarget, D2D1_UNIT_MODE_PIXELS)
+						
+						Dim As DXGI_SWAP_CHAIN_DESC1 swapChainDesc
+						swapChainDesc.Width = 0                           ' use automatic sizing
+						swapChainDesc.Height = 0
+						swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM ' This Is the most Common swapchain Format
+						swapChainDesc.Stereo = False
+						swapChainDesc.SampleDesc.Count = 1                 ' don't use multi-sampling
+						swapChainDesc.SampleDesc.Quality = 0
+						swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT
+						swapChainDesc.BufferCount = 2                     ' use Double buffering To enable Flip
+						swapChainDesc.Scaling = DXGI_SCALING_NONE
+						swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL ' all apps must use This SwapEffect
+						swapChainDesc.Flags = 0
+						
+						Var hr = pDXGIFactory2->lpVtbl->CreateSwapChainForHwnd(pDXGIFactory2, Cast(IUnknown Ptr, pD3D11Device), FHandle, @swapChainDesc, 0, 0, @pSwapChain)
+						
+						hr = pSwapChain->lpVtbl->GetBuffer(pSwapChain, 0, @IID_ID3D11Texture2D, @pTexture)
+						hr = pSwapChain->lpVtbl->GetBuffer(pSwapChain, 0, @IID_IDXGISurface, @pSurface)
+						
+						Dim bmpProps As D2D1_BITMAP_PROPERTIES1
+						
+						With bmpProps
+							.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET Or D2D1_BITMAP_OPTIONS_CANNOT_DRAW
+							.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM
+							.pixelFormat.alphaMode = D2D1_ALPHA_MODE_IGNORE
+							.dpiX = 96
+							.dpiY = 96
+							.colorContext = 0
+						End With
+						
+						pRenderTarget->lpVtbl->CreateBitmapFromDxgiSurface(pRenderTarget, pSurface, @bmpProps, @pTargetBitmap)
+						
+						pRenderTarget->lpVtbl->SetTarget(pRenderTarget, pTargetBitmap)
+						
+						pRenderTarget->lpVtbl->SetAntialiasMode(pRenderTarget, D2D1_ANTIALIAS_MODE_ALIASED)
+						CreateTextFormat(pDWriteFactory, CurrentFontName, 0, DWRITE_FONT_WEIGHT_THIN, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, Font.Size * ydpi / 72 * 96, @"en-us", @pFormat)
+						'pRenderTarget->lpVtbl->SetDpi(pRenderTarget, 96.0f, 96.0f)
+						'Dim identity As D2D1_MATRIX_3X2_F
+						'identity.m11 = 1 : identity.m12 = 0
+						'identity.m21 = 0 : identity.m22 = 1
+						'identity.dx  = 0 : identity.dy  = 0
+						'pRenderTarget->lpVtbl->SetTransform(pRenderTarget, @identity)
+					End If
+				End If
+			End If
+		End Sub
+	#endif
 	
 	Sub EditControl.FontSettings()
 		This.Canvas.Font = This.Font
@@ -3082,6 +3273,10 @@ Namespace My.Sys.Forms
 		
 		dwClientX = ClientWidth
 		dwClientY = ClientHeight
+		
+		#ifdef __USE_WINAPI__
+			SetClientSize()
+		#endif
 	End Sub
 	
 	Function EditControlContent.ContainsIn(ByRef ClassName As String, ByRef ItemText As String, pList As WStringOrStringList Ptr, pFiles As WStringList Ptr, pFileLines As IntegerList Ptr, bLocal As Boolean = False, bAll As Boolean = False, TypesOnly As Boolean = False, ByRef te As TypeElement Ptr = 0, LineIndex As Integer = -1, pList2 As WStringOrStringList Ptr = 0, ByRef teOld As TypeElement Ptr = 0, CheckFile As Boolean = True) As Boolean
@@ -3302,7 +3497,7 @@ Namespace My.Sys.Forms
 				If te->ElementType = E_Namespace OrElse te->ElementType = E_Type OrElse te->ElementType = E_TypeCopy OrElse te->ElementType = E_Union OrElse te->ElementType = E_Enum Then
 					sTemp = te->Name
 				End If
-				If sTemp = "" AndAlso te->Value <> "" Then
+				If sTemp = "" AndAlso te->Value <> "" AndAlso te->Value <> Value Then
 					sTemp = GetTypeFromValue(te->Value, iSelEndLine, , teOld)
 				End If
 			End If
@@ -3429,6 +3624,15 @@ Namespace My.Sys.Forms
 			pFiles = ECLine->FileList
 			pFileLines = ECLine->FileListLines
 			InCondition = ECLine->InCondition
+			For i As Integer = 0 To ECLine->Args.Count - 1
+				te2 = ECLine->Args.Item(i)
+				If te2->Elements.Contains(sTemp, , , , Idx) Then
+					te = te2->Elements.Object(Idx)
+					teEnum = te
+					teEnumOld = te2
+					Return te->TypeName
+				End If
+			Next
 		End If
 		If TypeName <> "" Then
 			If LCase(sTemp) = "base" Then
@@ -3727,8 +3931,39 @@ Namespace My.Sys.Forms
 		Args.Sorted = True
 	End Constructor
 	
-	Sub EditControl.PaintControlPriv(Full As Boolean = False)
+	#ifdef __USE_WINAPI__
+		Sub FillPolygon(points() As D2D1_POINT_2F, ByVal pRT As Any Ptr, ByVal brush As ID2D1Brush Ptr)
+			'Dim pGeometry As ID2D1PathGeometry Ptr
+			'If pFactory->lpVtbl->CreatePathGeometry(pFactory, @pGeometry) = 0 Then
+			'    Dim pSink As ID2D1GeometrySink Ptr
+			'    If pGeometry->lpVtbl->Open(pGeometry, @pSink) = 0 Then
+			'        pSink->lpVtbl->BeginFigure(pSink, points(0), D2D1_FIGURE_BEGIN_FILLED)
+			'        pSink->lpVtbl->AddLines(pSink, @points(1), 3)
+			'        pSink->lpVtbl->EndFigure(pSink, D2D1_FIGURE_END_CLOSED)
+			'        pSink->lpVtbl->Close(pSink)
+			'        pSink->lpVtbl->Release(pSink)
+			'    End If
+			'    pRT->lpVtbl->FillGeometry(pRT, pGeometry, brush, NULL)
+			'    pGeometry->lpVtbl->Release(pGeometry)
+			'End If
+		End Sub
+	#endif
+	
+	Sub EditControl.PaintControlPriv(Full As Boolean = False, OnlyCursor As Boolean = False)
 		'	On Error Goto ErrHandler
+		#ifdef __USE_WINAPI__
+			If OnlyCursor AndAlso pRenderTarget <> 0 Then
+				pRenderTarget->lpVtbl->BeginDraw(pRenderTarget)
+				pRenderTarget->lpVtbl->EndDraw(pRenderTarget, 0, 0)
+				Dim pp As DXGI_PRESENT_PARAMETERS
+				pp.DirtyRectsCount = 0
+				pp.pDirtyRects = 0
+				pp.pScrollRect = 0
+				pp.pScrollOffset = 0
+				pSwapChain->lpVtbl->Present1(pSwapChain, 1, 0, @pp)
+				Exit Sub
+			End If
+		#endif
 		Dim As Boolean bFull = Full
 		If ShowHolidayFrame AndAlso WithFrame Then bFull = True
 		bFull = True
@@ -3742,33 +3977,78 @@ Namespace My.Sys.Forms
 			End If
 		#else
 			Dim As Boolean bFontChanged
-			hd = GetDC(FHandle)
+			If pRenderTarget <> 0 AndAlso Not UseDirect2D Then
+				If pRenderTarget Then
+					pRenderTarget->lpVtbl->SetTarget(pRenderTarget, 0)
+					pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
+				End If
+				If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
+				If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
+				If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
+				If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
+				If pSwapChain Then
+					pSwapChain->lpVtbl->SetFullscreenState(pSwapChain, False, NULL)
+					pSwapChain->lpVtbl->Release(pSwapChain): pSwapChain = 0
+				End If
+				KillTimer FHandle, 2
+				Var b = Focused
+				DestroyWindow(sbScrollBarvTop)
+				DestroyWindow(sbScrollBarvBottom)
+				DestroyWindow(sbScrollBarhLeft)
+				DestroyWindow(sbScrollBarhRight)
+				hwndTT = 0
+				hwndTTDropDown = 0
+				hwndTTMouseHover = 0
+				Var pmnuCode = ContextMenu
+				ContextMenu = 0
+				RecreateWnd
+				ContextMenu = pmnuCode
+				Width = Width - 1
+				Width = Width + 1
+				SetScrollsInfo True
+			ElseIf CBool(pRenderTarget = 0) AndAlso g_Direct2DEnabled AndAlso UseDirect2D AndAlso bPainted Then
+				SetClientSize
+				If Focused Then
+					KillTimer FHandle, 2
+					SetTimer FHandle, 2, BlinkTime, @EC_TimerProcBlink
+				End If
+			End If
+			If pRenderTarget = 0 Then
+				hd = GetDC(FHandle)
+			End If
 			If CurrentFontSize <> EditorFontSize OrElse *CurrentFontName <> *EditorFontName Then
 				This.Font.Name = *EditorFontName
 				This.Font.Size = EditorFontSize
 				FontSettings
 				bFull = True
 			End If
-			If bufDC = 0 Then
-				bufDC = CreateCompatibleDC(hd)
-				bufBMP = CreateCompatibleBitmap(hd, ScaleX(dwClientX), ScaleY(dwClientY))
+			If pRenderTarget = 0 Then
+				If bufDC = 0 Then
+					bufDC = CreateCompatibleDC(hd)
+					bufBMP = CreateCompatibleBitmap(hd, ScaleX(dwClientX), ScaleY(dwClientY))
+					This.Canvas.Handle = bufDC
+					This.Canvas.HandleSetted = True
+					SelectObject(bufDC, This.Font.Handle)
+					SelectObject(bufDC, bufBMP)
+				ElseIf OlddwClientX <> dwClientX OrElse OlddwClientY <> dwClientY Then
+					DeleteDC bufDC
+					DeleteObject bufBMP
+					bufDC = CreateCompatibleDC(hd)
+					bufBMP = CreateCompatibleBitmap(hd, ScaleX(dwClientX), ScaleY(dwClientY))
+					This.Canvas.Handle = bufDC
+					This.Canvas.HandleSetted = True
+					SelectObject(bufDC, This.Font.Handle)
+					SelectObject(bufDC, bufBMP)
+				End If
 				This.Canvas.Handle = bufDC
 				This.Canvas.HandleSetted = True
-				SelectObject(bufDC, This.Font.Handle)
-				SelectObject(bufDC, bufBMP)
-			ElseIf OlddwClientX <> dwClientX OrElse OlddwClientY <> dwClientY Then
-				DeleteDC bufDC
-				DeleteObject bufBMP
-				bufDC = CreateCompatibleDC(hd)
-				bufBMP = CreateCompatibleBitmap(hd, ScaleX(dwClientX), ScaleY(dwClientY))
-				This.Canvas.Handle = bufDC
-				This.Canvas.HandleSetted = True
-				SelectObject(bufDC, This.Font.Handle)
-				SelectObject(bufDC, bufBMP)
+			Else
+				SelectObject(Canvas.Handle, This.Font.Handle)
 			End If
-			This.Canvas.Handle = bufDC
-			This.Canvas.HandleSetted = True
 			HideCaret(FHandle)
+			If pRenderTarget <> 0 Then
+				pRenderTarget->lpVtbl->BeginDraw(pRenderTarget)
+			End If
 		#endif
 		'iMin = Min(FSelEnd, FSelStart)
 		'iMax = Max(FSelEnd, FSelStart)
@@ -3854,6 +4134,10 @@ Namespace My.Sys.Forms
 			Next
 		End If
 		If CInt(HighlightCurrentWord) AndAlso iSelStartLine = iSelEndLine AndAlso iSelStartChar = iSelEndChar Then CurWord = GetWordAtCursor Else CurWord = ""
+		#ifdef __USE_WINAPI__
+			Dim pBrushBackground As ID2D1Brush Ptr = 0
+			Dim pBrushForeground As ID2D1Brush Ptr = 0
+		#endif
 		For zz As Integer = 0 To 1
 			Dim As Integer HScrollPos, VScrollPos, CodePaneX, CodePaneY
 			If CBool(zz = 0) AndAlso (Not bDividedX) AndAlso (Not bDividedY) Then
@@ -3917,8 +4201,13 @@ Namespace My.Sys.Forms
 			#else
 				'			This.Canvas.Font.Name = *EditorFontName
 				'			This.Canvas.Font.Size = EditorFontSize
-				This.Canvas.Brush.Color = NormalText.Background
-				This.Canvas.Pen.Color = FoldLines.Foreground
+				If pRenderTarget = 0 Then
+					This.Canvas.Brush.Color = NormalText.Background
+					This.Canvas.Pen.Color = FoldLines.Foreground
+				Else
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue, 1.0), 0, @pBrushBackground)
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+				End If
 				If bDividedY Then
 					If zz = 0 Then
 						SetRect(@rc, ScaleX(LeftMargin), 0, ScaleX(dwClientX), ScaleY(iDividedY))
@@ -3939,7 +4228,13 @@ Namespace My.Sys.Forms
 				'			SelectObject(bufDC, This.Canvas.Pen.Handle)
 				'			SetROP2 bufDC, This.Canvas.Pen.Mode
 				If bFull OrElse OlddwClientX <> dwClientX OrElse OlddwClientY <> dwClientY OrElse OldPaintedVScrollPos(zz) <> VScrollPos OrElse OldPaintedHScrollPos(zz) <> HScrollPos OrElse iOldDivideY <> iDivideY OrElse iOldDividedY <> iDividedY OrElse iOldDivideX <> iDivideX OrElse iOldDividedX <> iDividedX OrElse CInt(bOldDividedX <> bDividedX) OrElse CInt(bOldDividedY <> bDividedY) Then
-					FillRect bufDC, @rc, This.Canvas.Brush.Handle
+					If pRenderTarget = 0 Then
+						FillRect bufDC, @rc, This.Canvas.Brush.Handle
+					Else
+						pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+						If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
+					End If
 				End If
 			#endif
 			i = -1
@@ -3988,10 +4283,18 @@ Namespace My.Sys.Forms
 								OldCollapseIndex = CollapseIndex: iC = FECLine->CommentIndex: Continue For
 							End If
 						End If
-						This.Canvas.Brush.Color = NormalText.Background
-						This.Canvas.Pen.Color = FoldLines.Foreground
 						rc = Type(ScaleX(Max(-1, LeftMargin + -HScrollPos * dwCharX) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, This.Width)), ScaleY((i - VScrollPos) * dwCharY + dwCharY + 1 + CodePaneY))
-						FillRect bufDC, @rc, This.Canvas.Brush.Handle
+						If pRenderTarget = 0 Then
+							This.Canvas.Brush.Color = NormalText.Background
+							This.Canvas.Pen.Color = FoldLines.Foreground
+							FillRect bufDC, @rc, This.Canvas.Brush.Handle
+						Else
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue, 1.0), 0, @pBrushBackground)
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+							pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
+						End If
 					End If
 				#endif
 				If z > 0 Then iC = Cast(EditControlLine Ptr, Content.Lines.Items[z - 1])->CommentIndex
@@ -4057,10 +4360,17 @@ Namespace My.Sys.Forms
 						If FECLine->EndsCompleted Then
 							Var OldJ = 0
 							Dim As ECColorScheme Ptr ecc
+							Dim As Boolean CameOut
 							For j As Integer = 0 To FECLine->Ends.Count - 1
 								ecc = FECLine->Ends.Object(j)
-								PaintText zz, i, *s, OldJ, FECLine->Ends.Item(j), *ecc, , ecc->Bold, ecc->Italic, CBool(ecc->Underline) OrElse CBool(ecc = @Strings) AndAlso CBool(bInIncludeFileRect) AndAlso CBool(iCursorLine = z)
+								'Dim As String a
+								'For iss As Integer = 0 To FECLine->Statements.Count - 1
+								'	a = a & ": " & Str(Cast(EditControlStatement Ptr, FECLine->Statements.Item(iss))->ConstructionPartCount)
+								'Next
+								'PaintText zz, i, *s & a, OldJ, FECLine->Ends.Item(j) + Len(a), *ecc, , ecc->Bold, ecc->Italic, CBool(ecc->Underline) OrElse CBool(ecc = @Strings) AndAlso CBool(bInIncludeFileRect) AndAlso CBool(iCursorLine = z)
+								PaintText zz, i, *s, OldJ, FECLine->Ends.Item(j), *ecc, , ecc->Bold, ecc->Italic, CBool(ecc->Underline) OrElse CBool(ecc = @Strings) AndAlso CBool(bInIncludeFileRect) AndAlso CBool(iCursorLine = z), CameOut
 								OldJ = FECLine->Ends.Item(j)
+								If CameOut Then Exit For
 							Next
 						Else
 							'					Canvas.Font.Bold = False
@@ -4070,6 +4380,7 @@ Namespace My.Sys.Forms
 							'SelectObject(bufDC, This.Canvas.Font.Handle)
 							'#endif
 							IzohBoshi = 1
+							OddiyMatnBoshi = 0
 							Do While j <= l
 								'If LeftMargin + (-HScrollPos + j) * dwCharX > dwClientX AndAlso Mid(*s, j, 1) = " " Then
 								'	If iC = 0 AndAlso FECLine->CommentIndex > 0 Then IzohBoshi = j + 1
@@ -4078,6 +4389,10 @@ Namespace My.Sys.Forms
 								If iC = 0 AndAlso Mid(*s, j, 1) = """" Then
 									bQ = Not bQ
 									If bQ Then
+										If OddiyMatnBoshi > 0 Then
+											PaintText zz, i, *s, OddiyMatnBoshi - 1, j - 1, NormalText
+											OddiyMatnBoshi = 0
+										End If
 										QavsBoshi = j
 									Else
 										'								If StringsBold Then Canvas.Font.Bold = True
@@ -4091,6 +4406,10 @@ Namespace My.Sys.Forms
 									If Mid(*s, j, 2) = IIf(Content.CStyle, "/*", "/'") Then
 										iC = iC + 1
 										If iC = 1 Then
+											If OddiyMatnBoshi > 0 Then
+												PaintText zz, i, *s, OddiyMatnBoshi - 1, j - 1, NormalText
+												OddiyMatnBoshi = 0
+											End If
 											IzohBoshi = j
 										End If
 										j = j + 1
@@ -4104,6 +4423,10 @@ Namespace My.Sys.Forms
 										t = Asc(Mid(*s, j, 1))
 										u = Asc(Mid(*s, j + 1, 1))
 										If LCase(Mid(" " & *s & " ", j, 5)) = " rem " OrElse LCase(Mid(" " & *s & " ", j, 6)) = " @rem " OrElse LCase(Mid(" " & *s & " ", j, 5)) = !"\trem " Then
+											If OddiyMatnBoshi > 0 Then
+												PaintText zz, i, *s, OddiyMatnBoshi - 1, j - 1, NormalText
+												OddiyMatnBoshi = 0
+											End If
 											If CInt(ChangeKeyWordsCase) AndAlso CInt(FSelEndLine <> z) AndAlso pkeywords2 <> 0 Then
 												If Not Content.CStyle Then
 													KeyWord = GetKeyWordCase("rem", pkeywords2)
@@ -4112,9 +4435,13 @@ Namespace My.Sys.Forms
 											End If
 											PaintText zz, i, *s, j - 1, l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
 											Exit Do
-										ElseIf t >= 48 AndAlso t <= 57 OrElse t >= 65 AndAlso t <= 90 OrElse t >= 97 AndAlso t <= 122 OrElse (CInt(FECLine->InAsm = False) AndAlso t = Asc("#")) OrElse t = Asc("$") OrElse t = Asc("_") Then
+										ElseIf t >= 48 AndAlso t <= 57 OrElse t >= 65 AndAlso t <= 90 OrElse t >= 97 AndAlso t <= 122 OrElse (CInt(FECLine->InAsm = False) AndAlso t = Asc("#")) OrElse t = Asc("$") OrElse t = Asc("&") OrElse t = Asc("_") Then
+											If OddiyMatnBoshi > 0 Then
+												PaintText zz, i, *s, OddiyMatnBoshi - 1, j - 1, NormalText
+												OddiyMatnBoshi = 0
+											End If
 											If MatnBoshi = 0 Then MatnBoshi = j
-											If Not (u >= 48 AndAlso u <= 57 OrElse u >= 65 AndAlso u <= 90 OrElse u >= 97 AndAlso u <= 122 OrElse u = Asc("#") OrElse u = Asc("$") OrElse u = Asc("_")) Then
+											If Not (u >= 48 AndAlso u <= 57 OrElse u >= 65 AndAlso u <= 90 OrElse u >= 97 AndAlso u <= 122 OrElse u = Asc("#") OrElse u = Asc("$") OrElse u = Asc("&") OrElse u = Asc("_")) Then
 												'If LeftMargin + (-HScrollPos + j + InStrCount(..Left(*s, j), !"\t") * (TabWidth - 1)) * dwCharX > 0 Then
 												Matn = Mid(*s, MatnBoshi, j - MatnBoshi + 1)
 												MatnLCase = LCase(Matn)
@@ -4629,7 +4956,7 @@ Namespace My.Sys.Forms
 															Mid(*FECLine->Text, MatnBoshi + IIf(WithOldSymbol, 1, 0), j - MatnBoshi + 1) = OriginalCaseWord
 														End If
 													ElseIf tIndex = -1 Then
-														If IsNumeric(Matn) OrElse IsNumeric(MatnWithoutOldSymbol) Then
+														If IsNumeric(Matn) OrElse IsNumeric(MatnWithoutOldSymbol) OrElse LCase(.Left(Matn, 2)) = "&h" Then
 															If InStr(Matn, ".") Then
 																sc = @RealNumbers
 															Else
@@ -4651,14 +4978,23 @@ Namespace My.Sys.Forms
 												MatnBoshi = 0
 											End If
 										ElseIf IIf(Content.CStyle, Mid(*s, j, 2) = "//", IIf(FECLine->InAsm, Chr(t) = "#" OrElse Chr(t) = "'", Chr(t) = "'")) Then
+											If OddiyMatnBoshi > 0 Then
+												PaintText zz, i, *s, OddiyMatnBoshi - 1, j - 1, NormalText
+												OddiyMatnBoshi = 0
+											End If
 											PaintText zz, i, *s, j - 1, l, Comments, , Comments.Bold, Comments.Italic, Comments.Underline
 											'txtCode.SetSel ss + j - 1, ss + l
 											'txtCode.SelColor = clGreen
 											Exit Do
-										ElseIf CharType(Mid(*s, j, 1)) = 2 Then
-											PaintText zz, i, *s, j - 1, j, ColorOperators
-										ElseIf Chr(t) <> " " Then
-											PaintText zz, i, *s, j - 1, j, NormalText
+											'ElseIf CharType(Mid(*s, j, 1)) = 2 Then
+											'	If OddiyMatnBoshi > 0 Then
+											'		PaintText zz, i, *s, OddiyMatnBoshi - 1, j - 1, NormalText
+											'		OddiyMatnBoshi = 0
+											'	End If
+											'	PaintText zz, i, *s, j - 1, j, ColorOperators
+										ElseIf Chr(t) <> " " AndAlso OddiyMatnBoshi = 0 Then
+											OddiyMatnBoshi = j
+											'PaintText zz, i, *s, j - 1, j, NormalText
 										End If
 									End If
 								End If
@@ -4674,6 +5010,8 @@ Namespace My.Sys.Forms
 								'						If StringsItalic Then Canvas.Font.Italic = True
 								'						If StringsUnderline OrElse bInIncludeFileRect AndAlso iCursorLine = z Then Canvas.Font.Underline = True: SelectObject(bufDC, This.Canvas.Font.Handle)
 								PaintText zz, i, *s, QavsBoshi - 1, j, Strings, , Strings.Bold, Strings.Italic, Strings.Underline Or bInIncludeFileRect And CBool(iCursorLine = z)
+							ElseIf OddiyMatnBoshi > 0 Then
+								PaintText zz, i, *s, OddiyMatnBoshi - 1, j, NormalText
 							End If
 							If CurExecutedLine <> i AndAlso OldExecutedLine <> i Then FECLine->EndsCompleted = True
 						End If
@@ -4687,10 +5025,16 @@ Namespace My.Sys.Forms
 								cairo_rectangle (cr, rec.Left, rec.Top, rec.Right, rec.Bottom, True)
 								cairo_stroke(cr)
 							#else
-								This.Canvas.Pen.Color = CurrentLine.Frame
-								'SelectObject bufDC, This.Canvas.Pen.Handle
-								MoveToEx bufDC, rec.Left, rec.Top - 1, 0
-								LineTo bufDC, rec.Right, rec.Top - 1
+								If pRenderTarget = 0 Then
+									This.Canvas.Pen.Color = CurrentLine.Frame
+									'SelectObject bufDC, This.Canvas.Pen.Handle
+									MoveToEx bufDC, rec.Left, rec.Top - 1, 0
+									LineTo bufDC, rec.Right, rec.Top - 1
+								Else
+									pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(CurrentLine.FrameRed, CurrentLine.FrameGreen, CurrentLine.FrameBlue, 1.0), 0, @pBrushForeground)
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(rec.Left + 1, rec.Top), Type<D2D1_POINT_2F>(rec.Right, rec.Top), pBrushForeground, 1)
+									If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+								End If
 							#endif
 						Else
 							rec = Type(ScaleX(Max(-1, LeftMargin + -HScrollPos * dwCharX) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, This.Width)), ScaleY((i - VScrollPos) * dwCharY + dwCharY + 1 + CodePaneY))
@@ -4699,8 +5043,14 @@ Namespace My.Sys.Forms
 								cairo_rectangle (cr, rec.Left, rec.Top, rec.Right, rec.Bottom, True)
 								cairo_stroke(cr)
 							#else
-								This.Canvas.Brush.Color = CurrentLine.Frame
-								FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								If pRenderTarget = 0 Then
+									This.Canvas.Brush.Color = CurrentLine.Frame
+									FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								Else
+									pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(CurrentLine.FrameRed, CurrentLine.FrameGreen, CurrentLine.FrameBlue, 1.0), 0, @pBrushForeground)
+									pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rec.Left + 1, rec.Top + 1, rec.Right, rec.Bottom), pBrushForeground, 1)
+									If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+								End If
 							#endif
 						End If
 					End If
@@ -4757,33 +5107,51 @@ Namespace My.Sys.Forms
 									Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso zz = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso zz = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, sz.cx)
 									Var y = ScaleY((i - IIf(zz = 0, VScrollPosTop, VScrollPosBottom)) * dwCharY + IIf(bDividedY AndAlso zz = 1, iDividedY + 7, 0))
 									Dim As ..Rect rec = Type(x, y, x + dwCharX * Len(*FLineRight), y + dwCharY)
-									This.Canvas.Brush.Color = FoldLines.Foreground
-									FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+									If pRenderTarget = 0 Then
+										This.Canvas.Brush.Color = FoldLines.Foreground
+										FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+									Else
+										pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+										pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rec.Left + 1, rec.Top + 1, rec.Right, rec.Bottom), pBrushForeground, 1)
+										If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+									End If
 								#endif
 							End If
 						Next
 					End If
 					If HighlightBrackets Then
 						If z = BracketsStartLine AndAlso BracketsStart > -1 Then
-							Dim As ..Rect rec = Type(ScaleX(LeftMargin + -HScrollPos * dwCharX + Len(GetTabbedText(..Left(*s, BracketsStart))) * (dwCharX) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 1 + CodePaneY), ScaleX(LeftMargin + -HScrollPos * dwCharX + Len(GetTabbedText(..Left(*s, BracketsStart))) * (dwCharX) + dwCharX + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY))
+							Dim As ..Rect rec = Type(ScaleX(LeftMargin + -HScrollPos * dwCharX + TextWidth(GetTabbedText(..Left(*s, BracketsStart))) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 1 + CodePaneY), ScaleX(LeftMargin + -HScrollPos * dwCharX + TextWidth(GetTabbedText(..Left(*s, BracketsStart))) + dwCharX + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY))
 							#ifdef __USE_GTK__
 								cairo_set_source_rgb(cr, CurrentBrackets.FrameRed, CurrentBrackets.FrameGreen, CurrentBrackets.FrameBlue)
 								cairo_rectangle (cr, rec.Left, rec.Top, rec.Right, rec.Bottom, True)
 								cairo_stroke(cr)
 							#else
-								This.Canvas.Brush.Color = CurrentBrackets.Frame
-								FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								If pRenderTarget = 0 Then
+									This.Canvas.Brush.Color = CurrentBrackets.Frame
+									FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								Else
+									pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(CurrentBrackets.FrameRed, CurrentBrackets.FrameGreen, CurrentBrackets.FrameBlue, 1.0), 0, @pBrushForeground)
+									pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rec.Left + 1, rec.Top + 1, rec.Right, rec.Bottom), pBrushForeground, 1)
+									If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+								End If
 							#endif
 						End If
 						If z = BracketsEndLine AndAlso BracketsEnd > -1 Then
-							Dim As ..Rect rec = Type(ScaleX(LeftMargin + -HScrollPos * dwCharX + Len(GetTabbedText(..Left(*s, BracketsEnd))) * (dwCharX) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 1 + CodePaneY), ScaleX(LeftMargin + -HScrollPos * dwCharX + Len(GetTabbedText(..Left(*s, BracketsEnd))) * (dwCharX) + dwCharX + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY))
+							Dim As ..Rect rec = Type(ScaleX(LeftMargin + -HScrollPos * dwCharX + TextWidth(GetTabbedText(..Left(*s, BracketsEnd))) + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 1 + CodePaneY), ScaleX(LeftMargin + -HScrollPos * dwCharX + TextWidth(GetTabbedText(..Left(*s, BracketsEnd))) + dwCharX + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY))
 							#ifdef __USE_GTK__
 								cairo_set_source_rgb(cr, CurrentBrackets.FrameRed, CurrentBrackets.FrameGreen, CurrentBrackets.FrameBlue)
 								cairo_rectangle (cr, rec.Left, rec.Top, rec.Right, rec.Bottom, True)
 								cairo_stroke(cr)
 							#else
-								This.Canvas.Brush.Color = CurrentBrackets.Frame
-								FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								If pRenderTarget = 0 Then
+									This.Canvas.Brush.Color = CurrentBrackets.Frame
+									FrameRect bufDC, @rec, This.Canvas.Brush.Handle
+								Else
+									pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(CurrentBrackets.FrameRed, CurrentBrackets.FrameGreen, CurrentBrackets.FrameBlue, 1.0), 0, @pBrushForeground)
+									pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rec.Left + 1, rec.Top + 1, rec.Right, rec.Bottom), pBrushForeground, 1)
+									If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+								End If
 							#endif
 						End If
 					End If
@@ -4794,8 +5162,12 @@ Namespace My.Sys.Forms
 						#ifdef __USE_GTK__
 							cairo_set_source_rgb(cr, SpaceIdentifiers.ForegroundRed, SpaceIdentifiers.ForegroundGreen, SpaceIdentifiers.ForegroundBlue)
 						#else
-							This.Canvas.Pen.Color = SpaceIdentifiers.Foreground 'rgb(100, 100, 100) 'clLtGray
-							'SelectObject(bufDC, This.Canvas.Pen.Handle)
+							If pRenderTarget = 0 Then
+								This.Canvas.Pen.Color = SpaceIdentifiers.Foreground 'rgb(100, 100, 100) 'clLtGray
+								'SelectObject(bufDC, This.Canvas.Pen.Handle)
+							Else
+								pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(SpaceIdentifiers.ForegroundRed, SpaceIdentifiers.ForegroundGreen, SpaceIdentifiers.ForegroundBlue, 1.0), 0, @pBrushForeground)
+							End If
 						#endif
 						'WLet FLineLeft, GetTabbedText(*s, 0, True)
 						jj = 1
@@ -4811,9 +5183,13 @@ Namespace My.Sys.Forms
 										.cairo_rectangle(cr, ScaleX(LeftMargin + -HScrollPos * dwCharX + (jPos - 1) * (dwCharX) + dwCharX / 2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY), 1, 1)
 										cairo_fill(cr)
 									#else
-										'GetTextExtentPoint32(bufDC, @Wstr(Left(*FLineLeft, jj - 1)), jj - 1, @Sz) 'Len(*FLineLeft)
-										'SetPixel bufDC, LeftMargin + -HScrollPos * dwCharX + IIF(jPos = 0, 0, Sz.cx) + dwCharX / 2, (i - VScrollPos) * dwCharY + dwCharY / 2, clBtnShadow
-										SetPixel bufDC, ScaleX(LeftMargin + -HScrollPos * dwCharX + (jPos - 1) * (dwCharX) + dwCharX / 2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY), SpaceIdentifiers.Foreground
+										If pRenderTarget = 0 Then
+											'GetTextExtentPoint32(bufDC, @Wstr(Left(*FLineLeft, jj - 1)), jj - 1, @Sz) 'Len(*FLineLeft)
+											'SetPixel bufDC, LeftMargin + -HScrollPos * dwCharX + IIF(jPos = 0, 0, Sz.cx) + dwCharX / 2, (i - VScrollPos) * dwCharY + dwCharY / 2, clBtnShadow
+											SetPixel bufDC, ScaleX(LeftMargin + -HScrollPos * dwCharX + (jPos - 1) * (dwCharX) + dwCharX / 2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY), SpaceIdentifiers.Foreground
+										Else
+											pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + (jPos - 1) * (dwCharX) + dwCharX / 2 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY) + 1, ScaleX(LeftMargin + -HScrollPos * dwCharX + (jPos - 1) * (dwCharX) + dwCharX / 2 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY) + 1), pBrushForeground, 1)
+										End If
 									#endif
 								End If
 							ElseIf sChar = !"\t" Then
@@ -4829,13 +5205,19 @@ Namespace My.Sys.Forms
 										cairo_line_to(cr, ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY) - 0.5)
 										cairo_stroke (cr)
 									#else
-										'GetTextExtentPoint32(bufDC, FLineLeft, Len(*FLineLeft), @Sz)
-										MoveToEx bufDC,   ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + 2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY), 0
-										LineTo bufDC,     ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 3 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)
-										MoveToEx bufDC,   ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 7 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) - 3 + CodePaneY), 0
-										LineTo bufDC,     ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)
-										MoveToEx bufDC,   ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 7 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + 3 + CodePaneY), 0
-										LineTo bufDC,     ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)
+										If pRenderTarget = 0 Then
+											'GetTextExtentPoint32(bufDC, FLineLeft, Len(*FLineLeft), @Sz)
+											MoveToEx bufDC,   ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + 2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY), 0
+											LineTo bufDC,     ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 3 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)
+											MoveToEx bufDC,   ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 7 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) - 3 + CodePaneY), 0
+											LineTo bufDC,     ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)
+											MoveToEx bufDC,   ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 7 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + 3 + CodePaneY), 0
+											LineTo bufDC,     ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)
+										Else
+											pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + 2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY) + 1), Type<D2D1_POINT_2F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 3 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY) + 1), pBrushForeground, 1)
+											pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 7 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) - 3 + CodePaneY)), Type<D2D1_POINT_2F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY)), pBrushForeground, 1)
+											pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 7 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + 3 + CodePaneY) + 1), Type<D2D1_POINT_2F>(ScaleX(LeftMargin + -HScrollPos * dwCharX + jPos * (dwCharX) + jPP * dwCharX - 4 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + Int(dwCharY / 2) + CodePaneY) + 1), pBrushForeground, 1)
+										End If
 									#endif
 								End If
 								jPos += jPP
@@ -4844,6 +5226,11 @@ Namespace My.Sys.Forms
 							End If
 							jj += 1
 						Loop
+						#ifdef __USE_WINAPI__
+							If pRenderTarget <> 0 Then
+								If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+							End If
+						#endif
 					End If
 				End If
 				'If c >= vlc Then Exit Do
@@ -4869,30 +5256,53 @@ Namespace My.Sys.Forms
 					pango_cairo_show_layout_line(cr, pl)
 					'cairo_show_text(cr, *FLineLeft)
 				#else
-					'SelectObject(bufDC, This.Canvas.Font.Handle)
-					This.Canvas.Brush.Color = LineNumbers.Background
-					SetRect(@rc, ScaleX(CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY + CodePaneY))
-					'SelectObject(bufDC, This.Canvas.Brush.Handle)
-					FillRect bufDC, @rc, This.Canvas.Brush.Handle
-					SetBkMode(bufDC, TRANSPARENT)
 					WLet(FLineLeft, WStr(z + 1))
-					GetTextExtentPoint32(bufDC, FLineLeft, Len(*FLineLeft), @sz)
-					SetTextColor(bufDC, LineNumbers.Foreground)
-					TextOut(bufDC, ScaleX(LeftMargin - 25 + CodePaneX) - sz.cx, ScaleY((i - VScrollPos) * dwCharY + CodePaneY), FLineLeft, Len(*FLineLeft))
-					SetBkMode(bufDC, OPAQUE)
+					If pRenderTarget = 0 Then
+						GetTextExtentPoint32(bufDC, FLineLeft, Len(*FLineLeft), @sz)
+						SetRect(@rc, ScaleX(CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY + CodePaneY))
+						'SelectObject(bufDC, This.Canvas.Font.Handle)
+						This.Canvas.Brush.Color = LineNumbers.Background
+						'SelectObject(bufDC, This.Canvas.Brush.Handle)
+						FillRect bufDC, @rc, This.Canvas.Brush.Handle
+						SetBkMode(bufDC, TRANSPARENT)
+						SetTextColor(bufDC, LineNumbers.Foreground)
+						TextOut(bufDC, ScaleX(LeftMargin - 25 + CodePaneX) - sz.cx, ScaleY((i - VScrollPos) * dwCharY + CodePaneY), FLineLeft, Len(*FLineLeft))
+						SetBkMode(bufDC, OPAQUE)
+					Else
+						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(LineNumbers.BackgroundRed, LineNumbers.BackgroundGreen, LineNumbers.BackgroundBlue, 1.0), 0, @pBrushBackground)
+						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(LineNumbers.ForegroundRed, LineNumbers.ForegroundGreen, LineNumbers.ForegroundBlue, 1.0), 0, @pBrushForeground)
+						Dim pLayout As IDWriteTextLayout Ptr = 0
+						Dim Metrics As DWRITE_TEXT_METRICS
+						CreateTextLayout(pDWriteFactory, FLineLeft, Len(*FLineLeft), pFormat, sz.cx + 100, sz.cy + 100, @pLayout)
+						If pLayout <> 0 Then
+							pLayout->lpVtbl->GetMetrics(pLayout, @Metrics)
+							sz.cx = Metrics.widthIncludingTrailingWhitespace
+							sz.cy = Metrics.height + 1
+							SetRect(@rc, ScaleX(CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY + CodePaneY))
+							pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+							pRenderTarget->lpVtbl->DrawTextLayout(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 25 + CodePaneX) - sz.cx, ScaleY((i - VScrollPos) * dwCharY + CodePaneY) + 1), pLayout, Cast(ID2D1Brush Ptr, pBrushForeground), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT)
+							pLayout->lpVtbl->Release(pLayout): pLayout = 0
+						End If
+						If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+					End If
 				#endif
-				This.Canvas.Brush.Color = NormalText.Background
 				#ifdef __USE_GTK__
 					cairo_rectangle(cr, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(LeftMargin + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY + CodePaneY), True)
 					cairo_set_source_rgb(cr, NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue)
 					cairo_fill (cr)
 				#else
 					SetRect(@rc, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), ScaleX(LeftMargin + CodePaneX), ScaleY(Min(IIf(bDividedY AndAlso zz = 0, iDividedY, (i - VScrollPos + 1) * dwCharY), (i - VScrollPos + 1) * dwCharY) + CodePaneY))
-					FillRect bufDC, @rc, This.Canvas.Brush.Handle
+					If pRenderTarget = 0 Then
+						This.Canvas.Brush.Color = NormalText.Background
+						FillRect bufDC, @rc, This.Canvas.Brush.Handle
+					Else
+						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue, 1.0), 0, @pBrushBackground)
+						pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+					End If
 				#endif
 				If FECLine->Breakpoint Then
-					This.Canvas.Pen.Color = IndicatorLines.Foreground
-					This.Canvas.Brush.Color = Breakpoints.Indicator
 					#ifdef __USE_GTK__
 						cairo_set_source_rgb(cr, IndicatorLines.ForegroundRed, IndicatorLines.ForegroundGreen, IndicatorLines.ForegroundBlue)
 						cairo_arc(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + 8 + CodePaneY) - 0.5, ScaleX(5), 0, 2 * G_PI)
@@ -4900,14 +5310,23 @@ Namespace My.Sys.Forms
 						cairo_set_source_rgb(cr, Breakpoints.IndicatorRed, Breakpoints.IndicatorGreen, Breakpoints.IndicatorBlue)
 						cairo_stroke(cr)
 					#else
-						SelectObject(bufDC, This.Canvas.Brush.Handle)
-						SelectObject(bufDC, This.Canvas.Pen.Handle)
-						Ellipse bufDC, ScaleX(2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 2 + CodePaneY), ScaleX(dwCharY - 2 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY - 2 + CodePaneY)
+						If pRenderTarget = 0 Then
+							This.Canvas.Pen.Color = IndicatorLines.Foreground
+							This.Canvas.Brush.Color = Breakpoints.Indicator
+							SelectObject(bufDC, This.Canvas.Brush.Handle)
+							SelectObject(bufDC, This.Canvas.Pen.Handle)
+							Ellipse bufDC, ScaleX(2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 2 + CodePaneY), ScaleX(dwCharY - 2 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY - 2 + CodePaneY)
+						Else
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Breakpoints.IndicatorRed, Breakpoints.IndicatorGreen, Breakpoints.IndicatorBlue, 1.0), 0, @pBrushBackground)
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(IndicatorLines.ForegroundRed, IndicatorLines.ForegroundGreen, IndicatorLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+							pRenderTarget->lpVtbl->FillEllipse(pRenderTarget, Type<D2D1_ELLIPSE>(Type<D2D1_POINT_2F>(ScaleX(2 + CodePaneX + (dwCharY - 4) / 2), ScaleY((i - VScrollPos) * dwCharY + 2 + CodePaneY + (dwCharY - 4) / 2)), ScaleX((dwCharY - 4) / 2), ScaleY((dwCharY - 4) / 2)), pBrushBackground)
+							pRenderTarget->lpVtbl->DrawEllipse(pRenderTarget, Type<D2D1_ELLIPSE>(Type<D2D1_POINT_2F>(ScaleX(2 + CodePaneX + (dwCharY - 4) / 2), ScaleY((i - VScrollPos) * dwCharY + 2 + CodePaneY + (dwCharY - 4) / 2)), ScaleX((dwCharY - 4) / 2), ScaleY((dwCharY - 4) / 2)), pBrushForeground, 1, NULL)
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+						End If
 					#endif
 				End If
 				If FECLine->Bookmark Then
-					This.Canvas.Pen.Color = IndicatorLines.Foreground
-					This.Canvas.Brush.Color = Bookmarks.Indicator
 					#ifdef __USE_GTK__
 						Var x = LeftMargin - 18, y = (i - VScrollPos) * dwCharY + 3
 						Var width1 = 14, height1 = 10, radius = 2
@@ -4925,15 +5344,31 @@ Namespace My.Sys.Forms
 						cairo_set_source_rgb(cr, IndicatorLines.ForegroundRed, IndicatorLines.ForegroundGreen, IndicatorLines.ForegroundBlue)
 						cairo_stroke(cr)
 					#else
-						'					SelectObject(bufDC, This.Canvas.Brush.Handle)
-						'					SelectObject(bufDC, This.Canvas.Pen.Handle)
-						RoundRect bufDC, ScaleX(2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY), ScaleX(dwCharY - 2 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY - 4 + CodePaneY), ScaleX(5), ScaleY(5)
+						If pRenderTarget = 0 Then
+							This.Canvas.Pen.Color = IndicatorLines.Foreground
+							This.Canvas.Brush.Color = Bookmarks.Indicator
+							'					SelectObject(bufDC, This.Canvas.Brush.Handle)
+							'					SelectObject(bufDC, This.Canvas.Pen.Handle)
+							RoundRect bufDC, ScaleX(2 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY), ScaleX(dwCharY - 2 + CodePaneX), ScaleY((i - VScrollPos + 1) * dwCharY - 4 + CodePaneY), ScaleX(5), ScaleY(5)
+						Else
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Bookmarks.IndicatorRed, Bookmarks.IndicatorGreen, Bookmarks.IndicatorBlue, 1.0), 0, @pBrushBackground)
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(IndicatorLines.ForegroundRed, IndicatorLines.ForegroundGreen, IndicatorLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+							pRenderTarget->lpVtbl->FillRoundedRectangle(pRenderTarget, @Type<D2D1_ROUNDED_RECT>(Type<D2D1_RECT_F>(ScaleX(2 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY) + 1, ScaleX(dwCharY - 2 + CodePaneX) - 1, ScaleY((i - VScrollPos + 1) * dwCharY - 4 + CodePaneY) - 1), ScaleX(2.5), ScaleY(2.5)), pBrushBackground)
+							'pRenderTarget->lpVtbl->DrawRoundedRectangle(pRenderTarget, @Type<D2D1_ROUNDED_RECT>(Type<D2D1_RECT_F>(ScaleX(2 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY) + 1, ScaleX(dwCharY - 2 + CodePaneX) - 1, ScaleY((i - VScrollPos + 1) * dwCharY - 4 + CodePaneY) - 1), ScaleX(1), ScaleY(1)), pBrushForeground, 1)
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+						End If
 					#endif
 				End If
 				#ifdef __USE_GTK__
 					cairo_set_source_rgb(cr, FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue)
 				#endif
 				If SyntaxEdit AndAlso Not Content.CStyle Then
+					#ifdef __USE_WINAPI__
+						If pRenderTarget <> 0 Then
+							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+						End If
+					#endif
 					If ShowHorizontalSeparatorLines AndAlso CBool(FECLineNext <> 0) AndAlso FECLineNext->Visible Then
 						For ii As Integer = 0 To FECLineNext->Statements.Count - 1
 							FECStatement = FECLineNext->Statements.Items[ii]
@@ -4943,9 +5378,13 @@ Namespace My.Sys.Forms
 									cairo_line_to(cr, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)) - 0.5, ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY) - 0.5)
 									cairo_stroke (cr)
 								#else
-									This.Canvas.Pen.Color = FoldLines.Foreground
-									MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY), 0
-									LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY)
+									If pRenderTarget = 0 Then
+										This.Canvas.Pen.Color = FoldLines.Foreground
+										MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY), 0
+										LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY)
+									Else
+										pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin + CodePaneX), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY) + 1), Type<D2D1_POINT_2F>(ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i + 1 - VScrollPos) * dwCharY + CodePaneY) + 1), pBrushForeground, 1)
+									End If
 								#endif
 								Exit For
 							End If
@@ -4969,19 +5408,29 @@ Namespace My.Sys.Forms
 							End If
 							cairo_stroke (cr)
 						#else
-							This.Canvas.Pen.Color = FoldLines.Foreground
-							This.Canvas.Brush.Color = NormalText.Background
-							'						SelectObject(bufDC, This.Canvas.Brush.Handle)
-							'						SelectObject(bufDC, This.Canvas.Pen.Handle)
-							Rectangle bufDC, ScaleX(LeftMargin - 15 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY), ScaleX(LeftMargin - 6 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY)
-							MoveToEx bufDC, ScaleX(LeftMargin - 13 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY), 0
-							LineTo bufDC, ScaleX(LeftMargin - 8 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)
+							If pRenderTarget = 0 Then
+								This.Canvas.Pen.Color = FoldLines.Foreground
+								This.Canvas.Brush.Color = NormalText.Background
+								'						SelectObject(bufDC, This.Canvas.Brush.Handle)
+								'						SelectObject(bufDC, This.Canvas.Pen.Handle)
+								Rectangle bufDC, ScaleX(LeftMargin - 15 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY), ScaleX(LeftMargin - 6 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY)
+								MoveToEx bufDC, ScaleX(LeftMargin - 13 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY), 0
+								LineTo bufDC, ScaleX(LeftMargin - 8 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)
+							Else
+								pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
+								pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(CInt(ScaleX(LeftMargin - 15 + CodePaneX)) + 1, CInt(ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY)) + 1, CInt(ScaleX(LeftMargin - 6 + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY))), pBrushForeground, 1)
+								pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(CInt(ScaleX(LeftMargin - 13 + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)) + 1), Type<D2D1_POINT_2F>(CInt(ScaleX(LeftMargin - 8 + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)) + 1), pBrushForeground, 1)
+							End If
 							If ShowHorizontalSeparatorLines Then
 								For ii As Integer = 0 To FECLine->Statements.Count - 1
 									FECStatement = FECLine->Statements.Items[ii]
 									If (FECStatement->ConstructionIndex >= C_P_Region) AndAlso (FECStatement->ConstructionPart = 0) Then
-										MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), 0
-										LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i - VScrollPos) * dwCharY + CodePaneY)
+										If pRenderTarget = 0 Then
+											MoveToEx bufDC, ScaleX(LeftMargin + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + CodePaneY), 0
+											LineTo bufDC, ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX)), ScaleY((i - VScrollPos) * dwCharY + CodePaneY)
+										Else
+											pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(CInt(ScaleX(LeftMargin + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + CodePaneY)) + 1), Type<D2D1_POINT_2F>(CInt(ScaleX(IIf(bDividedX AndAlso zz = 0, iDividedX, dwClientX))), CInt(ScaleY((i - VScrollPos) * dwCharY + CodePaneY)) + 1), pBrushForeground, 1)
+										End If
 										Exit For
 									End If
 								Next ii
@@ -4993,8 +5442,12 @@ Namespace My.Sys.Forms
 								cairo_line_to(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY) - 0.5)
 								cairo_stroke (cr)
 							#else
-								MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY), 0
-								LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY)
+								If pRenderTarget = 0 Then
+									MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY), 0
+									LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY)
+								Else
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY)), Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY) + 1), pBrushForeground, 1)
+								End If
 							#endif
 						End If
 						If FECLine->Collapsed Then
@@ -5003,8 +5456,12 @@ Namespace My.Sys.Forms
 								cairo_line_to(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + 10 + CodePaneY) - 0.5)
 								cairo_stroke (cr)
 							#else
-								MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 5 + CodePaneY), 0
-								LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 10 + CodePaneY)
+								If pRenderTarget = 0 Then
+									MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 5 + CodePaneY), 0
+									LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 10 + CodePaneY)
+								Else
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 5 + CodePaneY)), Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 10 + CodePaneY)), pBrushForeground, 1)
+								End If
 							#endif
 						End If
 						For ii As Integer = 0 To FECLine->Statements.IndexOf(FECLine->MainStatement) - 1
@@ -5025,8 +5482,12 @@ Namespace My.Sys.Forms
 								cairo_line_to(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY) - 0.5)
 								cairo_stroke (cr)
 							#else
-								MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY), 0
-								LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY)
+								If pRenderTarget = 0 Then
+									MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY), 0
+									LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY)
+								Else
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY)), Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY) + 1), pBrushForeground, 1)
+								End If
 							#endif
 						End If
 					ElseIf OldCollapseIndex > 0 Then
@@ -5034,25 +5495,35 @@ Namespace My.Sys.Forms
 							cairo_set_source_rgb(cr, FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue)
 							cairo_move_to(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY) - 0.5)
 						#else
-							This.Canvas.Pen.Color = FoldLines.Foreground
-							This.Canvas.Brush.Color = NormalText.Background
-							'						SelectObject(bufDC, This.Canvas.Brush.Handle)
-							'						SelectObject(bufDC, This.Canvas.Pen.Handle)
-							MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY), 0
+							If pRenderTarget = 0 Then
+								This.Canvas.Pen.Color = FoldLines.Foreground
+								This.Canvas.Brush.Color = NormalText.Background
+								'						SelectObject(bufDC, This.Canvas.Brush.Handle)
+								'						SelectObject(bufDC, This.Canvas.Pen.Handle)
+								MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY), 0
+							End If
 						#endif
 						If CollapseIndex = 0 Then
 							#ifdef __USE_GTK__
 								cairo_line_to(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY) - 0.5)
 								cairo_stroke (cr)
 							#else
-								LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY)
+								If pRenderTarget = 0 Then
+									LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY)
+								Else
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY)), Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY) + 1), pBrushForeground, 1)
+								End If
 							#endif
 						Else
 							#ifdef __USE_GTK__
 								cairo_line_to(cr, ScaleX(LeftMargin - 11 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY) - 0.5)
 								cairo_stroke (cr)
 							#else
-								LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY)
+								If pRenderTarget = 0 Then
+									LineTo bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY)
+								Else
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 0 + CodePaneY)), Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + dwCharY + CodePaneY) + 1), pBrushForeground, 1)
+								End If
 							#endif
 						End If
 						If FECLine->ConstructionIndex >= 0 AndAlso CInt(Constructions(FECLine->ConstructionIndex).Collapsible) And CInt(FECLine->ConstructionPart = 2) Then
@@ -5061,20 +5532,29 @@ Namespace My.Sys.Forms
 								cairo_line_to(cr, ScaleX(LeftMargin - 6 + CodePaneX) - 0.5, ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY) - 0.5)
 								cairo_stroke (cr)
 							#else
-								MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY), 0
-								LineTo bufDC, ScaleX(LeftMargin - 6 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY)
+								If pRenderTarget = 0 Then
+									MoveToEx bufDC, ScaleX(LeftMargin - 11 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY), 0
+									LineTo bufDC, ScaleX(LeftMargin - 6 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY)
+								Else
+									pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 11 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY) + 1), Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 6 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + dwCharY / 2 + CodePaneY) + 1), pBrushForeground, 1)
+								End If
 							#endif
 						End If
 					End If
+					#ifdef __USE_WINAPI__
+						If pRenderTarget <> 0 Then
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+						End If
+					#endif
 				End If
 				'If i - VScrollPos > vlc1 Then Exit For 'AndAlso Not ChangeCase
 				OldCollapseIndex = CollapseIndex
 			Next z
 			#ifdef __USE_GTK__
-				cairo_rectangle (cr, ScaleX(CodePaneX), ScaleY(min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (OldI - VScrollPos + 1) * dwCharY + CodePaneY)), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)), True)
+				cairo_rectangle (cr, ScaleX(CodePaneX), ScaleY(Min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (OldI - VScrollPos + 1) * dwCharY + CodePaneY)), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)), True)
 				cairo_set_source_rgb(cr, LineNumbers.BackgroundRed, LineNumbers.BackgroundGreen, LineNumbers.BackgroundBlue)
 				cairo_fill (cr)
-				cairo_rectangle (cr, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)), True)
+				cairo_rectangle (cr, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(Min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)), True)
 				cairo_set_source_rgb(cr, NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue)
 				cairo_fill (cr)
 				If CaretOn Then
@@ -5089,16 +5569,44 @@ Namespace My.Sys.Forms
 				End If
 				'cairo_paint(cr)
 			#else
-				SetRect(@rc, ScaleX(CodePaneX), ScaleY(min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)))
-				This.Canvas.Brush.Color = LineNumbers.Background
-				FillRect bufDC, @rc, This.Canvas.Brush.Handle
-				SetRect(@rc, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)))
-				This.Canvas.Brush.Color = NormalText.Background
-				FillRect bufDC, @rc, This.Canvas.Brush.Handle
+				SetRect(@rc, ScaleX(CodePaneX), ScaleY(Min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)))
+				If pRenderTarget = 0 Then
+					This.Canvas.Brush.Color = LineNumbers.Background
+					FillRect bufDC, @rc, This.Canvas.Brush.Handle
+				Else
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(LineNumbers.BackgroundRed, LineNumbers.BackgroundGreen, LineNumbers.BackgroundBlue, 1.0), 0, @pBrushBackground)
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+				End If
+				SetRect(@rc, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(Min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)))
+				If pRenderTarget = 0 Then
+					This.Canvas.Brush.Color = NormalText.Background
+					FillRect bufDC, @rc, This.Canvas.Brush.Handle
+				Else
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue, 1.0), 0, @pBrushBackground)
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(NormalText.ForegroundRed, NormalText.ForegroundGreen, NormalText.ForegroundBlue, 1.0), 0, @pBrushForeground)
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					If CaretOn Then
+						pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(ScaleX(HCaretPos) + 1, ScaleY(VCaretPos) + 1, ScaleX(HCaretPos) + 1, ScaleY(VCaretPos + dwCharY)), pBrushForeground)
+					End If
+					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+					If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+				End If
 			#endif
 			OldPaintedVScrollPos(zz) = VScrollPos
 			OldPaintedHScrollPos(zz) = HScrollPos
 		Next zz
+		#ifdef __USE_WINAPI__
+			If pRenderTarget <> 0 Then
+				If g_darkModeEnabled Then
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(23 / 255.0, 23 / 255.0, 23 / 255.0, 1.0), 0, @pBrushForeground)
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Abs(GetRed(darkBkColor) / 255.0), Abs(GetGreen(darkBkColor) / 255.0), Abs(GetBlue(darkBkColor) / 255.0), 1.0), 0, @pBrushBackground)
+				Else
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(217 / 255.0, 217 / 255.0, 217 / 255.0, 1.0), 0, @pBrushForeground)
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Abs(GetRed(clBtnFace) / 255.0), Abs(GetGreen(clBtnFace) / 255.0), Abs(GetBlue(clBtnFace) / 255.0), 1.0), 0, @pBrushBackground)
+				End If
+			End If
+		#endif
 		If Not bDividedX Then
 			#ifdef __USE_GTK__
 				cairo_rectangle(cr, 0, ScaleY(dwClientY - horizontalScrollBarHeight), ScaleX(7), ScaleY(dwClientY), True)
@@ -5117,14 +5625,19 @@ Namespace My.Sys.Forms
 				cairo_stroke (cr)
 			#else
 				SetRect(@rc, 0, ScaleY(dwClientY - 17), ScaleX(7), ScaleY(dwClientY))
-				If g_darkModeEnabled Then
-					This.Canvas.Pen.Color = BGR(23, 23, 23)
-					This.Canvas.Brush.Color = darkBkColor
+				If pRenderTarget = 0 Then
+					If g_darkModeEnabled Then
+						This.Canvas.Pen.Color = BGR(23, 23, 23)
+						This.Canvas.Brush.Color = darkBkColor
+					Else
+						This.Canvas.Pen.Color = BGR(217, 217, 217)
+						This.Canvas.Brush.Color = clBtnFace
+					End If
+					Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 				Else
-					This.Canvas.Pen.Color = BGR(217, 217, 217)
-					This.Canvas.Brush.Color = clBtnFace
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushForeground, 1)
 				End If
-				Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 			#endif
 		End If
 		If Not bDividedY Then
@@ -5145,14 +5658,19 @@ Namespace My.Sys.Forms
 				cairo_stroke (cr)
 			#else
 				SetRect(@rc, ScaleX(dwClientX - 17), 0, ScaleX(dwClientX), ScaleY(7))
-				If g_darkModeEnabled Then
-					This.Canvas.Pen.Color = BGR(23, 23, 23)
-					This.Canvas.Brush.Color = darkBkColor
+				If pRenderTarget = 0 Then
+					If g_darkModeEnabled Then
+						This.Canvas.Pen.Color = BGR(23, 23, 23)
+						This.Canvas.Brush.Color = darkBkColor
+					Else
+						This.Canvas.Pen.Color = BGR(217, 217, 217)
+						This.Canvas.Brush.Color = clBtnFace
+					End If
+					Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 				Else
-					This.Canvas.Pen.Color = BGR(217, 217, 217)
-					This.Canvas.Brush.Color = clBtnFace
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushForeground, 1)
 				End If
-				Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 			#endif
 		End If
 		#ifdef __USE_GTK__
@@ -5166,7 +5684,11 @@ Namespace My.Sys.Forms
 		#else
 			'FillRect bufDC, @rc, This.Canvas.Brush.Handle
 			SetRect(@rc, ScaleX(dwClientX - 17), ScaleY(dwClientY - 17), ScaleX(dwClientX), ScaleY(dwClientY))
-			FillRect bufDC, @rc, This.Canvas.Brush.Handle
+			If pRenderTarget = 0 Then
+				FillRect bufDC, @rc, This.Canvas.Brush.Handle
+			Else
+				pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+			End If
 		#endif
 		If bDividedX Then
 			#ifdef __USE_GTK__
@@ -5179,34 +5701,13 @@ Namespace My.Sys.Forms
 				cairo_fill (cr)
 			#else
 				SetRect(@rc, ScaleX(iDividedX - 17), ScaleY(dwClientY - 17), ScaleX(iDividedX), ScaleY(dwClientY))
-				FillRect bufDC, @rc, This.Canvas.Brush.Handle
+				If pRenderTarget = 0 Then
+					FillRect bufDC, @rc, This.Canvas.Brush.Handle
+				Else
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+				End If
 			#endif
 		End If
-		#ifdef __USE_WINAPI__
-			If bInMiddleScroll Then
-				#ifdef __USE_GTK__
-					'					cairo_set_source_rgb(cr, Abs(GetRed(clMaroon) / 255.0), Abs(GetGreen(clMaroon) / 255.0), Abs(GetBlue(clMaroon) / 255.0))
-					'					cairo_arc(cr, LeftMargin - 11 - 0.5, (i - VScrollPos) * dwCharY + 8 - 0.5, 5, 0, 2 * G_PI)
-					'					cairo_fill_preserve(cr)
-					'					cairo_set_source_rgb(cr, 0.0, 0.0, 0.0)
-					'					cairo_stroke(cr)
-				#else
-					This.Canvas.Pen.Color = SpaceIdentifiers.Foreground
-					This.Canvas.Brush.Color = SpaceIdentifiers.Foreground
-					'					SelectObject(bufDC, This.Canvas.Pen.Handle)
-					'					SelectObject(bufDC, This.Canvas.Brush.Handle)
-					Ellipse bufDC, ScaleX(MButtonX + 10), ScaleY(MButtonY + 10), ScaleX(MButtonX + 14), ScaleY(MButtonY + 14)
-					Dim pPoint1(3) As ..Point = {(ScaleX(MButtonX + 11), ScaleY(MButtonY + 1)), (ScaleX(MButtonX + 7), ScaleY(MButtonY + 5)), (ScaleX(MButtonX + 16), ScaleY(MButtonY + 5)), (ScaleX(MButtonX + 12), ScaleY(MButtonY + 1))}
-					Polygon(bufDC, @pPoint1(0), 4)
-					Dim pPoint2(3) As ..Point = {(ScaleX(MButtonX + 11), ScaleY(MButtonY + 22)), (ScaleX(MButtonX + 7), ScaleY(MButtonY + 18)), (ScaleX(MButtonX + 16), ScaleY(MButtonY + 18)), (ScaleX(MButtonX + 12), ScaleY(MButtonY + 22))}
-					Polygon(bufDC, @pPoint2(0), 4)
-					Dim pPoint3(3) As ..Point = {(ScaleX(MButtonX + 1), ScaleY(MButtonY + 11)), (ScaleX(MButtonX + 5), ScaleY(MButtonY + 7)), (ScaleX(MButtonX + 5), ScaleY(MButtonY + 16)), (ScaleX(MButtonX + 1), ScaleY(MButtonY + 12))}
-					Polygon(bufDC, @pPoint3(0), 4)
-					Dim pPoint4(3) As ..Point = {(ScaleX(MButtonX + 22), ScaleY(MButtonY + 11)), (ScaleX(MButtonX + 18), ScaleY(MButtonY + 7)), (ScaleX(MButtonX + 18), ScaleY(MButtonY + 16)), (ScaleX(MButtonX + 22), ScaleY(MButtonY + 12))}
-					Polygon(bufDC, @pPoint4(0), 4)
-				#endif
-			End If
-		#endif
 		If bDividedX Then
 			#ifdef __USE_GTK__
 				cairo_rectangle(cr, ScaleX(iDividedX), ScaleY(-1), ScaleX(iDividedX + 7), ScaleY(dwClientY + 1), True)
@@ -5225,14 +5726,19 @@ Namespace My.Sys.Forms
 				cairo_stroke (cr)
 			#else
 				SetRect(@rc, ScaleX(iDividedX), -1, ScaleX(iDividedX + 7), ScaleY(dwClientY) + 1)
-				If g_darkModeEnabled Then
-					This.Canvas.Pen.Color = BGR(130, 135, 144)
-					This.Canvas.Brush.Color = darkBkColor
+				If pRenderTarget = 0 Then
+					If g_darkModeEnabled Then
+						This.Canvas.Pen.Color = BGR(130, 135, 144)
+						This.Canvas.Brush.Color = darkBkColor
+					Else
+						This.Canvas.Pen.Color = BGR(217, 217, 217)
+						This.Canvas.Brush.Color = clBtnFace
+					End If
+					Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 				Else
-					This.Canvas.Pen.Color = BGR(217, 217, 217)
-					This.Canvas.Brush.Color = clBtnFace
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushForeground, 1)
 				End If
-				Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 			#endif
 		ElseIf bDividedY Then
 			#ifdef __USE_GTK__
@@ -5252,16 +5758,27 @@ Namespace My.Sys.Forms
 				cairo_stroke (cr)
 			#else
 				SetRect(@rc, -1, ScaleY(iDividedY), ScaleX(dwClientX) + 1, ScaleY(iDividedY + 7))
-				If g_darkModeEnabled Then
-					This.Canvas.Pen.Color = BGR(130, 135, 144)
-					This.Canvas.Brush.Color = darkBkColor
+				If pRenderTarget = 0 Then
+					If g_darkModeEnabled Then
+						This.Canvas.Pen.Color = BGR(130, 135, 144)
+						This.Canvas.Brush.Color = darkBkColor
+					Else
+						This.Canvas.Pen.Color = BGR(217, 217, 217)
+						This.Canvas.Brush.Color = clBtnFace
+					End If
+					Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 				Else
-					This.Canvas.Pen.Color = BGR(217, 217, 217)
-					This.Canvas.Brush.Color = clBtnFace
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushForeground, 1)
 				End If
-				Rectangle bufDC, rc.Left, rc.Top, rc.Right, rc.Bottom
 			#endif
 		End If
+		#ifdef __USE_WINAPI__
+			If pRenderTarget <> 0 Then
+				If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+				If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
+			End If
+		#endif
 		If bInDivideX Then
 			#ifdef __USE_GTK__
 				cairo_rectangle(cr, ScaleX(iDivideX), 0, ScaleX(iDivideX + 5), ScaleY(dwClientY), True)
@@ -5270,7 +5787,13 @@ Namespace My.Sys.Forms
 				cairo_fill(cr)
 			#else
 				SetRect(@rc, ScaleX(iDivideX), 0, ScaleX(iDivideX + 5), ScaleY(dwClientY))
-				InvertRect bufDC, @rc
+				If pRenderTarget = 0 Then
+					InvertRect bufDC, @rc
+				Else
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(0.0, 0.0, 0.0, 1.0), 0, @pBrushBackground)
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
+				End If
 			#endif
 		ElseIf bInDivideY Then
 			#ifdef __USE_GTK__
@@ -5280,15 +5803,89 @@ Namespace My.Sys.Forms
 				cairo_fill(cr)
 			#else
 				SetRect(@rc, 0, ScaleY(iDivideY), ScaleX(dwClientX), ScaleY(iDivideY + 5))
-				InvertRect bufDC, @rc
+				If pRenderTarget = 0 Then
+					InvertRect bufDC, @rc
+				Else
+					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(0.0, 0.0, 0.0, 1.0), 0, @pBrushBackground)
+					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
+					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
+				End If
 			#endif
 		End If
 		#ifdef __USE_WINAPI__
-			BitBlt(hd, 0, 0, ScaleX(dwClientX), ScaleY(dwClientY), bufDC, 0, 0, SRCCOPY)
-			'DeleteDC bufDC
-			'DeleteObject bufBMP
-			ReleaseDC FHandle, hd
-			ShowCaret(FHandle)
+			If bInMiddleScroll Then
+				#ifdef __USE_GTK__
+					'					cairo_set_source_rgb(cr, Abs(GetRed(clMaroon) / 255.0), Abs(GetGreen(clMaroon) / 255.0), Abs(GetBlue(clMaroon) / 255.0))
+					'					cairo_arc(cr, LeftMargin - 11 - 0.5, (i - VScrollPos) * dwCharY + 8 - 0.5, 5, 0, 2 * G_PI)
+					'					cairo_fill_preserve(cr)
+					'					cairo_set_source_rgb(cr, 0.0, 0.0, 0.0)
+					'					cairo_stroke(cr)
+				#else
+					If pRenderTarget = 0 Then
+						This.Canvas.Pen.Color = SpaceIdentifiers.Foreground
+						This.Canvas.Brush.Color = SpaceIdentifiers.Foreground
+						'					SelectObject(bufDC, This.Canvas.Pen.Handle)
+						'					SelectObject(bufDC, This.Canvas.Brush.Handle)
+						Ellipse bufDC, ScaleX(MButtonX + 10), ScaleY(MButtonY + 10), ScaleX(MButtonX + 14), ScaleY(MButtonY + 14)
+						Dim pPoint1(3) As ..Point = {(ScaleX(MButtonX + 11), ScaleY(MButtonY + 1)), (ScaleX(MButtonX + 7), ScaleY(MButtonY + 5)), (ScaleX(MButtonX + 16), ScaleY(MButtonY + 5)), (ScaleX(MButtonX + 12), ScaleY(MButtonY + 1))}
+						Polygon(bufDC, @pPoint1(0), 4)
+						Dim pPoint2(3) As ..Point = {(ScaleX(MButtonX + 11), ScaleY(MButtonY + 22)), (ScaleX(MButtonX + 7), ScaleY(MButtonY + 18)), (ScaleX(MButtonX + 16), ScaleY(MButtonY + 18)), (ScaleX(MButtonX + 12), ScaleY(MButtonY + 22))}
+						Polygon(bufDC, @pPoint2(0), 4)
+						Dim pPoint3(3) As ..Point = {(ScaleX(MButtonX + 1), ScaleY(MButtonY + 11)), (ScaleX(MButtonX + 5), ScaleY(MButtonY + 7)), (ScaleX(MButtonX + 5), ScaleY(MButtonY + 16)), (ScaleX(MButtonX + 1), ScaleY(MButtonY + 12))}
+						Polygon(bufDC, @pPoint3(0), 4)
+						Dim pPoint4(3) As ..Point = {(ScaleX(MButtonX + 22), ScaleY(MButtonY + 11)), (ScaleX(MButtonX + 18), ScaleY(MButtonY + 7)), (ScaleX(MButtonX + 18), ScaleY(MButtonY + 16)), (ScaleX(MButtonX + 22), ScaleY(MButtonY + 12))}
+						Polygon(bufDC, @pPoint4(0), 4)
+					Else
+						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(SpaceIdentifiers.ForegroundRed, SpaceIdentifiers.ForegroundGreen, SpaceIdentifiers.ForegroundBlue, 1.0), 0, @pBrushForeground)
+						pRenderTarget->lpVtbl->FillEllipse(pRenderTarget, Type<D2D1_ELLIPSE>(Type<D2D1_POINT_2F>(ScaleX(MButtonX + 10 + 2), ScaleY(MButtonY + 10 + 2)), ScaleX(2), ScaleY(2)), pBrushForeground)
+						Dim pPoint1(3) As D2D1_POINT_2F = { _
+						(ScaleX(MButtonX + 11), ScaleY(MButtonY + 1)), _
+						(ScaleX(MButtonX + 7),  ScaleY(MButtonY + 5)), _
+						(ScaleX(MButtonX + 16), ScaleY(MButtonY + 5)), _
+						(ScaleX(MButtonX + 12), ScaleY(MButtonY + 1)) }
+						
+						Dim pPoint2(3) As D2D1_POINT_2F = { _
+						(ScaleX(MButtonX + 11), ScaleY(MButtonY + 22)), _
+						(ScaleX(MButtonX + 7),  ScaleY(MButtonY + 18)), _
+						(ScaleX(MButtonX + 16), ScaleY(MButtonY + 18)), _
+						(ScaleX(MButtonX + 12), ScaleY(MButtonY + 22)) }
+						
+						Dim pPoint3(3) As D2D1_POINT_2F = { _
+						(ScaleX(MButtonX + 1),  ScaleY(MButtonY + 11)), _
+						(ScaleX(MButtonX + 5),  ScaleY(MButtonY + 7)), _
+						(ScaleX(MButtonX + 5),  ScaleY(MButtonY + 16)), _
+						(ScaleX(MButtonX + 1),  ScaleY(MButtonY + 12)) }
+						
+						Dim pPoint4(3) As D2D1_POINT_2F = { _
+						(ScaleX(MButtonX + 22), ScaleY(MButtonY + 11)), _
+						(ScaleX(MButtonX + 18), ScaleY(MButtonY + 7)), _
+						(ScaleX(MButtonX + 18), ScaleY(MButtonY + 16)), _
+						(ScaleX(MButtonX + 22), ScaleY(MButtonY + 12)) }
+						FillPolygon(pPoint1(), pRenderTarget, pBrushForeground)
+						FillPolygon(pPoint2(), pRenderTarget, pBrushForeground)
+						FillPolygon(pPoint3(), pRenderTarget, pBrushForeground)
+						FillPolygon(pPoint4(), pRenderTarget, pBrushForeground)
+						If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+					End If
+				#endif
+			End If
+		#endif
+		#ifdef __USE_WINAPI__
+			If pRenderTarget <> 0 Then
+				pRenderTarget->lpVtbl->EndDraw(pRenderTarget, 0, 0)
+				Dim pp As DXGI_PRESENT_PARAMETERS
+				pp.DirtyRectsCount = 0
+				pp.pDirtyRects = 0
+				pp.pScrollRect = 0
+				pp.pScrollOffset = 0
+				pSwapChain->lpVtbl->Present1(pSwapChain, 1, 0, @pp)
+			Else
+				BitBlt(hd, 0, 0, ScaleX(dwClientX), ScaleY(dwClientY), bufDC, 0, 0, SRCCOPY)
+				'DeleteDC bufDC
+				'DeleteObject bufBMP
+				ReleaseDC FHandle, hd
+				ShowCaret(FHandle)
+			End If
 		#endif
 		This.Canvas.HandleSetted = False
 		OlddwClientX = dwClientX
@@ -5313,13 +5910,13 @@ Namespace My.Sys.Forms
 		"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
 	End Sub
 	
-	Sub EditControl.PaintControl(bFull As Boolean = False)
+	Sub EditControl.PaintControl(bFull As Boolean = False, OnlyCursor As Boolean = False)
 		#ifdef __USE_GTK__
 			'PaintControlPriv
 			bChanged = True
 			If GTK_IS_WIDGET(widget) Then gtk_widget_queue_draw(widget)
 		#else
-			PaintControlPriv(bFull)
+			PaintControlPriv(bFull, OnlyCursor)
 		#endif
 	End Sub
 	
@@ -5859,6 +6456,7 @@ Namespace My.Sys.Forms
 				End If
 				RedrawWindow sbScrollBarhRight, 0, 0, RDW_INVALIDATE
 				RedrawWindow sbScrollBarvBottom, 0, 0, RDW_INVALIDATE
+				SetClientSize()
 			#endif
 			SetScrollsInfo
 			#ifdef __USE_GTK__
@@ -6080,6 +6678,26 @@ Namespace My.Sys.Forms
 				Font.ydpi = ydpi
 				Font.Size = Font.Size
 				FontSettings
+			Case WM_IME_STARTCOMPOSITION ', WM_IME_COMPOSITION
+				Dim hIMC As HIMC = ImmGetContext(FHandle)
+				If hIMC <> NULL Then
+					Dim pt As ..Point
+					pt.X = ScaleX(HCaretPos)
+					pt.Y = ScaleY(VCaretPos)
+					
+					Dim cf As COMPOSITIONFORM
+					cf.dwStyle = CFS_POINT
+					cf.ptCurrentPos = pt
+					ImmSetCompositionWindow(hIMC, @cf)
+					
+					Dim candf As CANDIDATEFORM
+					candf.dwIndex = 0
+					candf.dwStyle = CFS_CANDIDATEPOS
+					candf.ptCurrentPos = pt
+					ImmSetCandidateWindow(hIMC, @candf)
+					
+					ImmReleaseContext(FHandle, hIMC)
+				End If
 			#endif
 			#ifndef __USE_GTK__
 			Case WM_SETCURSOR
@@ -6250,6 +6868,10 @@ Namespace My.Sys.Forms
 				CreateCaret(FHandle, 0, 0, ScaleY(dwCharY))
 				'ScrollToCaret
 				ShowCaret(FHandle)
+				FocusEC = @This
+				If pRenderTarget <> 0 Then
+					SetTimer FHandle, 2, BlinkTime, @EC_TimerProcBlink
+				End If
 			Case WM_KILLFOCUS
 				HideCaret(FHandle)
 				DestroyCaret()
@@ -6257,6 +6879,11 @@ Namespace My.Sys.Forms
 					If ToolTipShowed Then CloseToolTip
 					If DropDownToolTipShowed Then CloseDropDownToolTip
 					If MouseHoverToolTipShowed Then CloseMouseHoverToolTip
+				End If
+				KillTimer FHandle, 2
+				CaretOn = False
+				If pRenderTarget <> 0 Then
+					PaintControl
 				End If
 			Case WM_UNDO
 				Undo
@@ -6831,12 +7458,12 @@ Namespace My.Sys.Forms
 				Var z = 0
 				If CInt(AutoIndentation) AndAlso ((InStr(*FLine, ":") = 0) OrElse (i = C_Class)) AndAlso CInt(i > -1) Then
 					If j > 0 Then
-						Dim y As Integer
+						Dim y As Integer = Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->ConstructionPartCount
 						For o As Integer = FSelEndLine - 1 To 0 Step -1
 							With *Cast(EditControlLine Ptr, Content.Lines.Items[o])
 								If .ConstructionIndex = i OrElse (j = 1 AndAlso i = C_Class AndAlso .ConstructionIndex = C_Type) Then
 									If .ConstructionPart = 2 Then
-										y = y + 1
+										y = y + 1 + .ConstructionPartCount
 									ElseIf .ConstructionPart = 0 Then
 										If y = 0 Then
 											Var ltt0 = Len(GetTabbedText(* (.Text)))
@@ -7268,6 +7895,9 @@ Namespace My.Sys.Forms
 			Case GDK_EXPOSE
 			#else
 			Case WM_PAINT
+				If Not bPainted Then
+					bPainted = True
+				End If
 				If g_darkModeSupported AndAlso g_darkModeEnabled Then
 					If Not FDarkMode Then
 						SetDark True
@@ -7324,6 +7954,8 @@ Namespace My.Sys.Forms
 						'						SendMessageW(.FHandle, WM_THEMECHANGED, 0, 0)
 						'						AllowDarkModeForWindow(.FHandle, g_darkModeEnabled)
 						'						UpdateWindow(.FHandle)
+					End If
+					If g_Direct2DEnabled Then
 					End If
 				#endif
 				'Var s1Pos = 100, s1Min = 1, s1Max = 100
@@ -7480,7 +8112,9 @@ Namespace My.Sys.Forms
 		
 		Sub EditControl_Commit(imcontext As GtkIMContext Ptr, sStr As ZString Ptr, ec As EditControl Ptr)
 			#ifdef __FB_WIN32__
-				ec->ChangeText FromUtf8(*sStr)
+				Dim As WString Ptr Temp = FromUtf8(*sStr)
+				ec->ChangeText *Temp
+				WDeAllocate(Temp)
 			#else
 				ec->ChangeText *sStr
 			#endif
@@ -7623,6 +8257,7 @@ Namespace My.Sys.Forms
 			g_signal_connect(G_OBJECT(im_context), "commit", G_CALLBACK(@EditControl_Commit), @This)
 		#else
 			OnHandleIsAllocated = @HandleIsAllocated
+			BlinkTime = GetCaretBlinkTime
 			'sbScrollBarvTop.Style = ScrollBarControlStyle.sbVertical
 			'sbScrollBarv.Style = ScrollBarControlStyle.sbVertical
 			'sbScrollBarh.Style = ScrollBarControlStyle.sbHorizontal
@@ -7743,6 +8378,8 @@ Namespace My.Sys.Forms
 			cboIntellisense.Items.Clear
 			If bufDC Then DeleteDC bufDC
 			If bufBMP Then DeleteObject bufBMP
+			If pRenderTarget Then Cast(Sub(ByVal As Any Ptr), COM_METHOD(pRenderTarget, 2))(pRenderTarget): pRenderTarget = 0
+			If pFormat Then Cast(Sub(ByVal As Any Ptr), COM_METHOD(pFormat, 2))(pFormat): pFormat = 0
 		#endif
 		WDeAllocate(FLine)
 		WDeAllocate(FLineLeft)
@@ -7814,4 +8451,3 @@ Sub LoadKeyWords
 	'	Loop
 	'	Close #Fn
 End Sub
-

@@ -13,12 +13,20 @@
 #include once "mff/Application.bi"
 #include once "mff/ListView.bi"
 #include once "mff/ToolTips.bi"
+#ifdef __USE_WINAPI__
+	#include once "mff/D2D1/D2D1.bi"
+#endif
 '#include once "Main.bi"
 
 Enum KeyWordsCase
 	OriginalCase
 	LowerCase
 	UpperCase
+End Enum
+
+Enum ConstructionTypes
+	AllConstructions
+	OnlyProcedures
 End Enum
 
 Common Shared As Boolean AutoIndentation
@@ -28,13 +36,16 @@ Common Shared As Integer HistoryLimit, AutoSaveCharMax
 Common Shared As Integer IntellisenseLimit
 Common Shared As Integer TabAsSpaces
 Common Shared As KeyWordsCase ChoosedKeyWordsCase
+Common Shared As ConstructionTypes ChoosedConstructions
 Common Shared As Integer ChoosedTabStyle
 Common Shared As Integer CodeEditorHoverTime
 Common Shared As Boolean SyntaxHighlightingIdentifiers
 Common Shared As Boolean ChangeIdentifiersCase
 Common Shared As Boolean ChangeKeyWordsCase
+Common Shared As Boolean ChangeEndingType
 Common Shared As Boolean AddSpacesToOperators
 Common Shared As Boolean WithFrame
+Common Shared As Boolean UseDirect2D
 Common Shared As WStringOrStringList Ptr pkeywordsAsm, pkeywords0, pkeywords1, pkeywords2 ', pkeywords3
 
 Type ECColorScheme
@@ -210,6 +221,7 @@ Namespace My.Sys.Forms
 		ConstructionIndex As Integer
 		ConstructionPart As Integer
 		ConstructionPartCount As Integer
+		ConstructionNextCount As Integer
 		InAsm As Boolean
 		InConstruction As TypeElement Ptr
 		InConstructionBlock As ConstructionBlock Ptr
@@ -227,9 +239,12 @@ Namespace My.Sys.Forms
 		CollapsedFully As Boolean
 		Collapsible As Boolean
 		CommentIndex As Integer
+		OldConstructionIndex As Integer
+		OldConstructionPart As Integer
 		ConstructionIndex As Integer
 		ConstructionPart As Integer
 		ConstructionPartCount As Integer
+		ConstructionNextCount As Integer
 		InAsm As Boolean
 		InConstruction As TypeElement Ptr
 		InConstructionBlock As ConstructionBlock Ptr
@@ -349,11 +364,21 @@ Namespace My.Sys.Forms
 		Dim WithOldI As Integer = -1
 		Dim WithOldTypeName As String
 		Dim WithTeEnumOld As TypeElement Ptr
+		Dim bPainted As Boolean
 		Dim iPos As Integer
 		Dim iPP As Integer = 0
 		Dim jPos As Integer
 		Dim jPP As Integer = 0
 		Dim iPPos As Integer
+		#ifdef __USE_WINAPI__
+			'Dim pRenderTarget As ID2D1RenderTarget Ptr = 0
+			Dim pRenderTarget As ID2D1DeviceContext Ptr = 0
+			Dim pTargetBitmap As ID2D1Bitmap1 Ptr = 0
+			Dim pSwapChain As IDXGISwapChain1 Ptr = 0
+			Dim pSurface As IDXGISurface Ptr = 0
+			Dim pTexture As ID3D11Texture2D Ptr = 0
+			Dim pFormat As IDWriteTextFormat Ptr = 0
+		#endif
 		Dim As Integer iCount, BracketsStart, BracketsStartLine, BracketsEnd, BracketsEndLine, iStartBS, iStartBE, OldBracketsStartLine, OldBracketsEndLine
 		Dim As String BracketsLine, Symb, SymbOpenBrackets, SymbCloseBrackets, OpenBrackets = "([{", CloseBrackets = ")]}"
 		Dim As Boolean bFinded
@@ -447,7 +472,7 @@ Namespace My.Sys.Forms
 		Dim As Boolean bOldDividedX, bOldDividedY
 		Dim As Integer iCursorLine
 		Dim As Integer iCursorLineOld
-		Dim As Integer IzohBoshi, QavsBoshi, MatnBoshi
+		Dim As Integer IzohBoshi, QavsBoshi, MatnBoshi, OddiyMatnBoshi
 		Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 		Dim As String KeyWord, Matn, MatnLCase, OldMatnLCase, MatnLCaseWithoutOldSymbol, MatnWithoutOldSymbol
 		Dim As Boolean WithOldSymbol, bTypeAs, bInAsm
@@ -459,7 +484,7 @@ Namespace My.Sys.Forms
 		Dim OldCollapseIndex As Integer
 		Declare Sub FontSettings
 		Declare Function MaxLineWidth() As Integer
-		Declare Sub PaintText(CodePane As Integer, iLine As Integer, ByRef s As WString, iStart As Integer, iEnd As Integer, ByRef Colors As ECColorScheme, ByRef addit As WString = "", Bold As Boolean = False, Italic As Boolean = False, Underline As Boolean = False)
+		Declare Sub PaintText(CodePane As Integer, iLine As Integer, ByRef s As WString, iStart As Integer, iEnd As Integer, ByRef Colors As ECColorScheme, ByRef addit As WString = "", Bold As Boolean = False, Italic As Boolean = False, Underline As Boolean = False, ByRef CameOut As Boolean = False)
 		Declare Static Sub HandleIsAllocated(ByRef Sender As Control)
 		Declare Sub SplitLines
 		Declare Sub WordLeft
@@ -478,6 +503,7 @@ Namespace My.Sys.Forms
 		Declare Function InCollapseRect(i As Integer, X As Integer, Y As Integer) As Boolean
 		Declare Function InIncludeFileRect(i As Integer, X As Integer, Y As Integer) As Boolean
 		Declare Sub ProcessMessage(ByRef MSG As Message)
+		Dim CaretPosShowed As Long
 		#ifdef __USE_GTK__
 			Declare Static Function Blink_cb(user_data As gpointer) As gboolean
 			Declare Static Function EditControl_OnDraw(widget As GtkWidget Ptr, cr As cairo_t Ptr, data1 As gpointer) As Boolean
@@ -490,7 +516,9 @@ Namespace My.Sys.Forms
 			Dim lHorzOffset As Long
 			Dim As ..Point m_tP
 			Declare Static Sub EC_TimerProc(HWND As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
+			Declare Static Sub EC_TimerProcBlink(HWND As HWND, uMsg As UINT, idEvent As UINT_PTR, dwTime As DWORD)
 			Declare Sub SetDark(Value As Boolean)
+			Declare Sub SetClientSize()
 		#endif
 		Declare Function deltaToScrollAmount(lDelta As Integer) As Integer
 		Declare Sub MiddleScroll
@@ -517,6 +545,8 @@ Namespace My.Sys.Forms
 		Dim As Boolean bInIncludeFileRect, ModifiedLine
 		Dim As Integer LineIndex
 		Declare Function CharType(ByRef ch As WString) As Integer
+		Dim As Boolean CaretOn
+		Dim As Integer BlinkTime
 		#ifdef __USE_GTK__
 			Declare Static Function ActivateLink(Label As GtkLabel Ptr, uri As gchar Ptr, user_data As gpointer) As Boolean
 			Dim As cairo_t Ptr cr
@@ -548,8 +578,6 @@ Namespace My.Sys.Forms
 			Dim As GtkWidget Ptr winTooltip
 			Dim As Integer verticalScrollBarWidth
 			Dim As Integer horizontalScrollBarHeight
-			Dim As Boolean CaretOn
-			Dim As Integer BlinkTime
 			Dim As Boolean InFocus
 			Dim As Boolean bChanged
 		#else
@@ -598,7 +626,7 @@ Namespace My.Sys.Forms
 		MouseHoverToolTipShowed As Boolean
 		ToolTipShowed As Boolean
 		ToolTipChar As Integer
-		Declare Sub SetScrollsInfo()
+		Declare Sub SetScrollsInfo(WithChange As Boolean = False)
 		Declare Sub ShowCaretPos(Scroll As Boolean = False)
 		Declare Function TextWidth(ByRef sText As WString) As Integer
 		Declare Sub ShowDropDownAt(iSelEndLine As Integer, iSelEndChar As Integer)
@@ -616,8 +644,8 @@ Namespace My.Sys.Forms
 		Declare Sub UnformatCode(WithoutUpdate As Boolean = False)
 		Declare Function GetTabbedLength(ByRef SourceText As WString) As Integer
 		Declare Function GetTabbedText(ByRef SourceText As WString, ByRef PosText As Integer = 0, ForPrint As Boolean = False) ByRef As WString
-		Declare Sub PaintControl(bFull As Boolean = False)
-		Declare Sub PaintControlPriv(bFull As Boolean = False)
+		Declare Sub PaintControl(bFull As Boolean = False, OnlyCursor As Boolean = False)
+		Declare Sub PaintControlPriv(bFull As Boolean = False, OnlyCursor As Boolean = False)
 		Declare Function GetWordAt(LineIndex As Integer, CharIndex As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
 		Declare Function GetWordAtCursor(WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
 		Declare Function GetWordAtPoint(X As Integer, Y As Integer, WithDot As Boolean = False, WithQuestion As Boolean = False, ByRef StartChar As Integer = 0, ByRef EndChar As Integer = 0) As String
@@ -712,7 +740,7 @@ Namespace My.Sys.Forms
 	Dim Shared Constructions() As Construction
 	Dim Shared ElementTypeNames() As ElementType
 	Dim Shared As My.Sys.Drawing.BitmapType EditControlFrame
-	Common As EditControl Ptr CurEC, ScrEC
+	Common As EditControl Ptr CurEC, ScrEC, FocusEC
 	Common As Integer MiddleScrollIndexX, MiddleScrollIndexY
 End Namespace
 

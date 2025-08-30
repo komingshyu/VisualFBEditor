@@ -6,6 +6,7 @@
 '#########################################################
 
 #include once "frmOptions.bi"
+#include once "frmAIAgent.frm"
 #include once "TabWindow.bi"
 
 Dim Shared Languages As WStringList
@@ -203,6 +204,22 @@ pfOptions = @fOptions
 		pnlHelp.TabIndex = 75
 		pnlHelp.SetBounds 188, 4, 427, 400
 		pnlHelp.Parent = @pplGeneral
+		' pnlDefaults
+		With pnlDefaults
+			.Name = "pnlDefaults"
+			.Text = ""
+			.Align = DockStyle.alClient
+			.TabIndex = 75
+			.SetBounds 188, 4, 427, 400
+			.Parent = @pplGeneral
+		End With
+		' pnlAIAgent
+		pnlAIAgent.Name = "pnlAIAgent"
+		pnlAIAgent.Text = ""
+		pnlAIAgent.Align = DockStyle.alClient
+		pnlAIAgent.TabIndex = 75
+		pnlAIAgent.SetBounds 188, 4, 427, 400
+		pnlAIAgent.Parent = @pplGeneral
 		'pnlOtherEditors.ExtraMargins.Right = 10
 		'pnlOtherEditors.ExtraMargins.Bottom = 9
 		'pnlOtherEditors.ExtraMargins.Top = 4
@@ -285,7 +302,7 @@ pfOptions = @fOptions
 		' lblBlack
 		lblBlack.Name = "lblBlack"
 		lblBlack.Text = ""
-		lblBlack.BorderStyle = 2
+		lblBlack.BorderStyle = BorderStyles.bsClient
 		lblBlack.BackColor = 8421504
 		lblBlack.ExtraMargins.Right = 1
 		lblBlack.ExtraMargins.Left = 0
@@ -310,6 +327,21 @@ pfOptions = @fOptions
 			.TabIndex = 84
 			.SetBounds 10, 0, 417, 123
 			.Parent = @pnlCompiler
+		End With
+		' grbDefaults
+		With grbDefaults
+			.Name = "grbDefaults"
+			.Text = ML("Default Settings for New Files")
+			.AutoSize = false
+			.Align = DockStyle.alClient
+			.ExtraMargins.Left = 0
+			.Margins.Top = 20
+			.Margins.Right = 15
+			.Margins.Left = 15
+			.Margins.Bottom = 15
+			.TabIndex = 84
+			.SetBounds 0, 0, 417, 400
+			.Parent = @pnlDefaults
 		End With
 		' grbShortcuts
 		With grbShortcuts
@@ -867,6 +899,19 @@ pfOptions = @fOptions
 			.Constraints.Height = 21
 			.AutoSize = True
 			.SetBounds 0, 128, 210, 21
+			.Designer = @This
+			.Parent = @vbxCodeEditor
+		End With
+		' chkUseDirect2D
+		With chkUseDirect2D
+			.Name = "chkUseDirect2D"
+			.Text = ML("Use Direct2D (For Windows)")
+			.TabIndex = 278
+			.Align = DockStyle.alTop
+			.AutoSize = True
+			.ControlIndex = 10
+			.Constraints.Height = 21
+			.SetBounds 0, 212, 117, 21
 			.Designer = @This
 			.Parent = @vbxCodeEditor
 		End With
@@ -1701,7 +1746,7 @@ pfOptions = @fOptions
 			.Align = DockStyle.alTop
 			.TabIndex = 152
 			.Constraints.Height = 21
-			.AutoSize = true
+			.AutoSize = True
 			.SetBounds 10, 81, 145, 21
 			.Parent = @grbThemes
 		End With
@@ -1774,6 +1819,20 @@ pfOptions = @fOptions
 			.SetBounds 10, 0, 417, 61
 			.Parent = @pnlHelp
 		End With
+		' grbDefaultAIAgent
+		With grbDefaultAIAgent
+			.Name = "grbDefaultAIAgent"
+			.Text = ML("Default AI Agent")
+			.Align = DockStyle.alTop
+			.Margins.Top = 22
+			.Margins.Left = 15
+			.Margins.Bottom = 18
+			.Margins.Right = 15
+			.AutoSize = True
+			.TabIndex = 155
+			.SetBounds 10, 0, 417, 61
+			.Parent = @pnlAIAgent
+		End With
 		' cboHelp
 		With cboHelp
 			.Name = "cboHelp"
@@ -1782,6 +1841,15 @@ pfOptions = @fOptions
 			.TabIndex = 156
 			.SetBounds 15, 22, 387, 21
 			.Parent = @grbDefaultHelp
+		End With
+		' cboAIAgent
+		With cboAIAgent
+			.Name = "cboAIAgent"
+			.Text = "cboAIAgent"
+			.Align = DockStyle.alTop
+			.TabIndex = 156
+			.SetBounds 15, 22, 387, 21
+			.Parent = @grbDefaultAIAgent
 		End With
 		' grbHelpPaths
 		With grbHelpPaths
@@ -1803,11 +1871,23 @@ pfOptions = @fOptions
 			.Text = "lvTerminalPaths1"
 			.ExtraMargins.Bottom = 15
 			.Align = DockStyle.alClient
-		lvHelpPaths.TabIndex = 158
+			lvHelpPaths.TabIndex = 158
 			.SetBounds 15, 22, 387, 258
 			.Designer = @This
 			.OnItemActivate = @lvHelpPaths_ItemActivate_
 			.Parent = @grbHelpPaths
+		End With
+		' lvAIAgentTypes
+		With lvAIAgentTypes
+			.Name = "lvAIAgentTypes"
+			.Text = ""
+			.ExtraMargins.Bottom = 15
+			.Align = DockStyle.alClient
+			.TabIndex = 158
+			.SetBounds 15, 22, 387, 258
+			.Designer = @This
+			'.OnItemActivate = @lvHelpPaths_ItemActivate_
+			.Parent = @grbAIAgent
 		End With
 		With cmdClearHelps
 			.Name = "cmdClearHelps"
@@ -2144,6 +2224,25 @@ pfOptions = @fOptions
 			.TabIndex = 175
 			.SetBounds 222, 41, 175, 21
 			.Parent = @grbWhenVFBEStarts
+		End With
+		' cboDefaultFileFormat
+		With cboDefaultFileFormat
+			.Name = "cboDefaultFileFormat"
+			.Text = "cboDefaultFileFormat"
+			.TabIndex = 175
+			.Align = DockStyle.alClient
+			.SetBounds 50, 0, 217, 21
+			.Parent = @hbxDefaultFileFormat
+		End With
+		' cboDefaultFileFormat
+		With cboDefaultNewLineFormat
+			.Name = "cboDefaultNewLineFormat"
+			.Text = "cboDefaultNewLineFormat"
+			.TabIndex = 175
+			.ControlIndex = 0
+			.Align = DockStyle.alClient
+			.SetBounds 70, 0, 217, 21
+			.Parent = @hbxDefaultNewLineFormat
 		End With
 		' cmdFindCompilers
 		With cmdFindCompilers
@@ -2497,6 +2596,17 @@ pfOptions = @fOptions
 			.Designer = @This
 			.Parent = @pnlHistoryFileSavingDays
 		End With
+		' pnlChangeEndingType
+		With pnlChangeEndingType
+			.Name = "pnlChangeEndingType"
+			.Text = "Panel1"
+			.TabIndex = 266
+			.Align = DockStyle.alTop
+			.ControlIndex = 17
+			.SetBounds 0, 361, 250, 21
+			.Designer = @This
+			.Parent = @vbxCodeEditor
+		End With
 		' pnlTreatTabAsSpaces
 		With pnlTreatTabAsSpaces
 			.Name = "pnlTreatTabAsSpaces"
@@ -2572,6 +2682,16 @@ pfOptions = @fOptions
 		lvTerminalPaths.Columns.Add ML("Command line"), , 80
 		lvHelpPaths.Columns.Add ML("Version"), , 190
 		lvHelpPaths.Columns.Add ML("Path"), , 190
+		lvAIAgentTypes.Columns.Add ML("Name"), , 190
+		lvAIAgentTypes.Columns.Add ML("Host"), , 100
+		lvAIAgentTypes.Columns.Add ML("Port"), , 50
+		lvAIAgentTypes.Columns.Add ML("Address"), , 100
+		lvAIAgentTypes.Columns.Add ML("Model name"), , 190
+		lvAIAgentTypes.Columns.Add ML("Provider"), , 190
+		lvAIAgentTypes.Columns.Add ML("API key"), , 190
+		lvAIAgentTypes.Columns.Add ML("Temperature"), , 50
+		lvAIAgentTypes.OnItemActivate = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As ListView, ByVal ItemIndex As Integer), @lvAIAgentTypes_ItemActivate)
+		lvAIAgentTypes.Columns.Add ML("Stream"), , 50
 		' hbxEditors
 		With hbxEditors
 			.Name = "hbxEditors"
@@ -2601,6 +2721,16 @@ pfOptions = @fOptions
 			.SetBounds 15, 295, 387, 24
 			.Designer = @This
 			.Parent = @grbHelpPaths
+		End With
+		' hbxAIAgent
+		With hbxAIAgent
+			.Name = "hbxAIAgent"
+			.Text = ""
+			.TabIndex = 212
+			.Align = DockStyle.alBottom
+			.SetBounds 15, 295, 387, 24
+			.Designer = @This
+			.Parent = @grbAIAgent
 		End With
 		' hbxTerminal
 		With hbxTerminal
@@ -2732,7 +2862,6 @@ pfOptions = @fOptions
 			.Margins.Left = 15
 			.Margins.Bottom = 18
 			.Margins.Right = 15
-			.AutoSize = True
 			.TabIndex = 155
 			'.Caption = ML("Default Configuration")
 			.SetBounds 10, 0, 417, 61
@@ -2868,6 +2997,149 @@ pfOptions = @fOptions
 			.Designer = @This
 			.Parent = @pnlCodeEditorHoverTime
 		End With
+		' grbAIAgent
+		With grbAIAgent
+			.Name = "grbAIAgent"
+			.Text = ML("AI Agents")
+			.ExtraMargins.Top = 5
+			.Margins.Top = 22
+			.Margins.Right = 15
+			.Margins.Left = 15
+			.Margins.Bottom = 15
+			.TabIndex = 256
+			.Align = DockStyle.alClient
+			.SetBounds 0, 197, 420, 212
+			.Designer = @This
+			.Parent = @pnlAIAgent
+		End With
+		' cmdClearAIAgent
+		With cmdClearAIAgent
+			.Name = "cmdClearAIAgent"
+			.Text = ML("&Clear")
+			.TabIndex = 271
+			.Align = DockStyle.alRight
+			.SetBounds 306, 175, 97, 24
+			.Designer = @This
+			.OnClick = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @cmdClearAIAgent_Click)
+			.Parent = @hbxAIAgent
+		End With
+		' cmdRemoveAIAgent
+		With cmdRemoveAIAgent
+			.Name = "cmdRemoveAIAgent"
+			.Text = ML("&Remove")
+			.TabIndex = 272
+			.Align = DockStyle.alRight
+			.SetBounds 208, 175, 97, 24
+			.Designer = @This
+			.OnClick = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @cmdRemoveAIAgent_Click)
+			.Parent = @hbxAIAgent
+		End With
+		' cmdChangeAIAgent
+		With cmdChangeAIAgent
+			.Name = "cmdChangeAIAgent"
+			.Text = ML("Chan&ge")
+			.TabIndex = 270
+			.Align = DockStyle.alRight
+			.SetBounds 98, 0, 97, 24
+			.Designer = @This
+			.OnClick = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @cmdChangeAIAgent_Click)
+			.Parent = @hbxAIAgent
+		End With
+		' cmdAddAIAgent
+		With cmdAddAIAgent
+			.Name = "cmdAddAIAgent"
+			.Text = ML("&Add")
+			.TabIndex = 269
+			.Align = DockStyle.alRight
+			.SetBounds 12, 175, 97, 24
+			.Designer = @This
+			.OnClick = Cast(Sub(ByRef Designer As My.Sys.Object, ByRef Sender As Control), @cmdAddAIAgent_Click)
+			.Parent = @hbxAIAgent
+		End With
+		' chkChangeEndingType
+		With chkChangeEndingType
+			.Name = "chkChangeEndingType"
+			.Text = ML("Change Ending Type") & ":"
+			.TabIndex = 267
+			.Align = DockStyle.alLeft
+			.AutoSize = True
+			.Caption = ML("Change Ending Type") & ":"
+			.Constraints.Height = 21
+			.SetBounds 0, 0, 172, 15
+			.Designer = @This
+			.Parent = @pnlChangeEndingType
+		End With
+		' cboConstructions
+		With cboConstructions
+			.Name = "cboConstructions"
+			.Text = "ComboBoxEdit2"
+			.ExtraMargins.Right = 20
+			.ExtraMargins.Top = 0
+			.ExtraMargins.Left = 0
+			.Align = DockStyle.alRight
+			.ExtraMargins.Bottom = 2
+			.TabIndex = 268
+			.SetBounds 80, 0, 150, 21
+			.Designer = @This
+			.Parent = @pnlChangeEndingType
+		End With
+		' vbxDefaults
+		With vbxDefaults
+			.Name = "vbxDefaults"
+			.Text = "VerticalBox1"
+			.TabIndex = 273
+			.Align = DockStyle.alTop
+			.Spacing = 10
+			.SetBounds 15, 20, 387, 62
+			.Designer = @This
+			.Parent = @grbDefaults
+		End With
+		' hbxDefaultFileFormat
+		With hbxDefaultFileFormat
+			.Name = "hbxDefaultFileFormat"
+			.Text = "HorizontalBox1"
+			.TabIndex = 276
+			.Align = DockStyle.alTop
+			.ControlIndex = 2
+			.SetBounds 0, 42, 387, 21
+			.Designer = @This
+			.Parent = @vbxDefaults
+		End With
+		' hbxDefaultNewLineFormat
+		With hbxDefaultNewLineFormat
+			.Name = "hbxDefaultNewLineFormat"
+			.Text = "HorizontalBox1"
+			.TabIndex = 278
+			.Align = DockStyle.alTop
+			.ControlIndex = 3
+			.SetBounds 0, 63, 387, 21
+			.Designer = @This
+			.Parent = @vbxDefaults
+		End With
+		' lblDefaultFileFormat
+		With lblDefaultFileFormat
+			.Name = "lblDefaultFileFormat"
+			.Text = ML("File format") & ":"
+			.TabIndex = 276
+			.Parent = @hbxDefaultFileFormat
+			.ControlIndex = 1
+			.ID = 13557
+			.Align = DockStyle.alLeft
+			.Caption = ML("File format") & ":"
+			.SetBounds 0, 0, 100, 21
+			.Designer = @This
+			.Parent = @hbxDefaultFileFormat
+		End With
+		' lblDefaultNewLineFormat
+		With lblDefaultNewLineFormat
+			.Name = "lblDefaultNewLineFormat"
+			.Text = ML("New line format") & ":"
+			.TabIndex = 277
+			.Caption = ML("New line format") & ":"
+			.SetBounds 0, 0, 100, 21
+			.Designer = @This
+			.Parent = @hbxDefaultNewLineFormat
+		End With
 	End Constructor
 	
 	Private Sub frmOptions._txtColorIndicator_KeyPress(ByRef Designer As My.Sys.Object, ByRef Sender As Control, Key As Integer)
@@ -2940,9 +3212,11 @@ Sub frmOptions.LoadSettings()
 		.cboTabStyle.ItemIndex = ChoosedTabStyle
 		.txtCodeEditorHoverTime.Text = Str(CodeEditorHoverTime)
 		.cboCase.ItemIndex = ChoosedKeyWordsCase
+		.cboConstructions.ItemIndex = ChoosedConstructions
 		.chkSyntaxHighlightingIdentifiers.Checked = SyntaxHighlightingIdentifiers 
 		.chkChangeIdentifiersCase.Checked = ChangeIdentifiersCase
 		.chkChangeKeywordsCase.Checked = ChangeKeyWordsCase
+		.chkChangeEndingType.Checked = ChangeEndingType
 		.chkAddSpacesToOperators.Checked = AddSpacesToOperators
 		.chkUseMakeOnStartWithCompile.Checked = UseMakeOnStartWithCompile
 		.chkLimitDebug.Checked = LimitDebug
@@ -2992,6 +3266,7 @@ Sub frmOptions.LoadSettings()
 		.chkShowClassesExplorerOnOpenWindow.Checked = GlobalSettings.ShowClassesExplorerOnOpenWindow
 		.chkShowHorizontalSeparatorLines.Checked = ShowHorizontalSeparatorLines
 		.chkShowHolidayFrame.Checked = ShowHolidayFrame
+		.chkUseDirect2D.Checked = UseDirect2D
 		.chkHighlightBrackets.Checked = HighlightBrackets
 		.chkHighlightCurrentLine.Checked = HighlightCurrentLine
 		.chkHighlightCurrentWord.Checked = HighlightCurrentWord
@@ -3059,6 +3334,28 @@ Sub frmOptions.LoadSettings()
 			f = Dir()
 		Wend
 		.cboTheme.ItemIndex = .cboTheme.IndexOf(*CurrentTheme)
+		.cboDefaultFileFormat.Clear
+		.cboDefaultFileFormat.AddItem ML("Plain text")
+		.cboDefaultFileFormat.AddItem ML("Utf8")
+		.cboDefaultFileFormat.AddItem ML("Utf8 (BOM)")
+		.cboDefaultFileFormat.AddItem ML("Utf16 (BOM)")
+		.cboDefaultFileFormat.AddItem ML("Utf32 (BOM)")
+		.cboDefaultNewLineFormat.Clear
+		.cboDefaultNewLineFormat.AddItem ML("Windows (CRLF)")
+		.cboDefaultNewLineFormat.AddItem ML("Linux (LF)")
+		.cboDefaultNewLineFormat.AddItem ML("MacOS (CR)")
+		Select Case DefaultFileFormat
+		Case FileEncodings.PlainText: .cboDefaultFileFormat.ItemIndex = 0
+		Case FileEncodings.Utf8: .cboDefaultFileFormat.ItemIndex = 1
+		Case FileEncodings.Utf8BOM: .cboDefaultFileFormat.ItemIndex = 2
+		Case FileEncodings.Utf16BOM: .cboDefaultFileFormat.ItemIndex = 3
+		Case FileEncodings.Utf32BOM: .cboDefaultFileFormat.ItemIndex = 4
+		End Select
+		Select Case DefaultNewLineFormat
+		Case NewLineTypes.WindowsCRLF: .cboDefaultNewLineFormat.ItemIndex = 0
+		Case NewLineTypes.LinuxLF: .cboDefaultNewLineFormat.ItemIndex = 1
+		Case NewLineTypes.MacOSCR: .cboDefaultNewLineFormat.ItemIndex = 2
+		End Select
 		.cboCompiler32.Clear
 		.cboCompiler64.Clear
 		.lvCompilerPaths.ListItems.Clear
@@ -3073,6 +3370,22 @@ Sub frmOptions.LoadSettings()
 		Next
 		.cboCompiler32.ItemIndex = Max(0, .cboCompiler32.IndexOf(*DefaultCompiler32))
 		.cboCompiler64.ItemIndex = Max(0, .cboCompiler64.IndexOf(*DefaultCompiler64))
+		.cboAIAgent.Clear
+		.lvAIAgentTypes.ListItems.Clear
+		.cboAIAgent.AddItem ML("(not selected)")
+		For i As Integer = 0 To pAIAgents->Count - 1
+			.lvAIAgentTypes.ListItems.Add pAIAgents->Item(i)->Key
+			.lvAIAgentTypes.ListItems.Item(i)->Text(1) = pAIAgents->Item(i)->Text
+			.lvAIAgentTypes.ListItems.Item(i)->Text(2) = Str(Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Port)
+			.lvAIAgentTypes.ListItems.Item(i)->Text(3) = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Address
+			.lvAIAgentTypes.ListItems.Item(i)->Text(4) = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->ModelName
+			.lvAIAgentTypes.ListItems.Item(i)->Text(5) = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Provider
+			.lvAIAgentTypes.ListItems.Item(i)->Text(6) = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->APIKey
+			.lvAIAgentTypes.ListItems.Item(i)->Text(7) = Str(Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Temperature)
+			.lvAIAgentTypes.ListItems.Item(i)->Text(8) = Str(Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Stream)
+			.cboAIAgent.AddItem pAIAgents->Item(i)->Key
+		Next
+		.cboAIAgent.ItemIndex = Max(0, .cboAIAgent.IndexOf(*DefaultAIAgent))
 		.cboMakeTool.Clear
 		.lvMakeToolPaths.ListItems.Clear
 		.cboMakeTool.AddItem ML("(not selected)")
@@ -3201,6 +3514,12 @@ Sub frmOptions.LoadSettings()
 		WLet(.oldInterfFontName, *InterfaceFontName)
 		.InterfFontSize = InterfaceFontSize
 		.oldInterfFontSize = InterfaceFontSize
+		'.txtAIAgentName.Text = *CurrentAIAgent
+		'.txtAIAgentModelName.Text = AIAgentModelName
+		'.cboAIAgentHost.Text = AIAgentHost
+		'.cboAIAgentAddress.Text = AIAgentAddress
+		'.cboAIAgentPort.Text = Str(AIAgentPort)
+		'.txtAIAgentAPIKey.Text = AIAgentAPIKey
 		.oldDisplayMenuIcons = DisplayMenuIcons
 		.oldDarkMode = DarkMode
 		.lblInterfaceFont.Font.Name = *InterfaceFontName
@@ -3321,16 +3640,21 @@ Private Sub frmOptions.Form_Create(ByRef Designer As My.Sys.Object, ByRef Sender
 		tnGeneral->Nodes.Add(ML("Themes"), "Themes")
 		tnEditor->Nodes.Add(ML("Colors And Fonts"), "ColorsAndFonts")
 		tnEditor->Nodes.Add(ML("Other Editors"), "OtherEditors")
+		tnEditor->Nodes.Add(ML("Defaults"), "Defaults")
 		tnCompiler->Nodes.Add(ML("Build Configurations"), "BuildConfigurations")
 		tnCompiler->Nodes.Add(ML("Includes"), "Includes")
 		tnCompiler->Nodes.Add(ML("Make Tool"), "MakeTool")
 		tnDebugger->Nodes.Add(ML("Terminal"), "Terminal")
-		.tvOptions.Nodes.Add(ML("Help"), "Help")
+		Var tnHelp = .tvOptions.Nodes.Add(ML("Help"), "Help")
+		tnHelp->Nodes.Add(ML("AI Agent"), "AIAgent")
 		.tvOptions.ExpandAll
 		.cboCase.Clear
 		.cboCase.AddItem ML("Original Case")
 		.cboCase.AddItem ML("Lower Case")
 		.cboCase.AddItem ML("Upper Case")
+		.cboConstructions.Clear
+		.cboConstructions.AddItem ML("All Constructions")
+		.cboConstructions.AddItem ML("Only Procedures")
 		.cboTabStyle.Clear
 		.cboTabStyle.AddItem ML("Everywhere")
 		.cboTabStyle.AddItem ML("Only after the words")
@@ -3574,6 +3898,30 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		Next
 		WLet(DefaultBuildConfiguration, IIf(.cboConfiguration.ItemIndex = 0, "", .cboConfiguration.Text))
 		pcboBuildConfiguration->ItemIndex = Max(0, pcboBuildConfiguration->IndexOf(*DefaultBuildConfiguration))
+		For i As Integer = 0 To pAIAgents->Count - 1
+			_Delete(Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object))
+		Next
+		pAIAgents->Clear
+		Dim As ModelInfo Ptr Model
+		For i As Integer = 0 To .lvAIAgentTypes.ListItems.Count - 1
+			tempStr = .lvAIAgentTypes.ListItems.Item(i)->Text(0)
+			Model = _New(ModelInfo)
+			Model->Name = tempStr
+			Model->Host = .lvAIAgentTypes.ListItems.Item(i)->Text(1)
+			Model->Port = Val(.lvAIAgentTypes.ListItems.Item(i)->Text(2))
+			Model->Address = .lvAIAgentTypes.ListItems.Item(i)->Text(3)
+			Model->ModelName = .lvAIAgentTypes.ListItems.Item(i)->Text(4)
+			Model->Provider = .lvAIAgentTypes.ListItems.Item(i)->Text(5)
+			Model->APIKey = .lvAIAgentTypes.ListItems.Item(i)->Text(6)
+			Model->Temperature = Val(.lvAIAgentTypes.ListItems.Item(i)->Text(7))
+			Model->Stream = CBool(.lvAIAgentTypes.ListItems.Item(i)->Text(8))
+			pAIAgents->Add tempStr, .lvAIAgentTypes.ListItems.Item(i)->Text(1), Model
+		Next
+		If *DefaultAIAgent <> IIf(.cboAIAgent.ItemIndex = 0, "", .cboAIAgent.Text) OrElse Not pAIAgents->ContainsKey(*CurrentAIAgent) Then
+			WLet(DefaultAIAgent, IIf(.cboAIAgent.ItemIndex = 0, "", .cboAIAgent.Text))
+			WLet(CurrentAIAgent, *DefaultAIAgent)
+		End If
+		cboAIAgentModels.Text = .cboAIAgent.Text
 		pIncludePaths->Clear
 		For i As Integer = 0 To .lstIncludePaths.ItemCount - 1
 			pIncludePaths->Add .lstIncludePaths.Item(i)
@@ -3625,6 +3973,18 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		Else
 			WLet(DefaultProjectFile, .Templates.Item(.cboDefaultProjectFile.ItemIndex))
 		End If
+		Select Case .cboDefaultFileFormat.ItemIndex
+		Case 0: DefaultFileFormat = FileEncodings.PlainText
+		Case 1: DefaultFileFormat = FileEncodings.Utf8
+		Case 2: DefaultFileFormat = FileEncodings.Utf8BOM
+		Case 3: DefaultFileFormat = FileEncodings.Utf16BOM
+		Case 4: DefaultFileFormat = FileEncodings.Utf32BOM
+		End Select
+		Select Case .cboDefaultNewLineFormat.ItemIndex
+		Case 0: DefaultNewLineFormat = NewLineTypes.WindowsCRLF
+		Case 1: DefaultNewLineFormat = NewLineTypes.LinuxLF
+		Case 2: DefaultNewLineFormat = NewLineTypes.MacOSCR
+		End Select
 		LastOpenedFileType = .cboOpenedFile.ItemIndex
 		WhenVisualFBEditorStarts = IIf(.optPromptForProjectAndFile.Checked, 1, IIf(.optCreateProjectFile.Checked, 2, IIf(.optOpenLastSession.Checked, 3, 0)))
 		AutoSaveBeforeCompiling = IIf(.optSaveCurrentFile.Checked, 1, IIf(.optSaveAllFiles.Checked, 2, IIf(.optPromptToSave.Checked, 3, 0)))
@@ -3635,6 +3995,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		GlobalSettings.ShowClassesExplorerOnOpenWindow = .chkShowClassesExplorerOnOpenWindow.Checked
 		ShowHorizontalSeparatorLines = .chkShowHorizontalSeparatorLines.Checked
 		ShowHolidayFrame = .chkShowHolidayFrame.Checked
+		UseDirect2D = .chkUseDirect2D.Checked
 		HighlightBrackets = .chkHighlightBrackets.Checked
 		HighlightCurrentLine = .chkHighlightCurrentLine.Checked
 		HighlightCurrentWord = .chkHighlightCurrentWord.Checked
@@ -3647,7 +4008,9 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		SyntaxHighlightingIdentifiers = .chkSyntaxHighlightingIdentifiers.Checked
 		ChangeIdentifiersCase = .chkChangeIdentifiersCase.Checked
 		ChangeKeyWordsCase = .chkChangeKeywordsCase.Checked
+		ChangeEndingType = .chkChangeEndingType.Checked
 		ChoosedKeyWordsCase = .cboCase.ItemIndex
+		ChoosedConstructions = .cboConstructions.ItemIndex
 		AddSpacesToOperators = .chkAddSpacesToOperators.Checked
 		WLet(CurrentTheme, .cboTheme.Text)
 		WLet(EditorFontName, * (.EditFontName))
@@ -3677,9 +4040,48 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 			CloseFile_(Fn)
 			pfrmMain->Menu->ParentWindow = pfrmMain
 		End If
+		Dim i As Integer = 0
+		If *DefaultAIAgent <> IIf(.cboAIAgent.ItemIndex = 0, "", .cboAIAgent.Text) OrElse Not pAIAgents->ContainsKey(*CurrentAIAgent) Then
+			WLet(DefaultAIAgent, IIf(.cboAIAgent.ItemIndex = 0, "", .cboAIAgent.Text))
+			WLet(CurrentAIAgent, *DefaultAIAgent)
+		End If
+		piniSettings->WriteString "AIAgents", "DefaultAIAgent", *DefaultAIAgent
+		For i As Integer = 0 To pAIAgents->Count - 1
+			piniSettings->WriteString "AIAgents", "Version_" & WStr(i), Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Name
+			piniSettings->WriteString "AIAgents", "ModelName_" & WStr(i), Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->ModelName
+			piniSettings->WriteString "AIAgents", "Provider_" & WStr(i), Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Provider
+			piniSettings->WriteString "AIAgents", "Host_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Host
+			piniSettings->WriteString "AIAgents", "Address_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Address
+			piniSettings->WriteString "AIAgents", "APIKey_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->APIKey
+			piniSettings->WriteString "AIAgents", "Response_Format_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Response_Format
+			piniSettings->WriteFloat "AIAgents", "Temperature_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Temperature
+			piniSettings->WriteFloat "AIAgents", "Top_P_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Top_P
+			piniSettings->WriteBool "AIAgents", "Stream_" & WStr(i),  Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Stream
+			If *CurrentAIAgent = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Name Then
+				AIAgentModelName = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->ModelName
+				AIAgentProvider = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Provider
+				AIAgentHost = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Host
+				AIAgentAddress  = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Address 
+				AIAgentAPIKey = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->APIKey
+				AIAgentTemperature = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Temperature
+				AIAgentStream  = Cast(ModelInfo Ptr, pAIAgents->Item(i)->Object)->Stream  
+			End If
+		Next
+		i = pAIAgents->Count
+		Do Until piniSettings->KeyExists("AIAgents", "Version_" & WStr(i)) = -1
+			piniSettings->KeyRemove "AIAgents", "Version_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "ModelName_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "Host_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "Address_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "APIKey_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "Response_Format_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "Temperature_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "Top_P_" & WStr(i)
+			piniSettings->KeyRemove "AIAgents", "Stream_" & WStr(i)
+			i += 1
+		Loop
 		piniSettings->WriteString "Compilers", "DefaultCompiler32", *DefaultCompiler32
 		piniSettings->WriteString "Compilers", "DefaultCompiler64", *DefaultCompiler64
-		Dim i As Integer = 0
 		For i As Integer = 0 To pCompilers->Count - 1
 			piniSettings->WriteString "Compilers", "Version_" & WStr(i), pCompilers->Item(i)->Key
 			piniSettings->WriteString "Compilers", "Path_" & WStr(i), pCompilers->Item(i)->Text
@@ -3809,6 +4211,8 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		piniSettings->WriteBool "Options", "AutoSaveSession", AutoSaveSession
 		piniSettings->WriteBool "Options", "AddRelativePathsToRecent", AddRelativePathsToRecent
 		piniSettings->WriteString "Options", "DefaultProjectFile", WGet(DefaultProjectFile)
+		piniSettings->WriteInteger "Options", "DefaultFileFormat", DefaultFileFormat
+		piniSettings->WriteInteger "Options", "DefaultNewLineFormat", DefaultNewLineFormat
 		piniSettings->WriteInteger "Options", "LastOpenedFileType", LastOpenedFileType
 		piniSettings->WriteInteger "Options", "WhenVisualFBEditorStarts", WhenVisualFBEditorStarts
 		piniSettings->WriteInteger "Options", "AutoSaveBeforeCompiling", AutoSaveBeforeCompiling
@@ -3819,6 +4223,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		piniSettings->WriteBool "Options", "ShowClassesExplorerOnOpenWindow", GlobalSettings.ShowClassesExplorerOnOpenWindow
 		piniSettings->WriteBool "Options", "ShowHorizontalSeparatorLines", ShowHorizontalSeparatorLines
 		piniSettings->WriteBool "Options", "ShowHolidayFrame", ShowHolidayFrame
+		piniSettings->WriteBool "Options", "UseDirect2D", UseDirect2D
 		piniSettings->WriteBool "Options", "HighlightBrackets", HighlightBrackets
 		piniSettings->WriteBool "Options", "HighlightCurrentLine", HighlightCurrentLine
 		piniSettings->WriteBool "Options", "HighlightCurrentWord", HighlightCurrentWord
@@ -3837,7 +4242,9 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		piniSettings->WriteBool "Options", "SyntaxHighlightingIdentifiers", SyntaxHighlightingIdentifiers
 		piniSettings->WriteBool "Options", "ChangeIdentifiersCase", ChangeIdentifiersCase
 		piniSettings->WriteBool "Options", "ChangeKeywordsCase", ChangeKeyWordsCase
+		piniSettings->WriteBool "Options", "ChangeEndingType", ChangeEndingType
 		piniSettings->WriteInteger "Options", "ChoosedKeywordsCase", ChoosedKeyWordsCase
+		piniSettings->WriteInteger "Options", "ChoosedConstructions", ChoosedConstructions
 		piniSettings->WriteBool "Options", "AddSpacesToOperators", AddSpacesToOperators
 		
 		piniSettings->WriteString "Options", "CurrentTheme", *CurrentTheme
@@ -3846,6 +4253,7 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 		piniSettings->WriteInteger "Options", "EditorFontSize", EditorFontSize
 		piniSettings->WriteString "Options", "InterfaceFontName", *InterfaceFontName
 		piniSettings->WriteInteger "Options", "InterfaceFontSize", InterfaceFontSize
+		
 		piniSettings->WriteBool "Options", "DisplayMenuIcons", DisplayMenuIcons
 		piniSettings->WriteBool "Options", "ShowMainToolbar", ShowMainToolBar
 		piniSettings->WriteBool "Options", "DarkMode", DarkMode
@@ -4113,9 +4521,9 @@ Private Sub frmOptions.cmdApply_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 	Exit Sub
 	ErrorHandler:
 	MsgBox ErrDescription(Err) & " (" & Err & ") " & _
-	"in line " & Erl() & " " & _
-	"in function " & ZGet(Erfn()) & " " & _
-	"in module " & ZGet(Ermn())
+	"in line " & Erl() & " (Handler line: " & __LINE__ & ") " & _
+	"in function " & ZGet(Erfn()) & " (Handler function: " & __FUNCTION__ & ") " & _
+	"in module " & ZGet(Ermn()) & " (Handler file: " & __FILE__ & ") "
 End Sub
 
 Private Sub frmOptions.Form_Close(ByRef Designer As My.Sys.Object, ByRef Sender As Form, ByRef Action As Integer)
@@ -4138,7 +4546,9 @@ Private Sub frmOptions.TreeView1_SelChange(ByRef Designer As My.Sys.Object, ByRe
 		.pnlCodeEditor.Visible = Key = "CodeEditor"
 		.pnlShortcuts.Visible = Key = "Shortcuts"
 		.pnlThemes.Visible = Key = "Themes"
+		.pnlDefaults.Visible = Key = "Defaults"
 		.pnlColorsAndFonts.Visible = Key = "ColorsAndFonts"
+		.pnlOtherEditors.Visible = Key = "OtherEditors"
 		.pnlCompiler.Visible = Key = "Compiler"
 		.pnlMake.Visible = Key = "MakeTool"
 		.pnlDebugger.Visible = Key = "Debugger"
@@ -4147,8 +4557,8 @@ Private Sub frmOptions.TreeView1_SelChange(ByRef Designer As My.Sys.Object, ByRe
 		.pnlBuildConfigurations.Visible = Key = "BuildConfigurations"
 		.pnlIncludes.Visible = Key = "Includes"
 		.pnlLocalization.Visible = Key = "Localization"
-		.pnlOtherEditors.Visible = Key = "OtherEditors"
 		.pnlHelp.Visible = Key = "Help"
+		.pnlAIAgent.Visible = Key = "AIAgent"
 	End With
 End Sub
 
@@ -4178,6 +4588,38 @@ Private Sub frmOptions.cmdFont_Click(ByRef Designer As My.Sys.Object, ByRef Send
 	End With
 End Sub
 
+Function LinearizeColorComponent(c As Double) As Double
+    If c <= 0.03928 Then Return c / 12.92
+	Return ((c + 0.055) / 1.055) ^ 2.4
+End Function
+
+Function GetLuminance(r As UByte, g As UByte, b As UByte) As Double
+    Dim As Double fr = r / 255
+    Dim As Double fg = g / 255
+    Dim As Double fb = b / 255
+
+    fr = LinearizeColorComponent(fr)
+    fg = LinearizeColorComponent(fg)
+    fb = LinearizeColorComponent(fb)
+
+    Return 0.2126 * fr + 0.7152 * fg + 0.0722 * fb
+End Function
+
+Function GetReadableTextColor(bgColor As Integer) As ULong 'BGR format
+	Dim As ULong bgColorNew = Max(0, bgColor)
+	Dim As UByte b = (bgColorNew Shr 16) And &hFF
+	Dim As UByte g = (bgColorNew Shr 8) And &hFF
+	Dim As UByte r = bgColorNew And &hFF
+	
+	Dim As Double lum = GetLuminance(r, g, b)
+	
+	Dim As Double contrastWhite = (1.0 + 0.05) / (lum + 0.05)
+	Dim As Double contrastBlack = (lum + 0.05) / (0.0 + 0.05)
+	
+	If contrastWhite > contrastBlack Then Return &hFFFFFF
+	Return 0
+End Function
+
 Private Sub frmOptions.lstColorKeys_Change(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	With fOptions
 		Var i = fOptions.lstColorKeys.ItemIndex
@@ -4186,13 +4628,13 @@ Private Sub frmOptions.lstColorKeys_Change(ByRef Designer As My.Sys.Object, ByRe
 		Dim As Integer NormOrIdentifiers = IIf(i > 8 AndAlso i < 26, 8, 29 + UBound(Keywords))
 		.txtColorForeground.BackColor = IIf(.Colors(i, 0) = -1, .Colors(NormOrIdentifiers, 0), .Colors(i, 0))
 		.chkForeground.Checked = CBool(i <> NormOrIdentifiers) AndAlso CBool(.Colors(i, 0) = -1 OrElse .Colors(i, 0) = .Colors(NormOrIdentifiers, 0))
-		.txtColorForeground.Text = Str(.txtColorForeground.BackColor)
-		.txtColorForeground.ForeColor = CInt(.txtColorForeground.BackColor) Shl 2
+		.txtColorForeground.Text = "&H" & Hex(.txtColorForeground.BackColor, 6)
+		.txtColorForeground.ForeColor = GetReadableTextColor(.txtColorForeground.BackColor)
 		
 		.txtColorBackground.BackColor = IIf(.Colors(i, 1) = -1, .Colors(NormOrIdentifiers, 1), .Colors(i, 1))
 		.txtColorBackground.Visible = .Colors(i, 1) <> -2
-		.txtColorBackground.Text = Str(.txtColorBackground.BackColor)
-		.txtColorBackground.ForeColor = CInt(.txtColorBackground.BackColor) Shl 2
+		.txtColorBackground.Text = "&H" & Hex(.txtColorBackground.BackColor, 6)
+		.txtColorBackground.ForeColor = GetReadableTextColor(.txtColorBackground.BackColor)
 		.lblBackground.Visible = .Colors(i, 1) <> -2
 		.cmdBackground.Visible = .Colors(i, 1) <> -2
 		.chkBackground.Visible = .Colors(i, 1) <> -2
@@ -4200,8 +4642,8 @@ Private Sub frmOptions.lstColorKeys_Change(ByRef Designer As My.Sys.Object, ByRe
 		
 		.txtColorFrame.BackColor = IIf(.Colors(i, 2) = -1, .Colors(NormOrIdentifiers, 2), .Colors(i, 2))
 		.txtColorFrame.Visible = .Colors(i, 2) <> -2
-		.txtColorFrame.Text = Str(.txtColorFrame.BackColor)
-		.txtColorFrame.ForeColor = CInt(.txtColorFrame.BackColor) Shl 2
+		.txtColorFrame.Text = "&H" & Hex(.txtColorFrame.BackColor, 6)
+		.txtColorFrame.ForeColor = GetReadableTextColor(.txtColorFrame.BackColor)
 		.lblFrame.Visible = .Colors(i, 2) <> -2
 		.cmdFrame.Visible = .Colors(i, 2) <> -2
 		.chkFrame.Visible = .Colors(i, 2) <> -2
@@ -4209,8 +4651,8 @@ Private Sub frmOptions.lstColorKeys_Change(ByRef Designer As My.Sys.Object, ByRe
 		
 		.txtColorIndicator.BackColor = IIf(.Colors(i, 3) = -1, .Colors(NormOrIdentifiers, 3), .Colors(i, 3))
 		.txtColorIndicator.Visible = .Colors(i, 3) <> -2
-		.txtColorIndicator.Text = Str(.txtColorIndicator.BackColor)
-		.txtColorIndicator.ForeColor = CInt(.txtColorIndicator.BackColor) Shl 2
+		.txtColorIndicator.Text = "&H" & Hex(.txtColorIndicator.BackColor, 6)
+		.txtColorIndicator.ForeColor = GetReadableTextColor(.txtColorIndicator.BackColor)
 		.lblIndicator.Visible = .Colors(i, 3) <> -2
 		.cmdIndicator.Visible = .Colors(i, 3) <> -2
 		.chkIndicator.Visible = .Colors(i, 3) <> -2
@@ -4234,7 +4676,8 @@ Private Sub frmOptions.cmdForeground_Click(ByRef Designer As My.Sys.Object, ByRe
 			fOptions.txtColorForeground.BackColor = .Color
 			fOptions.chkForeground.Checked = False
 			fOptions.Colors(i, 0) = .Color
-			fOptions.txtColorForeground.Text = Str(.Color)
+			fOptions.txtColorForeground.Text = "&H" & Hex(.Color, 6)
+			fOptions.txtColorForeground.ForeColor = GetReadableTextColor(fOptions.txtColorForeground.BackColor)
 		End If
 	End With
 End Sub
@@ -4248,7 +4691,8 @@ Private Sub frmOptions.cmdBackground_Click(ByRef Designer As My.Sys.Object, ByRe
 			fOptions.txtColorBackground.BackColor = .Color
 			fOptions.chkBackground.Checked = False
 			fOptions.Colors(i, 1) = .Color
-			fOptions.txtColorBackground.Text = Str(.Color)
+			fOptions.txtColorBackground.Text = "&H" & Hex(.Color, 6)
+			fOptions.txtColorBackground.ForeColor = GetReadableTextColor(fOptions.txtColorBackground.BackColor)
 		End If
 	End With
 End Sub
@@ -4262,7 +4706,8 @@ Private Sub frmOptions.cmdFrame_Click(ByRef Designer As My.Sys.Object, ByRef Sen
 			fOptions.txtColorFrame.BackColor = .Color
 			fOptions.chkFrame.Checked = False
 			fOptions.Colors(i, 2) = .Color
-			fOptions.txtColorFrame.Text = Str(.Color)
+			fOptions.txtColorFrame.Text = "&H" & Hex(.Color, 6)
+			fOptions.txtColorFrame.ForeColor = GetReadableTextColor(fOptions.txtColorFrame.BackColor)
 		End If
 	End With
 End Sub
@@ -4276,7 +4721,8 @@ Private Sub frmOptions.cmdIndicator_Click(ByRef Designer As My.Sys.Object, ByRef
 			fOptions.txtColorIndicator.BackColor = .Color
 			fOptions.chkIndicator.Checked = False
 			fOptions.Colors(i, 3) = .Color
-			fOptions.txtColorIndicator.Text = Str(.Color)
+			fOptions.txtColorIndicator.Text = "&H" & Hex(.Color, 6)
+			fOptions.txtColorIndicator.ForeColor = GetReadableTextColor(fOptions.txtColorIndicator.BackColor)
 		End If
 	End With
 End Sub
@@ -4898,6 +5344,96 @@ Private Sub frmOptions.cmdClearHelps_Click(ByRef Designer As My.Sys.Object, ByRe
 		.cboHelp.Clear
 		.cboHelp.AddItem ML("(not selected)")
 		.cboHelp.ItemIndex = 0
+	End With
+End Sub
+
+Private Sub frmOptions.cmdAddAIAgent_Click(ByRef Sender As Control)
+	'frmAIAgent.txtAIAgentName.Text = ""
+	'frmAIAgent.cboAIAgentHost.Text = ""
+	'frmAIAgent.cboAIAgentPort.Text = ""
+	'frmAIAgent.cboAIAgentAddress.Text = ""
+	'frmAIAgent.txtAIAgentModelName.Text = ""
+	'frmAIAgent.txtAIAgentAPIKey.Text = ""
+	'frmAIAgent.updnAIAgentTemperature.Text = ""
+	'frmAIAgent.chkAIAgentStream.Checked = True
+	If frmAIAgent.ShowModal(fOptions) = ModalResults.OK Then
+		With fOptions
+			If .cboAIAgent.IndexOf(frmAIAgent.txtAIAgentName.Text) = -1 Then
+				Var lvi = .lvAIAgentTypes.ListItems.Add(frmAIAgent.txtAIAgentName.Text)
+				lvi->Text(1) = frmAIAgent.cboAIAgentHost.Text
+				lvi->Text(2) = frmAIAgent.cboAIAgentPort.Text
+				lvi->Text(3) = frmAIAgent.cboAIAgentAddress.Text
+				lvi->Text(4) = frmAIAgent.cboAIAgentModelName.Text
+				lvi->Text(5) = frmAIAgent.cboAIAgentProvider.Text
+				lvi->Text(6) = frmAIAgent.txtAIAgentAPIKey.Text
+				lvi->Text(7) = frmAIAgent.updnAIAgentTemperature.Text
+				lvi->Text(8) = Str(frmAIAgent.chkAIAgentStream.Checked)
+				.cboAIAgent.AddItem frmAIAgent.txtAIAgentName.Text
+				cboAIAgentModels.AddItem frmAIAgent.txtAIAgentName.Text
+			Else
+				MsgBox ML("This name is exists!")
+			End If
+		End With
+	End If
+End Sub
+
+Private Sub frmOptions.cmdRemoveAIAgent_Click(ByRef Sender As Control)
+	With fOptions
+		If .lvAIAgentTypes.SelectedItem = 0 Then Exit Sub
+		Var iIndex = .cboAIAgent.IndexOf(.lvAIAgentTypes.SelectedItem->Text(0))
+		If iIndex > -1 Then .cboAIAgent.RemoveItem iIndex
+		If cboAIAgentModels.ItemIndex = -1 Then cboAIAgentModels.ItemIndex = 0
+		iIndex = cboAIAgentModels.IndexOf(.lvAIAgentTypes.SelectedItem->Text(0))
+		If iIndex > -1 Then cboAIAgentModels.RemoveItem iIndex
+		If cboAIAgentModels.ItemIndex = -1 Then cboAIAgentModels.ItemIndex = 0
+		.lvAIAgentTypes.ListItems.Remove .lvAIAgentTypes.SelectedItemIndex
+		
+	End With
+End Sub
+
+Private Sub frmOptions.cmdChangeAIAgent_Click(ByRef Sender As Control)
+	With fOptions
+		If .lvAIAgentTypes.SelectedItem = 0 Then Exit Sub
+		frmAIAgent.txtAIAgentName.Text = .lvAIAgentTypes.SelectedItem->Text(0)
+		frmAIAgent.cboAIAgentHost.Text = .lvAIAgentTypes.SelectedItem->Text(1)
+		frmAIAgent.cboAIAgentPort.Text = .lvAIAgentTypes.SelectedItem->Text(2)
+		frmAIAgent.cboAIAgentAddress.Text = .lvAIAgentTypes.SelectedItem->Text(3)
+		frmAIAgent.cboAIAgentModelName.Text = .lvAIAgentTypes.SelectedItem->Text(4)
+		frmAIAgent.cboAIAgentProvider.Text = .lvAIAgentTypes.SelectedItem->Text(5)
+		frmAIAgent.txtAIAgentAPIKey.Text = .lvAIAgentTypes.SelectedItem->Text(6)
+		frmAIAgent.updnAIAgentTemperature.Text = .lvAIAgentTypes.SelectedItem->Text(7)
+		frmAIAgent.chkAIAgentStream.Checked = IIf(LCase(.lvAIAgentTypes.SelectedItem->Text(8)) = "true", True, False)
+		If frmAIAgent.ShowModal(fOptions) = ModalResults.OK Then
+			If .lvAIAgentTypes.SelectedItem->Text(0) = frmAIAgent.txtAIAgentName.Text OrElse .cboAIAgent.IndexOf(frmAIAgent.txtAIAgentName.Text) = -1 Then
+				Var i = .cboAIAgent.IndexOf(.lvAIAgentTypes.SelectedItem->Text(0))
+				.cboAIAgent.Item(i) = frmAIAgent.txtAIAgentName.Text
+				i = cboAIAgentModels.IndexOf(.lvAIAgentTypes.SelectedItem->Text(0))
+				cboAIAgentModels.Item(i) = frmAIAgent.txtAIAgentName.Text
+				.lvAIAgentTypes.SelectedItem->Text(0) = frmAIAgent.txtAIAgentName.Text
+				.lvAIAgentTypes.SelectedItem->Text(1) = frmAIAgent.cboAIAgentHost.Text
+				.lvAIAgentTypes.SelectedItem->Text(2) = frmAIAgent.cboAIAgentPort.Text
+				.lvAIAgentTypes.SelectedItem->Text(3) = frmAIAgent.cboAIAgentAddress.Text
+				.lvAIAgentTypes.SelectedItem->Text(4) = frmAIAgent.cboAIAgentModelName.Text
+				.lvAIAgentTypes.SelectedItem->Text(5) = frmAIAgent.cboAIAgentProvider.Text
+				.lvAIAgentTypes.SelectedItem->Text(6) = frmAIAgent.txtAIAgentAPIKey.Text
+				.lvAIAgentTypes.SelectedItem->Text(7) = frmAIAgent.updnAIAgentTemperature.Text
+				.lvAIAgentTypes.SelectedItem->Text(8) = Str(frmAIAgent.chkAIAgentStream.Checked)
+			Else
+				MsgBox ML("This name is exists!")
+			End If
+		End If
+	End With
+End Sub
+
+Private Sub frmOptions.cmdClearAIAgent_Click(ByRef Sender As Control)
+	With fOptions
+		.lvAIAgentTypes.ListItems.Clear
+		.cboAIAgent.Clear
+		.cboAIAgent.AddItem ML("(not selected)")
+		.cboAIAgent.ItemIndex = 0
+		cboAIAgentModels.Clear
+		cboAIAgentModels.AddItem ML("(not selected)")
+		cboAIAgentModels.ItemIndex = 0
 	End With
 End Sub
 
@@ -6033,6 +6569,7 @@ Private Sub frmOptions.txtColorForeground_KeyPress(ByRef Sender As Control, Key 
 		Var i = fOptions.lstColorKeys.ItemIndex
 		If i = -1 Then Exit Sub
 		txtColorForeground.BackColor = Val(txtColorForeground.Text)
+		txtColorForeground.ForeColor = GetReadableTextColor(txtColorForeground.BackColor)
 		chkForeground.Checked = False
 		Colors(i, 0) = txtColorForeground.BackColor
 	End If
@@ -6043,6 +6580,7 @@ Private Sub frmOptions.txtColorBackground_KeyPress(ByRef Sender As Control, Key 
 		Var i = fOptions.lstColorKeys.ItemIndex
 		If i = -1 Then Exit Sub
 		txtColorBackground.BackColor = Val(txtColorBackground.Text)
+		txtColorBackground.ForeColor = GetReadableTextColor(txtColorBackground.BackColor)
 		chkBackground.Checked = False
 		Colors(i, 1) = txtColorBackground.BackColor
 	End If
@@ -6053,6 +6591,7 @@ Private Sub frmOptions.txtColorFrame_KeyPress(ByRef Sender As Control, Key As In
 		Var i = fOptions.lstColorKeys.ItemIndex
 		If i = -1 Then Exit Sub
 		txtColorFrame.BackColor = Val(txtColorFrame.Text)
+		txtColorFrame.ForeColor = GetReadableTextColor(txtColorFrame.BackColor)
 		chkFrame.Checked = False
 		Colors(i, 2) = txtColorFrame.BackColor
 	End If
@@ -6063,6 +6602,7 @@ Private Sub frmOptions.txtColorIndicator_KeyPress(ByRef Sender As Control, Key A
 		Var i = fOptions.lstColorKeys.ItemIndex
 		If i = -1 Then Exit Sub
 		txtColorIndicator.BackColor = Val(txtColorIndicator.Text)
+		txtColorIndicator.ForeColor = GetReadableTextColor(txtColorIndicator.BackColor)
 		chkIndicator.Checked = False
 		Colors(i, 3) = txtColorIndicator.BackColor
 	End If
@@ -6128,3 +6668,10 @@ End Sub
 Private Sub frmOptions.lvConfigurations_ItemActivate(ByRef Sender As ListView, ByVal ItemIndex As Integer)
 	cmdChangeConfiguration_Click cmdChangeConfiguration
 End Sub
+
+Private Sub frmOptions.lvAIAgentTypes_ItemActivate(ByRef Sender As ListView, ByVal ItemIndex As Integer)
+	cmdChangeAIAgent_Click cmdChangeAIAgent
+End Sub
+
+
+
