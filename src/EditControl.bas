@@ -938,6 +938,7 @@ Namespace My.Sys.Forms
 					WLet(LineText_, "")
 					ecs->ConstructionIndex = -1
 					ecs->ConstructionPart = -1
+					WDeAllocate(res(ii))
 					Continue For
 				End If
 			End If
@@ -991,7 +992,7 @@ Namespace My.Sys.Forms
 					End If
 				End If
 			End If
-			Deallocate res(ii)
+			WDeAllocate(res(ii))
 		Next
 		WDeAllocate(LineText_)
 		WDeAllocate(LineTextOld)
@@ -1837,7 +1838,9 @@ Namespace My.Sys.Forms
 					Loop
 					CalculateLeftMargin
 					If Not WithoutScroll Then ScrollToCaret
+					WDeAllocate(FText)
 				End If
+				WDeAllocate(wsFileContents)
 			End If
 		#endif
 		If Not FileLoaded Then
@@ -3075,11 +3078,7 @@ Namespace My.Sys.Forms
 				End If
 			End If
 			If pRenderTarget <> 0 Then
-				Dim pBrushForeground As ID2D1Brush Ptr = 0
-				Dim pBrushBackground As ID2D1Brush Ptr = 0
 				pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(Colors.ForegroundRed, Colors.ForegroundGreen, Colors.ForegroundBlue, 1.0), 0, @pBrushForeground)
-				Dim pLayout As IDWriteTextLayout Ptr = 0
-				Dim Metrics As DWRITE_TEXT_METRICS
 				CreateTextLayout(pDWriteFactory, FLineLeft, Len(*FLineLeft), pFormat, FLT_MAX, FLT_MAX, @pLayout)
 				If pLayout <> 0 Then
 					pLayout->lpVtbl->GetMetrics(pLayout, @Metrics)
@@ -3107,8 +3106,8 @@ Namespace My.Sys.Forms
 					pLayout->lpVtbl->Release(pLayout): pLayout = 0
 					CameOut = x + sz.cx + 1 > ScaleX(dwClientX)
 				End If
-				If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
-				If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+				If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+				If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
 			Else
 				GetTextExtentPoint32(Canvas.Handle, FLineLeft, Len(*FLineLeft), @sz)
 				Var x = ScaleX(LeftMargin - IIf(bDividedX AndAlso CodePane = 0, HScrollPosLeft, HScrollPosRight) * dwCharX + IIf(bDividedX AndAlso CodePane = 1, iDividedX + 7, 0)) + IIf(iStart = 0, 0, sz.cx)
@@ -3148,17 +3147,24 @@ Namespace My.Sys.Forms
 	End Sub
 	
 	#ifdef __USE_WINAPI__
+		Private Sub EditControl.ReleaseDirect2D
+			If pRenderTarget <> 0 Then
+				pRenderTarget->lpVtbl->SetTarget(pRenderTarget, 0)
+				pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
+			End If
+			If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
+			If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
+			If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
+			If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
+			If pSwapChain Then
+				pSwapChain->lpVtbl->SetFullscreenState(pSwapChain, False, NULL)
+				pSwapChain->lpVtbl->Release(pSwapChain): pSwapChain = 0
+			End If
+		End Sub
+		
 		Sub EditControl.SetClientSize()
 			If g_Direct2DEnabled AndAlso UseDirect2D Then
-				If pRenderTarget Then
-					pRenderTarget->lpVtbl->SetTarget(pRenderTarget, 0)
-					pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
-				End If
-				If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
-				If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
-				If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
-				If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
-				If pSwapChain Then pSwapChain->lpVtbl->Release(pSwapChain): pSwapChain = 0
+				ReleaseDirect2D
 				If FHandle <> 0 Then
 					'Dim rtProps As D2D1_RENDER_TARGET_PROPERTIES
 					'With rtProps
@@ -3932,20 +3938,32 @@ Namespace My.Sys.Forms
 	End Constructor
 	
 	#ifdef __USE_WINAPI__
-		Sub FillPolygon(points() As D2D1_POINT_2F, ByVal pRT As Any Ptr, ByVal brush As ID2D1Brush Ptr)
-			'Dim pGeometry As ID2D1PathGeometry Ptr
-			'If pFactory->lpVtbl->CreatePathGeometry(pFactory, @pGeometry) = 0 Then
-			'    Dim pSink As ID2D1GeometrySink Ptr
-			'    If pGeometry->lpVtbl->Open(pGeometry, @pSink) = 0 Then
-			'        pSink->lpVtbl->BeginFigure(pSink, points(0), D2D1_FIGURE_BEGIN_FILLED)
-			'        pSink->lpVtbl->AddLines(pSink, @points(1), 3)
-			'        pSink->lpVtbl->EndFigure(pSink, D2D1_FIGURE_END_CLOSED)
-			'        pSink->lpVtbl->Close(pSink)
-			'        pSink->lpVtbl->Release(pSink)
-			'    End If
-			'    pRT->lpVtbl->FillGeometry(pRT, pGeometry, brush, NULL)
-			'    pGeometry->lpVtbl->Release(pGeometry)
-			'End If
+		Sub FillPolygon(points() As D2D1_POINT_2F, ByVal pRT As ID2D1DeviceContext Ptr, ByVal brush As ID2D1Brush Ptr)
+			Dim pGeometry As ID2D1PathGeometry Ptr
+			If pD2D1Factory1->lpVtbl->CreatePathGeometry1(pD2D1Factory1, @pGeometry) = S_OK Then
+				Dim pSink As ID2D1GeometrySink Ptr
+				If pGeometry->lpVtbl->Open(pGeometry, @pSink) = S_OK Then
+					Dim pD2DPoints As D2D1_POINT_2F Ptr
+					Dim BeginD2DPoint As D2D1_POINT_2F
+					BeginD2DPoint.x = points(0).x
+					BeginD2DPoint.y = points(0).y
+					pD2DPoints = _CAllocate((UBound(points) + 1) * SizeOf(D2D1_POINT_2F))
+					For i As Integer = 0 To UBound(points)
+						pD2DPoints[i].x = points(i).x
+						pD2DPoints[i].y = points(i).y
+					Next
+					pSink->lpVtbl->BeginFigure(pSink, BeginD2DPoint, D2D1_FIGURE_BEGIN_FILLED)
+					If UBound(points) >= 1 Then
+						pSink->lpVtbl->AddLines(pSink, pD2DPoints, UBound(points) + 1)
+					End If
+					pSink->lpVtbl->EndFigure(pSink, D2D1_FIGURE_END_CLOSED)
+					pSink->lpVtbl->Close(pSink)
+					pSink->lpVtbl->Release(pSink)
+					_Deallocate((pD2DPoints))
+				End If
+				pRT->lpVtbl->FillGeometry(pRT, pGeometry, brush, NULL)
+				pGeometry->lpVtbl->Release(pGeometry)
+			End If
 		End Sub
 	#endif
 	
@@ -3955,7 +3973,6 @@ Namespace My.Sys.Forms
 			If OnlyCursor AndAlso pRenderTarget <> 0 Then
 				pRenderTarget->lpVtbl->BeginDraw(pRenderTarget)
 				pRenderTarget->lpVtbl->EndDraw(pRenderTarget, 0, 0)
-				Dim pp As DXGI_PRESENT_PARAMETERS
 				pp.DirtyRectsCount = 0
 				pp.pDirtyRects = 0
 				pp.pScrollRect = 0
@@ -3978,18 +3995,7 @@ Namespace My.Sys.Forms
 		#else
 			Dim As Boolean bFontChanged
 			If pRenderTarget <> 0 AndAlso Not UseDirect2D Then
-				If pRenderTarget Then
-					pRenderTarget->lpVtbl->SetTarget(pRenderTarget, 0)
-					pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
-				End If
-				If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
-				If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
-				If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
-				If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
-				If pSwapChain Then
-					pSwapChain->lpVtbl->SetFullscreenState(pSwapChain, False, NULL)
-					pSwapChain->lpVtbl->Release(pSwapChain): pSwapChain = 0
-				End If
+				ReleaseDirect2D
 				KillTimer FHandle, 2
 				Var b = Focused
 				DestroyWindow(sbScrollBarvTop)
@@ -4060,10 +4066,6 @@ Namespace My.Sys.Forms
 		BracketsEnd = -1
 		BracketsEndLine = -1
 		'WithOldI = -1
-		Dim As Integer PosiBD, tIndex, i, Pos1
-		Dim As Boolean bKeyWord, bWithoutWith, TwoDots, OneDot
-		Dim As WString * 255 OriginalCaseWord, OldTypeName, TypeName
-		Dim As TypeElement Ptr te, Oldte
 		If HighlightBrackets Then
 			Symb = Mid(Lines(iSelEndLine), iSelEndChar + 1, 1)
 			If InStr(OpenBrackets, Symb) Then
@@ -4134,10 +4136,6 @@ Namespace My.Sys.Forms
 			Next
 		End If
 		If CInt(HighlightCurrentWord) AndAlso iSelStartLine = iSelEndLine AndAlso iSelStartChar = iSelEndChar Then CurWord = GetWordAtCursor Else CurWord = ""
-		#ifdef __USE_WINAPI__
-			Dim pBrushBackground As ID2D1Brush Ptr = 0
-			Dim pBrushForeground As ID2D1Brush Ptr = 0
-		#endif
 		For zz As Integer = 0 To 1
 			Dim As Integer HScrollPos, VScrollPos, CodePaneX, CodePaneY
 			If CBool(zz = 0) AndAlso (Not bDividedX) AndAlso (Not bDividedY) Then
@@ -4244,7 +4242,31 @@ Namespace My.Sys.Forms
 			OldCollapseIndex = 0
 			'ChangeCase = False
 			OldMatnLCase = ""
-			If ShowHolidayFrame AndAlso WithFrame Then Canvas.DrawAlpha ScaleX(dwClientX - 10) - EditControlFrame.Width, 0, EditControlFrame.Width, EditControlFrame.Height, EditControlFrame
+			If ShowHolidayFrame AndAlso WithFrame Then
+				#ifdef __USE_WINAPI__
+					If pRenderTarget <> 0 Then
+						Dim bmp As ID2D1Bitmap Ptr
+						If Canvas.CreateD2DBitmapFromHBITMAP(pRenderTarget, EditControlFrame.Handle, bmp) = 0 Then
+							Dim As BITMAP Bitmap01
+							GetObject(EditControlFrame.Handle, SizeOf(Bitmap01), @Bitmap01)
+							
+							Dim destRect As D2D1_RECT_F
+							destRect.left   = ScaleX(dwClientX - 10) - EditControlFrame.Width
+							destRect.top    = 0
+							destRect.right  = ScaleX(dwClientX - 10)
+							destRect.bottom = EditControlFrame.Height
+							
+							pRenderTarget->lpVtbl->DrawBitmap(pRenderTarget, bmp, @destRect, 1, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, 0)
+							
+							bmp->lpVtbl->Release(bmp)
+						End If
+					Else
+						Canvas.DrawAlpha ScaleX(dwClientX - 10) - EditControlFrame.Width, 0, EditControlFrame.Width, EditControlFrame.Height, EditControlFrame
+					End If
+				#else
+					Canvas.DrawAlpha ScaleX(dwClientX - 10) - EditControlFrame.Width, 0, EditControlFrame.Width, EditControlFrame.Height, EditControlFrame
+				#endif
+			End If
 			For z As Integer = 0 To Content.Lines.Count - 1
 				FECLine = Content.Lines.Items[z]
 				Dim As WStringList Ptr pFiles = FECLine->FileList
@@ -5271,8 +5293,6 @@ Namespace My.Sys.Forms
 					Else
 						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(LineNumbers.BackgroundRed, LineNumbers.BackgroundGreen, LineNumbers.BackgroundBlue, 1.0), 0, @pBrushBackground)
 						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(LineNumbers.ForegroundRed, LineNumbers.ForegroundGreen, LineNumbers.ForegroundBlue, 1.0), 0, @pBrushForeground)
-						Dim pLayout As IDWriteTextLayout Ptr = 0
-						Dim Metrics As DWRITE_TEXT_METRICS
 						CreateTextLayout(pDWriteFactory, FLineLeft, Len(*FLineLeft), pFormat, sz.cx + 100, sz.cy + 100, @pLayout)
 						If pLayout <> 0 Then
 							pLayout->lpVtbl->GetMetrics(pLayout, @Metrics)
@@ -5283,8 +5303,8 @@ Namespace My.Sys.Forms
 							pRenderTarget->lpVtbl->DrawTextLayout(pRenderTarget, Type<D2D1_POINT_2F>(ScaleX(LeftMargin - 25 + CodePaneX) - sz.cx, ScaleY((i - VScrollPos) * dwCharY + CodePaneY) + 1), pLayout, Cast(ID2D1Brush Ptr, pBrushForeground), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT)
 							pLayout->lpVtbl->Release(pLayout): pLayout = 0
 						End If
-						If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
-						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+						If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
 					End If
 				#endif
 				#ifdef __USE_GTK__
@@ -5299,7 +5319,7 @@ Namespace My.Sys.Forms
 					Else
 						pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(NormalText.BackgroundRed, NormalText.BackgroundGreen, NormalText.BackgroundBlue, 1.0), 0, @pBrushBackground)
 						pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
-						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+						If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
 					End If
 				#endif
 				If FECLine->Breakpoint Then
@@ -5321,8 +5341,8 @@ Namespace My.Sys.Forms
 							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(IndicatorLines.ForegroundRed, IndicatorLines.ForegroundGreen, IndicatorLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
 							pRenderTarget->lpVtbl->FillEllipse(pRenderTarget, Type<D2D1_ELLIPSE>(Type<D2D1_POINT_2F>(ScaleX(2 + CodePaneX + (dwCharY - 4) / 2), ScaleY((i - VScrollPos) * dwCharY + 2 + CodePaneY + (dwCharY - 4) / 2)), ScaleX((dwCharY - 4) / 2), ScaleY((dwCharY - 4) / 2)), pBrushBackground)
 							pRenderTarget->lpVtbl->DrawEllipse(pRenderTarget, Type<D2D1_ELLIPSE>(Type<D2D1_POINT_2F>(ScaleX(2 + CodePaneX + (dwCharY - 4) / 2), ScaleY((i - VScrollPos) * dwCharY + 2 + CodePaneY + (dwCharY - 4) / 2)), ScaleX((dwCharY - 4) / 2), ScaleY((dwCharY - 4) / 2)), pBrushForeground, 1, NULL)
-							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
-							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
 						End If
 					#endif
 				End If
@@ -5355,8 +5375,8 @@ Namespace My.Sys.Forms
 							pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(IndicatorLines.ForegroundRed, IndicatorLines.ForegroundGreen, IndicatorLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
 							pRenderTarget->lpVtbl->FillRoundedRectangle(pRenderTarget, @Type<D2D1_ROUNDED_RECT>(Type<D2D1_RECT_F>(ScaleX(2 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY) + 1, ScaleX(dwCharY - 2 + CodePaneX) - 1, ScaleY((i - VScrollPos + 1) * dwCharY - 4 + CodePaneY) - 1), ScaleX(2.5), ScaleY(2.5)), pBrushBackground)
 							'pRenderTarget->lpVtbl->DrawRoundedRectangle(pRenderTarget, @Type<D2D1_ROUNDED_RECT>(Type<D2D1_RECT_F>(ScaleX(2 + CodePaneX) + 1, ScaleY((i - VScrollPos) * dwCharY + 4 + CodePaneY) + 1, ScaleX(dwCharY - 2 + CodePaneX) - 1, ScaleY((i - VScrollPos + 1) * dwCharY - 4 + CodePaneY) - 1), ScaleX(1), ScaleY(1)), pBrushForeground, 1)
-							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
-							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
+							If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
 						End If
 					#endif
 				End If
@@ -5543,7 +5563,7 @@ Namespace My.Sys.Forms
 					End If
 					#ifdef __USE_WINAPI__
 						If pRenderTarget <> 0 Then
-							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+							If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
 						End If
 					#endif
 				End If
@@ -5576,7 +5596,7 @@ Namespace My.Sys.Forms
 				Else
 					pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(LineNumbers.BackgroundRed, LineNumbers.BackgroundGreen, LineNumbers.BackgroundBlue, 1.0), 0, @pBrushBackground)
 					pRenderTarget->lpVtbl->FillRectangle(pRenderTarget, @Type<D2D1_RECT_F>(rc.Left, rc.Top, rc.Right, rc.Bottom), pBrushBackground)
-					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
+					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
 				End If
 				SetRect(@rc, ScaleX(LeftMargin - 25 + CodePaneX), ScaleY(Min(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY), (Max(0, OldI - VScrollPos + 1)) * dwCharY + CodePaneY)), ScaleX(LeftMargin + CodePaneX), ScaleY(IIf(bDividedY AndAlso zz = 0, iDividedY, dwClientY)))
 				If pRenderTarget = 0 Then
@@ -5589,8 +5609,8 @@ Namespace My.Sys.Forms
 					If CaretOn Then
 						pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(ScaleX(HCaretPos) + 1, ScaleY(VCaretPos) + 1, ScaleX(HCaretPos) + 1, ScaleY(VCaretPos + dwCharY)), pBrushForeground)
 					End If
-					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground)
-					If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground)
+					If pBrushBackground Then pBrushBackground->lpVtbl->Release(pBrushBackground): pBrushBackground = 0
+					If pBrushForeground Then pBrushForeground->lpVtbl->Release(pBrushForeground): pBrushForeground = 0
 				End If
 			#endif
 			OldPaintedVScrollPos(zz) = VScrollPos
@@ -5842,25 +5862,25 @@ Namespace My.Sys.Forms
 						(ScaleX(MButtonX + 11), ScaleY(MButtonY + 1)), _
 						(ScaleX(MButtonX + 7),  ScaleY(MButtonY + 5)), _
 						(ScaleX(MButtonX + 16), ScaleY(MButtonY + 5)), _
-						(ScaleX(MButtonX + 12), ScaleY(MButtonY + 1)) }
+						(ScaleX(MButtonX + 11), ScaleY(MButtonY + 1)) }
 						
 						Dim pPoint2(3) As D2D1_POINT_2F = { _
 						(ScaleX(MButtonX + 11), ScaleY(MButtonY + 22)), _
 						(ScaleX(MButtonX + 7),  ScaleY(MButtonY + 18)), _
 						(ScaleX(MButtonX + 16), ScaleY(MButtonY + 18)), _
-						(ScaleX(MButtonX + 12), ScaleY(MButtonY + 22)) }
+						(ScaleX(MButtonX + 11), ScaleY(MButtonY + 22)) }
 						
 						Dim pPoint3(3) As D2D1_POINT_2F = { _
 						(ScaleX(MButtonX + 1),  ScaleY(MButtonY + 11)), _
 						(ScaleX(MButtonX + 5),  ScaleY(MButtonY + 7)), _
 						(ScaleX(MButtonX + 5),  ScaleY(MButtonY + 16)), _
-						(ScaleX(MButtonX + 1),  ScaleY(MButtonY + 12)) }
+						(ScaleX(MButtonX + 1),  ScaleY(MButtonY + 11)) }
 						
 						Dim pPoint4(3) As D2D1_POINT_2F = { _
 						(ScaleX(MButtonX + 22), ScaleY(MButtonY + 11)), _
 						(ScaleX(MButtonX + 18), ScaleY(MButtonY + 7)), _
 						(ScaleX(MButtonX + 18), ScaleY(MButtonY + 16)), _
-						(ScaleX(MButtonX + 22), ScaleY(MButtonY + 12)) }
+						(ScaleX(MButtonX + 22), ScaleY(MButtonY + 11)) }
 						FillPolygon(pPoint1(), pRenderTarget, pBrushForeground)
 						FillPolygon(pPoint2(), pRenderTarget, pBrushForeground)
 						FillPolygon(pPoint3(), pRenderTarget, pBrushForeground)
@@ -5873,7 +5893,6 @@ Namespace My.Sys.Forms
 		#ifdef __USE_WINAPI__
 			If pRenderTarget <> 0 Then
 				pRenderTarget->lpVtbl->EndDraw(pRenderTarget, 0, 0)
-				Dim pp As DXGI_PRESENT_PARAMETERS
 				pp.DirtyRectsCount = 0
 				pp.pDirtyRects = 0
 				pp.pScrollRect = 0
@@ -8378,6 +8397,7 @@ Namespace My.Sys.Forms
 			cboIntellisense.Items.Clear
 			If bufDC Then DeleteDC bufDC
 			If bufBMP Then DeleteObject bufBMP
+			ReleaseDirect2D
 			If pRenderTarget Then Cast(Sub(ByVal As Any Ptr), COM_METHOD(pRenderTarget, 2))(pRenderTarget): pRenderTarget = 0
 			If pFormat Then Cast(Sub(ByVal As Any Ptr), COM_METHOD(pFormat, 2))(pFormat): pFormat = 0
 		#endif
@@ -8451,3 +8471,4 @@ Sub LoadKeyWords
 	'	Loop
 	'	Close #Fn
 End Sub
+
