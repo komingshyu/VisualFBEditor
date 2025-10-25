@@ -88,7 +88,7 @@ Dim Shared As VisualFBEditor.Application VisualFBEditorApp
 Dim Shared As ComboBoxEdit cboBuildConfiguration, cboAIAgentModels
 Dim Shared As IniFile iniSettings, iniTheme
 Dim Shared As SearchBox txtExplorer, txtForm, txtProperties, txtEvents
-Dim Shared As ToolBar tbStandard, tbEdit, tbBuild, tbRun, tbProject, tbExplorer, tbForm, tbAIAgent, tbProperties, tbEvents, tbBottom, tbLeft, tbRight
+Dim Shared As ToolBar tbStandard, tbEdit, tbBuild, tbDebug, tbRun, tbProject, tbExplorer, tbForm, tbAIAgent, tbProperties, tbEvents, tbBottom, tbLeft, tbRight, tbFormat
 Dim Shared As StatusBar stBar
 Dim Shared As Splitter splLeft, splRight, splBottom, splAIAgent, splProperties, splEvents
 Dim Shared As ListControl lstLeft
@@ -99,17 +99,19 @@ Dim Shared As Label lblLeft
 Dim Shared As Panel pnlLeft, pnlRight, pnlBottom, pnlBottomTab, pnlLeftPin, pnlRightPin, pnlBottomPin, pnlPropertyValue, pnlColor
 Dim Shared As TrackBar trLeft
 Dim Shared As MainMenu mnuMain
-Dim Shared As MenuItem Ptr mnuStartWithCompile, mnuStart, mnuBreak, mnuEnd, mnuRestart, mnuStandardToolBar, mnuEditToolBar, mnuProjectToolBar, mnuBuildToolBar, mnuRunToolBar, mnuSplit, mnuSplitHorizontally, mnuSplitVertically, mnuWindowSeparator, miRecentProjects, miRecentFiles, miRecentFolders, miRecentSessions, miSetAsMain, miClearStartUp, miTabSetAsMain, miTabReloadHistoryCode, miRemoveFiles, miToolBars
+Dim Shared As MenuItem Ptr mnuStartWithCompile, mnuStart, mnuBreak, mnuEnd, mnuRestart, mnuStandardToolBar, mnuEditToolBar, mnuProjectToolBar, mnuFormatToolBar, mnuBuildToolBar, mnuDebugToolBar, mnuRunToolBar, mnuSplit, mnuSplitHorizontally, mnuSplitVertically, mnuWindowSeparator, miRecentProjects, miRecentFiles, miRecentFolders, miRecentSessions, miSetAsMain, miClearStartUp, miTabSetAsMain, miTabReloadHistoryCode, miRemoveFiles, miToolBars
 Dim Shared As MenuItem Ptr miRecentAIChat,  miFileAIChat
 Dim Shared As MenuItem Ptr miSaveProject, miSaveProjectAs, miCloseProject, miCloseFolder, miSave, miSaveAs, miSaveAll, miClose, miCloseAll, miCloseSession, miPrint, miPrintPreview, miPageSetup, miOpenProjectFolder, miProjectProperties, miExplorerOpenProjectFolder, miExplorerRename, miExplorerProjectProperties, miExplorerCloseProject, miRename, miRemoveFileFromProject
 Dim Shared As MenuItem Ptr miUndo, miRedo, miCutCurrentLine, miCut, miCopy, miPaste, miSingleComment, miBlockComment, miUncommentBlock, miDuplicate, miSelectAll, miIndent, miOutdent, miFormat, miUnformat, miFormatProject, miUnformatProject, miAddSpaces, miDeleteBlankLines, miSuggestions, miCompleteWord, miParameterInfo, miStepInto, miStepOver, miStepOut, miRunToCursor, miGDBCommand, miAddWatch, miToggleBreakpoint, miClearAllBreakpoints, miSetNextStatement, miShowNextStatement
 Dim Shared As MenuItem Ptr miNumbering, miMacroNumbering, miRemoveNumbering, miProcedureNumbering, miProcedureMacroNumbering, miRemoveProcedureNumbering, miProjectMacroNumbering, miProjectMacroNumberingStartsOfProcedures, miRemoveProjectNumbering, miModuleMacroNumbering, miModuleMacroNumberingStartsOfProcedures, miRemoveModuleNumbering, miPreprocessorNumbering, miRemovePreprocessorNumbering, miProjectPreprocessorNumbering, miRemoveProjectPreprocessorNumbering, miModulePreprocessorNumbering, miRemoveModulePreprocessorNumbering, miOnErrorResumeNext, miOnErrorGoto, miOnErrorGotoResumeNext, miOnLocalErrorGoto, miOnLocalErrorGotoResumeNext, miRemoveErrorHandling
 Dim Shared As MenuItem Ptr dmiNumbering, dmiMacroNumbering, dmiRemoveNumbering, dmiProcedureNumbering, dmiProcedureMacroNumbering, dmiRemoveProcedureNumbering, dmiModuleMacroNumbering, dmiModuleMacroNumberingStartsOfProcedures, dmiRemoveModuleNumbering, dmiPreprocessorNumbering, dmiRemovePreprocessorNumbering, dmiModulePreprocessorNumbering, dmiRemoveModulePreprocessorNumbering, dmiOnErrorResumeNext, dmiOnErrorGoto, dmiOnErrorGotoResumeNext, dmiOnLocalErrorGoto, dmiOnLocalErrorGotoResumeNext, dmiRemoveErrorHandling, dmiMake, dmiMakeClean
 Dim Shared As MenuItem Ptr miCode, miForm, miCodeAndForm, miGotoCodeForm, miCollapseCurrent, miCollapseAllProcedures, miCollapseAll, miUnCollapseCurrent, miUnCollapseAllProcedures, miUnCollapseAll, miImageManager, miAddProcedure, miAddType, miFind, miReplace, miFindNext, miFindPrevious, miGoto, miDefine, miToggleBookmark, miNextBookmark, miPreviousBookmark, miClearAllBookmarks, miSyntaxCheck, miCompile, miCompileAll, miBuildBundle, miBuildAPK, miGenerateSignedBundle, miGenerateSignedAPK, miMake, miMakeClean
+Dim Shared As MenuItem Ptr miAlignLefts, miAlignCenters, miAlignRights, miAlignTops, miAlignMiddles, miAlignBottoms, miAlignToGrid, miMakeSameSizeWidth, miMakeSameSizeHeight, miMakeSameSizeBoth, miSizeToGrid, miHorizontalSpacingMakeEqual, miHorizontalSpacingIncrease, miHorizontalSpacingDecrease, miHorizontalSpacingRemove, miVerticalSpacingMakeEqual, miVerticalSpacingIncrease, miVerticalSpacingDecrease, miVerticalSpacingRemove, miCenterInParentHorizontally, miCenterInParentVertically, miOrderBringToFront, miOrderSendToBack, miLockControls
 Dim Shared As MenuItem Ptr miShowWithFolders, miShowWithoutFolders, miShowAsFolder
-Dim Shared As ToolButton Ptr tbtSave, tbtSaveAll, tbtSyntaxCheck, tbtSuggestions, tbtCompile, tbtUndo, tbtRedo, tbtCut, tbtCopy, tbtPaste, tbtBlockComment, tbtSingleComment, tbtUncommentBlock, tbtFormat, tbtUnformat, tbtCompleteWord, tbtParameterInfo, tbtFind, tbtUseDirect2D, tbtRemoveFileFromProject, tbtStartWithCompile, tbtStart, tbtBreak, tbtEnd, tbt32Bit, tbt64Bit, tbtUseDebugger, tbtNotSetted, tbtConsole, tbtGUI
+Dim Shared As ToolButton Ptr tbtAlignLefts, tbtAlignCenters, tbtAlignRights, tbtAlignTops, tbtAlignMiddles, tbtAlignBottoms, tbtAlignToGrid, tbtMakeSameSizeWidth, tbtMakeSameSizeHeight, tbtMakeSameSizeBoth, tbtSizeToGrid, tbtHorizontalSpacingMakeEqual, tbtHorizontalSpacingIncrease, tbtHorizontalSpacingDecrease, tbtHorizontalSpacingRemove, tbtVerticalSpacingMakeEqual, tbtVerticalSpacingIncrease, tbtVerticalSpacingDecrease, tbtVerticalSpacingRemove, tbtCenterInParentHorizontally, tbtCenterInParentVertically, tbtOrderBringToFront, tbtOrderSendToBack, tbtLockControls
+Dim Shared As ToolButton Ptr tbtSave, tbtSaveAll, tbtSyntaxCheck, tbtSuggestions, tbtCompile, tbtUndo, tbtRedo, tbtCut, tbtCopy, tbtPaste, tbtBlockComment, tbtSingleComment, tbtUncommentBlock, tbtFormat, tbtUnformat, tbtCompleteWord, tbtParameterInfo, tbtFind, tbtUseDirect2D, tbtRemoveFileFromProject, tbtStartWithCompile, tbtStart, tbtBreak, tbtEnd, tbt32Bit, tbt64Bit, tbtUseDebugger, tbtNotSetted, tbtConsole, tbtGUI, tbtStepInto, tbtStepOver, tbtStepOut, tbtRunToCursor, tbtToggleBreakpoint, tbtSetNextStatement, tbtShowNextStatement
 Dim Shared As SaveFileDialog SaveD
-Dim Shared As ReBar MainReBar
+Dim Shared As ReBar MainReBar, rbLeft, rbRight, rbBottom
 #ifndef __USE_GTK__
 	Dim Shared As ScrollBarControl scrTool
 	Dim Shared As PageSetupDialog PageSetupD
@@ -776,7 +778,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 		If Parameter <> "" AndAlso Parameter <> "Make" AndAlso Parameter <> "MakeClean" Then
 			If Parameter = "Check" Then WAdd fbcCommand, " -x """ & *ExeName & """"
 		End If
-		If CInt(Parameter = "Make") OrElse CInt(CInt(Parameter = "Run") AndAlso CInt(UseMakeOnStartWithCompile) AndAlso CInt(FileExists(GetFolderName(*MainFile) & "/makefile") OrElse FileExists(*ProjectPath & "/makefile"))) Then
+		If CInt(Parameter = "Make") OrElse CInt(CInt(Parameter = "Run" OrElse Parameter = "RunWithDebug") AndAlso CInt(UseMakeOnStartWithCompile) AndAlso CInt(FileExists(GetFolderName(*MainFile) & "/makefile") OrElse FileExists(*ProjectPath & "/makefile"))) Then
 			Dim As String Colon = ""
 			#ifdef __USE_GTK__
 				Colon = ":"
@@ -853,7 +855,7 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 			Next i
 			CloseFile_(Fn2)
 		Else
-			If CInt(Parameter = "Make") OrElse CInt(Parameter = "MakeClean") OrElse CInt(CInt(Parameter = "Run") AndAlso CInt(UseMakeOnStartWithCompile) AndAlso CInt(FileExists(GetFolderName(*MainFile) & "/makefile") OrElse FileExists(*ProjectPath & "/makefile"))) Then
+			If CInt(Parameter = "Make") OrElse CInt(Parameter = "MakeClean") OrElse CInt(CInt(Parameter = "Run" OrElse Parameter = "RunWithDebug") AndAlso CInt(UseMakeOnStartWithCompile) AndAlso CInt(FileExists(GetFolderName(*MainFile) & "/makefile") OrElse FileExists(*ProjectPath & "/makefile"))) Then
 				If FileExists(GetFolderName(*MainFile) & "/makefile") Then
 					ChDir(GetFolderName(*MainFile))
 				Else
@@ -1215,6 +1217,12 @@ Function Compile(Parameter As String = "", bAll As Boolean = False) As Integer
 					RunPr , *Project->FileName, *Project->CommandLineArguments, *MainFile, CompileLine, *FirstLine
 				Else
 					RunPr , "", "", *MainFile, CompileLine, *FirstLine
+				End If
+			ElseIf Parameter = "RunWithDebug" Then
+				If Project <> 0 Then
+					RunWithDebug , *Project->FileName, *Project->CommandLineArguments, *MainFile, CompileLine, *FirstLine
+				Else
+					RunWithDebug , "", "", *MainFile, CompileLine, *FirstLine
 				End If
 			End If
 		End If
@@ -3304,6 +3312,12 @@ Sub ChangeUseDebugger(bUseDebugger As Boolean, ChangeObject As Integer = -1)
 	UseDebugger = bUseDebugger
 	If ChangeObject <> 0 Then tbtUseDebugger->Checked = bUseDebugger
 	If ChangeObject <> 1 AndAlso mnuUseDebugger->Checked <> UseDebugger Then mnuUseDebugger->Checked = bUseDebugger
+End Sub
+
+Sub ChangeLockControls(bLockControls As Boolean, ChangeObject As Integer = -1)
+	LockControls = bLockControls
+	If ChangeObject <> 0 Then tbtLockControls->Checked = bLockControls
+	If ChangeObject <> 1 AndAlso miLockControls->Checked <> LockControls Then miLockControls->Checked = bLockControls: mnuDesigner.Item("LockControls")->Checked = bLockControls
 End Sub
 
 Sub ChangeFileEncoding(FileEncoding As FileEncodings)
@@ -7249,6 +7263,36 @@ Sub CreateMenusAndToolBars
 	imgList.Add "TranslateE", "TranslateE"
 	imgList.Add "WebBrowserItem", "WebBrowserItem"
 	imgList.Add "UseDirect2D", "UseDirect2D"
+	imgList.Add "AlignLefts", "AlignLefts"
+	imgList.Add "AlignCenters", "AlignCenters"
+	imgList.Add "AlignRights", "AlignRights"
+	imgList.Add "AlignTops", "AlignTops"
+	imgList.Add "AlignMiddles", "AlignMiddles"
+	imgList.Add "AlignBottoms", "AlignBottoms"
+	imgList.Add "AlignToGrid", "AlignToGrid"
+	imgList.Add "MakeSameSizeWidth", "MakeSameSizeWidth"
+	imgList.Add "MakeSameSizeHeight", "MakeSameSizeHeight"
+	imgList.Add "MakeSameSizeBoth", "MakeSameSizeBoth"
+	imgList.Add "SizeToGrid", "SizeToGrid"
+	imgList.Add "HorizontalSpacingMakeEqual", "HorizontalSpacingMakeEqual"
+	imgList.Add "HorizontalSpacingIncrease", "HorizontalSpacingIncrease"
+	imgList.Add "HorizontalSpacingDecrease", "HorizontalSpacingDecrease"
+	imgList.Add "HorizontalSpacingRemove", "HorizontalSpacingRemove"
+	imgList.Add "VerticalSpacingMakeEqual", "VerticalSpacingMakeEqual"
+	imgList.Add "VerticalSpacingIncrease", "VerticalSpacingIncrease"
+	imgList.Add "VerticalSpacingDecrease", "VerticalSpacingDecrease"
+	imgList.Add "VerticalSpacingRemove", "VerticalSpacingRemove"
+	imgList.Add "CenterInParentHorizontally", "CenterInParentHorizontally"
+	imgList.Add "CenterInParentVertically", "CenterInParentVertically"
+	imgList.Add "BringToFront", "BringToFront"
+	imgList.Add "SendToBack", "SendToBack"
+	imgList.Add "LockControls", "LockControls"
+	imgList.Add "StepInto", "StepInto"
+	imgList.Add "StepOver", "StepOver"
+	imgList.Add "StepOut", "StepOut"
+	imgList.Add "RunToCursor", "RunToCursor"
+	imgList.Add "SetNextStatement", "SetNextStatement"
+	imgList.Add "ShowNextStatement", "ShowNextStatement"
 	
 	'imgListD.Add "StartWithCompileD", "StartWithCompile"
 	'imgListD.Add "StartD", "Start"
@@ -7521,7 +7565,9 @@ Sub CreateMenusAndToolBars
 	mnuStandardToolBar = miToolBars->Add(ML("Standard") & HK("Standard"), "", "Standard", @mClick, True)
 	mnuEditToolBar = miToolBars->Add(ML("Edit") & HK("Edit"), "", "Edit", @mClick, True)
 	mnuProjectToolBar = miToolBars->Add(ML("Project") & HK("Project"), "", "Project", @mClick, True)
+	mnuFormatToolBar = miToolBars->Add(ML("Format") & HK("FormFormat"), "", "FormFormat", @mClick, True)
 	mnuBuildToolBar = miToolBars->Add(ML("Build") & HK("Build"), "", "Build", @mClick, True)
+	mnuDebugToolBar = miToolBars->Add(ML("Debug") & HK("Debug"), "", "Debug", @mClick, True)
 	mnuRunToolBar = miToolBars->Add(ML("Run") & HK("Run"), "", "Run", @mClick, True)
 	
 	Var miProject = mnuMain.Add(ML("&Project"), "", "Project")
@@ -7541,6 +7587,45 @@ Sub CreateMenusAndToolBars
 	miProject->Add(ML("Import from Folder") & "..." & HK("OpenFolder", "Alt+O"), "", "OpenFolder", @mClick)
 	miProject->Add("-")
 	miProjectProperties = miProject->Add(ML("&Project Properties") & "..." & HK("ProjectProperties"), "", "ProjectProperties", @mClick, , , False)
+	
+	Var miFormFormat = mnuMain.Add(ML("F&ormat"), "", "FormFormat")
+	Var miAlign = miFormFormat->Add(ML("&Align"), "Align", "Align", @mClick)
+	miAlignLefts = miAlign->Add(ML("&Lefts") & HK("AlignLefts"), "AlignLefts", "AlignLefts", @mClick)
+	miAlignCenters = miAlign->Add(ML("&Centers") & HK("AlignLefts"), "AlignCenters", "AlignCenters", @mClick)
+	miAlignRights = miAlign->Add(ML("&Rights") & HK("AlignRights"), "AlignRights", "AlignRights", @mClick)
+	miAlign->Add("-")
+	miAlignTops = miAlign->Add(ML("&Tops") & HK("AlignTops"), "AlignTops", "AlignTops", @mClick)
+	miAlignMiddles = miAlign->Add(ML("&Middles") & HK("AlignMiddles"), "AlignMiddles", "AlignMiddles", @mClick)
+	miAlignBottoms = miAlign->Add(ML("&Bottoms") & HK("AlignBottoms"), "AlignBottoms", "AlignBottoms", @mClick)
+	miAlign->Add("-")
+	miAlignToGrid = miAlign->Add(ML("to &Grid") & HK("AlignToGrid"), "AlignToGrid", "AlignToGrid", @mClick)
+	Var miMakeSameSize = miFormFormat->Add(ML("&Make Same Size"), "MakeSameSize", "MakeSameSize", @mClick)
+	miMakeSameSizeWidth = miMakeSameSize->Add(ML("&Width") & HK("MakeSameSizeWidth"), "MakeSameSizeWidth", "MakeSameSizeWidth", @mClick)
+	miMakeSameSizeHeight = miMakeSameSize->Add(ML("&Height") & HK("MakeSameSizeHeight"), "MakeSameSizeHeight", "MakeSameSizeHeight", @mClick)
+	miMakeSameSizeBoth = miMakeSameSize->Add(ML("&Both") & HK("MakeSameSizeBoth"), "MakeSameSizeBoth", "MakeSameSizeBoth", @mClick)
+	miFormFormat->Add("-")
+	miFormFormat->Add(ML("Size to Gri&d") & HK("SizeToGrid"), "SizeToGrid", "SizeToGrid", @mClick)
+	miFormFormat->Add("-")
+	Var miHorizontalSpacing = miFormFormat->Add(ML("&Horizontal Spacing"), "HorizontalSpacing", "HorizontalSpacing", @mClick)
+	miHorizontalSpacingMakeEqual = miHorizontalSpacing->Add(ML("Make &Equal") & HK("HorizontalSpacingMakeEqual"), "HorizontalSpacingMakeEqual", "HorizontalSpacingMakeEqual", @mClick)
+	miHorizontalSpacingIncrease = miHorizontalSpacing->Add(ML("&Increase") & HK("HorizontalSpacingIncrease"), "HorizontalSpacingIncrease", "HorizontalSpacingIncrease", @mClick)
+	miHorizontalSpacingDecrease = miHorizontalSpacing->Add(ML("&Decrease") & HK("HorizontalSpacingDecrease"), "HorizontalSpacingDecrease", "HorizontalSpacingDecrease", @mClick)
+	miHorizontalSpacingRemove = miHorizontalSpacing->Add(ML("&Remove") & HK("HorizontalSpacingRemove"), "HorizontalSpacingRemove", "HorizontalSpacingRemove", @mClick)
+	Var miVerticalSpacing = miFormFormat->Add(ML("&Vertical Spacing"), "VerticalSpacing", "VerticalSpacing", @mClick)
+	miVerticalSpacingMakeEqual = miVerticalSpacing->Add(ML("Make &Equal") & HK("VerticalSpacingMakeEqual"), "VerticalSpacingMakeEqual", "VerticalSpacingMakeEqual", @mClick)
+	miVerticalSpacingIncrease = miVerticalSpacing->Add(ML("&Increase") & HK("VerticalSpacingIncrease"), "VerticalSpacingIncrease", "VerticalSpacingIncrease", @mClick)
+	miVerticalSpacingDecrease = miVerticalSpacing->Add(ML("&Decrease") & HK("VerticalSpacingDecrease"), "VerticalSpacingDecrease", "VerticalSpacingDecrease", @mClick)
+	miVerticalSpacingRemove = miVerticalSpacing->Add(ML("&Remove") & HK("VerticalSpacingRemove"), "VerticalSpacingRemove", "VerticalSpacingRemove", @mClick)
+	miFormFormat->Add("-")
+	Var miCenterInParent = miFormFormat->Add(ML("&Center in Parent"), "CenterInParent", "CenterInParent", @mClick)
+	miCenterInParentHorizontally = miCenterInParent->Add(ML("&Horizontally") & HK("CenterInParentHorizontally"), "CenterInParentHorizontally", "CenterInParentHorizontally", @mClick)
+	miCenterInParentVertically = miCenterInParent->Add(ML("&Vertically") & HK("CenterInParentVertically"), "CenterInParentVertically", "CenterInParentVertically", @mClick)
+	miFormFormat->Add("-")
+	Var miOrder = miFormFormat->Add(ML("&Order"), "Order", "Order", @mClick)
+	miOrderBringToFront = miOrder->Add(ML("&Bring to Front") & HK("BringToFront"), "BringToFront", "BringToFront", @mClick)
+	miOrderSendToBack = miOrder->Add(ML("&Send to Back") & HK("SendToBack"), "SendToBack", "SendToBack", @mClick)
+	miFormFormat->Add("-")
+	miLockControls = miFormFormat->Add(ML("&Lock Controls") & HK("LockControls"), "LockControls", "LockControls", @mClick)
 	
 	Var miBuild = mnuMain.Add(ML("&Build"), "", "Build")
 	miSyntaxCheck = miBuild->Add(ML("&Syntax Check") & HK("SyntaxCheck"), "SyntaxCheck", "SyntaxCheck", @mClick, , , False)
@@ -7566,10 +7651,10 @@ Sub CreateMenusAndToolBars
 	mnuUseDebugger = miDebug->Add(ML("&Use Debugger") & HK("UseDebugger"), "", "UseDebugger", @mClick, True)
 	mnuUseProfiler = miDebug->Add(ML("Use &Profiler") & HK("UseProfiler"), "", "UseProfiler", @mClick, True)
 	miDebug->Add("-")
-	miStepInto = miDebug->Add(ML("Step &Into") & HK("StepInto", "F8"), "", "StepInto", @mClick, , , False)
-	miStepOver = miDebug->Add(ML("Step &Over") & HK("StepOver", "Shift+F8"), "", "StepOver", @mClick, , , False)
-	miStepOut = miDebug->Add(ML("Step O&ut") & HK("StepOut", "Ctrl+Shift+F8"), "", "StepOut", @mClick, , , False)
-	miRunToCursor = miDebug->Add(ML("&Run To Cursor") & HK("RunToCursor", "Ctrl+F8"), "", "RunToCursor", @mClick, , , False)
+	miStepInto = miDebug->Add(ML("Step &Into") & HK("StepInto", "F8"), "StepInto", "StepInto", @mClick, , , False)
+	miStepOver = miDebug->Add(ML("Step &Over") & HK("StepOver", "Shift+F8"), "StepOver", "StepOver", @mClick, , , False)
+	miStepOut = miDebug->Add(ML("Step O&ut") & HK("StepOut", "Ctrl+Shift+F8"), "StepOut", "StepOut", @mClick, , , False)
+	miRunToCursor = miDebug->Add(ML("&Run To Cursor") & HK("RunToCursor", "Ctrl+F8"), "RunToCursor", "RunToCursor", @mClick, , , False)
 	miDebug->Add("-")
 	miGDBCommand = miDebug->Add(ML("&GDB Command") & HK("GDBCommand"), "", "GDBCommand", @mClick, , , False)
 	miAddWatch = miDebug->Add(ML("&Add Watch") & HK("AddWatch"), "", "AddWatch", @mClick, , , False)
@@ -7577,8 +7662,8 @@ Sub CreateMenusAndToolBars
 	miToggleBreakpoint = miDebug->Add(ML("&Toggle Breakpoint") & HK("Breakpoint", "F9"), "Breakpoint", "Breakpoint", @mClick, , , False)
 	miClearAllBreakpoints = miDebug->Add(ML("&Clear All Breakpoints") & HK("ClearAllBreakpoints", "Ctrl+Shift+F9"), "", "ClearAllBreakpoints", @mClick, , , False)
 	miDebug->Add("-")
-	miSetNextStatement = miDebug->Add(ML("Set &Next Statement") & HK("SetNextStatement"), "", "SetNextStatement", @mClick, , , False)
-	miShowNextStatement = miDebug->Add(ML("Show Ne&xt Statement") & HK("ShowNextStatement"), "", "ShowNextStatement", @mClick, , , False)
+	miSetNextStatement = miDebug->Add(ML("Set &Next Statement") & HK("SetNextStatement"), "SetNextStatement", "SetNextStatement", @mClick, , , False)
+	miShowNextStatement = miDebug->Add(ML("Show Ne&xt Statement") & HK("ShowNextStatement"), "ShowNextStatement", "ShowNextStatement", @mClick, , , False)
 	
 	Var miRun = mnuMain.Add(ML("&Run"), "", "Run")
 	mnuStartWithCompile = miRun->Add(ML("Start With &Compile") & HK("StartWithCompile", "F5"), "StartWithCompile", "StartWithCompile", @mClick, , , False)
@@ -7841,6 +7926,27 @@ Sub CreateMenusAndToolBars
 	dmiMake = tbMake->DropDownMenu.Add("Make", "", "Make", @mClick, , , False)
 	dmiMakeClean = tbMake->DropDownMenu.Add("Make clean", "", "MakeClean", @mClick, , , False)
 	tbBuild.Buttons.Add , "Parameters", , @mClick, "Parameters", , ML("Parameters"), True
+	tbBuild.Name = "Build"
+	tbBuild.ImagesList = @imgList
+	tbBuild.HotImagesList = @imgList
+	'tbBuild.DisabledImagesList = @imgListD
+	'	#ifdef __USE_GTK__
+	'		tbBuild.Align = 3
+	'	#endif
+	tbDebug.Name = "Run"
+	tbDebug.ImagesList = @imgList
+	tbDebug.HotImagesList = @imgList
+	tbDebug.Flat = True
+	tbDebug.List = True
+	tbtStepInto = tbDebug.Buttons.Add(, "StepInto", , @mClick, "StepInto", , ML("Step Into") & HK("StepInto", "F8", True), True)
+	tbtStepOver = tbDebug.Buttons.Add(, "StepOver", , @mClick, "StepOver", , ML("Step Over") & HK("StepOver", "Shift+F8", True), True)
+	tbtStepOut = tbDebug.Buttons.Add(, "StepOut", , @mClick, "StepOut", , ML("Step Out") & HK("StepOut", "Ctrl+Shift+F8", True), True)
+	tbtRunToCursor = tbDebug.Buttons.Add(, "RunToCursor", , @mClick, "RunToCursor", , ML("Run To Cursor") & HK("RunToCursor", "Ctrl+F8", True), True)
+	tbDebug.Buttons.Add tbsSeparator
+	tbtToggleBreakpoint = tbDebug.Buttons.Add(, "Breakpoint", , @mClick, "ToggleBreakpoint", , ML("Toggle Breakpoint") & HK("ToggleBreakpoint", "F9", True), True)
+	tbDebug.Buttons.Add tbsSeparator
+	tbtSetNextStatement = tbDebug.Buttons.Add(, "SetNextStatement", , @mClick, "SetNextStatement", , ML("Set Next Statement") & HK("SetNextStatement", , True), True)
+	tbtToggleBreakpoint = tbDebug.Buttons.Add(, "ShowNextStatement", , @mClick, "ShowNextStatement", , ML("Show Next Statement") & HK("ShowNextStatement", , True), True)
 	'tbStandard.Buttons.Add tbsSeparator
 	tbRun.Name = "Run"
 	tbRun.ImagesList = @imgList
@@ -7916,6 +8022,44 @@ Sub CreateMenusAndToolBars
 	tbButton = tbProject.Buttons.Add(tbsCustom)
 	tbButton->Width = 170
 	tbButton->Child = @cboBuildConfiguration
+	tbFormat.Name = "Format"
+	tbFormat.ImagesList = @imgList
+	tbFormat.HotImagesList = @imgList
+	tbFormat.Flat = True
+	tbFormat.List = True
+	tbtAlignLefts = tbFormat.Buttons.Add(, "AlignLefts", , @mClick, "AlignLefts", , ML("Align Lefts"), True)
+	tbtAlignCenters = tbFormat.Buttons.Add(, "AlignCenters", , @mClick, "AlignCenters", , ML("Align Centers"), True)
+	tbtAlignRights = tbFormat.Buttons.Add(, "AlignRights", , @mClick, "AlignRights", , ML("Align Rights"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtAlignTops = tbFormat.Buttons.Add(, "AlignTops", , @mClick, "AlignTops", , ML("Align Tops"), True)
+	tbtAlignMiddles = tbFormat.Buttons.Add(, "AlignMiddles", , @mClick, "AlignMiddles", , ML("Align Middles"), True)
+	tbtAlignBottoms = tbFormat.Buttons.Add(, "AlignBottoms", , @mClick, "AlignBottoms", , ML("Align Bottoms"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtAlignToGrid = tbFormat.Buttons.Add(, "AlignToGrid", , @mClick, "AlignToGrid", , ML("Align to Grid"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtMakeSameSizeWidth = tbFormat.Buttons.Add(, "MakeSameSizeWidth", , @mClick, "MakeSameSizeWidth", , ML("Make Same Width"), True)
+	tbtMakeSameSizeHeight = tbFormat.Buttons.Add(, "MakeSameSizeHeight", , @mClick, "MakeSameSizeHeight", , ML("Make Same Height"), True)
+	tbtMakeSameSizeBoth = tbFormat.Buttons.Add(, "MakeSameSizeBoth", , @mClick, "MakeSameSizeBoth", , ML("Make Same Size"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtSizeToGrid = tbFormat.Buttons.Add(, "SizeToGrid", , @mClick, "SizeToGrid", , ML("Size to Grid"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtHorizontalSpacingMakeEqual = tbFormat.Buttons.Add(, "HorizontalSpacingMakeEqual", , @mClick, "HorizontalSpacingMakeEqual", , ML("Make Equal Horizontal Space"), True)
+	tbtHorizontalSpacingIncrease = tbFormat.Buttons.Add(, "HorizontalSpacingIncrease", , @mClick, "HorizontalSpacingIncrease", , ML("Increase Horizontal Space"), True)
+	tbtHorizontalSpacingDecrease = tbFormat.Buttons.Add(, "HorizontalSpacingDecrease", , @mClick, "HorizontalSpacingDecrease", , ML("Decrease Horizontal Space"), True)
+	tbtHorizontalSpacingRemove = tbFormat.Buttons.Add(, "HorizontalSpacingRemove", , @mClick, "HorizontalSpacingRemove", , ML("Remove Horizontal Space"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtVerticalSpacingMakeEqual = tbFormat.Buttons.Add(, "VerticalSpacingMakeEqual", , @mClick, "VerticalSpacingMakeEqual", , ML("Make Equal Vertical Space"), True)
+	tbtVerticalSpacingIncrease = tbFormat.Buttons.Add(, "VerticalSpacingIncrease", , @mClick, "VerticalSpacingIncrease", , ML("Increase Vertical Space"), True)
+	tbtVerticalSpacingDecrease = tbFormat.Buttons.Add(, "VerticalSpacingDecrease", , @mClick, "VerticalSpacingDecrease", , ML("Decrease Vertical Space"), True)
+	tbtVerticalSpacingRemove = tbFormat.Buttons.Add(, "VerticalSpacingRemove", , @mClick, "VerticalSpacingRemove", , ML("Remove Vertical Space"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtCenterInParentHorizontally = tbFormat.Buttons.Add(, "CenterInParentHorizontally", , @mClick, "CenterInParentHorizontally", , ML("Center In Parent Horizontally"), True)
+	tbtCenterInParentVertically = tbFormat.Buttons.Add(, "CenterInParentVertically", , @mClick, "CenterInParentVertically", , ML("Center In Parent Vertically"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtOrderBringToFront = tbFormat.Buttons.Add(, "BringToFront", , @mClick, "BringToFront", , ML("Bring to Front"), True)
+	tbtOrderSendToBack = tbFormat.Buttons.Add(, "SendToBack", , @mClick, "SendToBack", , ML("Send to Back"), True)
+	tbFormat.Buttons.Add tbsSeparator
+	tbtLockControls = tbFormat.Buttons.Add(Cast(ToolButtonStyle, tbsCheck Or tbsAutosize), "LockControls", , @mClick, "TBLockControls", , ML("Lock Controls"), True)
 End Sub
 
 CreateMenusAndToolBars
@@ -10473,7 +10617,7 @@ Sub tabCode_SelChange(ByRef Designer As My.Sys.Object, ByRef Sender As TabContro
 	Static tbOld As TabWindow Ptr
 	If newIndex = -1 Then Exit Sub
 	Dim tb As TabWindow Ptr = Cast(TabWindow Ptr, Sender.Tab(newIndex))
-	If tb = 0 Then Exit Sub
+	If tb = 0 Then tbFormat.Visible = False: Exit Sub
 	If tb = tbOld Then Exit Sub
 	'	pLocalTypes = @tb->Types
 	'	pLocalEnums = @tb->Enums
@@ -10485,6 +10629,9 @@ Sub tabCode_SelChange(ByRef Designer As My.Sys.Object, ByRef Sender As TabContro
 	For i As Integer = 3 To miWindow->Count - 1
 		If miWindow->Item(i) > 0 AndAlso tb->mi > 0 Then miWindow->Item(i)->Checked = miWindow->Item(i) = tb->mi
 	Next
+	If tb->Des <> 0 Then
+		miLockControls->Checked = tb->Des->LockControls
+	End If
 	If tbOld AndAlso tb = tbOld Then Exit Sub
 	If tbOld > 0 Then
 		tbOld->lvPropertyWidth = tabRightWidth
@@ -11240,6 +11387,7 @@ Sub frmMain_Resize(ByRef Designer As My.Sys.Object, ByRef sender As My.Sys.Objec
 	#ifndef __USE_GTK__
 		stBar.Panels[0]->Width = Max(stBar.Width - 50 - stBar.Panels[1]->Width - stBar.Panels[2]->Width - stBar.Panels[3]->Width  - stBar.Panels[4]->Width - stBar.Panels[5]->Width, 20)
 		prProgress.Left = stBar.Panels[0]->Width + stBar.Panels[1]->Width 
+		frmMain.RequestAlign
 	#endif
 End Sub
 
@@ -11565,8 +11713,6 @@ Sub frmMain_Create(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	End If
 	frmMain.Width = iniSettings.ReadInteger("MainWindow", "Width", 600)
 	frmMain.Height = iniSettings.ReadInteger("MainWindow", "Height", 400)
-	Var MainMaximized = iniSettings.ReadBool("MainWindow", "Maximized", False)
-	If MainMaximized Then frmMain.WindowState = WindowStates.wsMaximized
 	tabLeftWidth = iniSettings.ReadInteger("MainWindow", "LeftWidth", tabLeftWidth)
 	SetLeftClosedStyle iniSettings.ReadBool("MainWindow", "LeftClosed", True)
 	tabRightWidth = iniSettings.ReadInteger("MainWindow", "RightWidth", tabRightWidth)
@@ -11589,19 +11735,27 @@ Sub frmMain_Create(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	ShowStandardToolBar = iniSettings.ReadBool("MainWindow", "ShowStandardToolBar", True)
 	ShowEditToolBar = iniSettings.ReadBool("MainWindow", "ShowEditToolBar", True)
 	ShowProjectToolBar = iniSettings.ReadBool("MainWindow", "ShowProjectToolbar", True)
+	ShowFormatToolBar = iniSettings.ReadBool("MainWindow", "ShowFormatToolbar", False)
 	ShowBuildToolBar = iniSettings.ReadBool("MainWindow", "ShowBuildToolbar", True)
+	ShowDebugToolBar = iniSettings.ReadBool("MainWindow", "ShowDebugToolbar", False)
 	ShowRunToolBar = iniSettings.ReadBool("MainWindow", "ShowRunToolbar", True)
 	ShowTipoftheDay = iniSettings.ReadBool("MainWindow", "ShowTipoftheDay", True)
 	ShowTipoftheDayIndex = iniSettings.ReadInteger("MainWindow", "ShowTipoftheDayIndex", 0)
 	MainReBar.Bands.Item(0)->Visible = ShowStandardToolBar
 	MainReBar.Bands.Item(1)->Visible = ShowEditToolBar
 	MainReBar.Bands.Item(2)->Visible = ShowProjectToolBar
+	'rbBottom.Bands.Item(0)->Visible = ShowFormatToolBar
 	MainReBar.Bands.Item(3)->Visible = ShowBuildToolBar
-	MainReBar.Bands.Item(4)->Visible = ShowRunToolBar
+	MainReBar.Bands.Item(4)->Visible = ShowDebugToolBar
+	MainReBar.Bands.Item(5)->Visible = ShowRunToolBar
+	'MainReBar.Bands.Item(5)->FixedSize = True
+	MainReBar.Bands.Item(6)->Visible = ShowFormatToolBar
 	mnuStandardToolBar->Checked = ShowStandardToolBar
 	mnuEditToolBar->Checked = ShowEditToolBar
 	mnuProjectToolBar->Checked = ShowProjectToolBar
+	mnuFormatToolBar->Checked = ShowFormatToolBar
 	mnuBuildToolBar->Checked = ShowBuildToolBar
+	mnuDebugToolBar->Checked = ShowDebugToolBar
 	mnuRunToolBar->Checked = ShowRunToolBar
 	'Dim As Integer Subsystem = iniSettings.ReadInteger("MainWindow", "Subsystem", 0)
 	tbtNotSetted->Checked = True
@@ -11625,11 +11779,6 @@ Sub frmMain_Create(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 		tviewprc = @tvPrc
 		tviewthd = @tvThd
 		tviewwch = @tvWch
-	#endif
-	#ifdef __USE_WINAPI__
-		For i As Integer = 0 To 4
-			MainReBar.Bands.Item(i)->Maximize
-		Next
 	#endif
 	'#ifdef __USE_WINAPI__
 	'	Dim As ..Size sz
@@ -11672,6 +11821,14 @@ Sub frmMain_Create(ByRef Designer As My.Sys.Object, ByRef Sender As Control)
 	gLocalProperties = True
 	
 	mStartLoadSession = False
+	
+	Var MainMaximized = iniSettings.ReadBool("MainWindow", "Maximized", False)
+	If MainMaximized Then frmMain.WindowState = WindowStates.wsMaximized
+	#ifdef __USE_WINAPI__
+		For i As Integer = 0 To 5
+			MainReBar.Bands.Item(i)->Maximize
+		Next
+	#endif
 End Sub
 
 For i As Integer = 48 To 57
@@ -11988,11 +12145,23 @@ End Sub
 tbStandard.OnMouseUp = @ToolBar_MouseUp
 tbEdit.OnMouseUp = @ToolBar_MouseUp
 tbProject.OnMouseUp = @ToolBar_MouseUp
+tbFormat.OnMouseUp = @ToolBar_MouseUp
 tbBuild.OnMouseUp = @ToolBar_MouseUp
+tbDebug.OnMouseUp = @ToolBar_MouseUp
 tbRun.OnMouseUp = @ToolBar_MouseUp
+
 
 MainReBar.Name = "MainReBar"
 MainReBar.Align = DockStyle.alTop
+
+rbLeft.Name = "LeftReBar"
+rbLeft.Align = DockStyle.alLeft
+
+rbRight.Name = "LeftReBar"
+rbRight.Align = DockStyle.alRight
+
+rbBottom.Name = "BottomReBar"
+rbBottom.Align = DockStyle.alBottom
 
 frmMain.Name = "frmMain"
 frmMain.KeyPreview = True
@@ -12023,13 +12192,19 @@ MainReBar.Add @tbStandard
 MainReBar.Add @tbEdit
 MainReBar.Add @tbProject
 MainReBar.Add @tbBuild
+MainReBar.Add @tbDebug
 MainReBar.Add @tbRun
+MainReBar.Add @tbFormat
+'rbBottom.Add @tbFormat
 frmMain.Add @MainReBar
+'frmMain.Add @rbLeft
+'frmMain.Add @rbRight
 '#else
 '	tbStandard.Align = DockStyle.alTop
 '	frmMain.Add @tbStandard
 '#endif
 frmMain.Add @stBar
+'frmMain.Add @rbBottom
 frmMain.Add @pnlLeft
 frmMain.Add @splLeft
 frmMain.Add @pnlRight

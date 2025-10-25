@@ -588,6 +588,7 @@ Namespace My.Sys.Forms
 		On Error Goto ErrorHandler
 		If Trim(wLine, Any !"\t ") = "" Then Return -1
 		Dim As String sLine = wLine
+		Dim As WString * 2048 sLineTrim
 		If InAsm AndAlso CBool(InStr(LCase(wLine), "asm") = 0) Then Return -1
 		If CStyle Then Return -1
 		If Trim(sLine, Any !"\t ") = "" Then Return -1
@@ -601,29 +602,30 @@ Namespace My.Sys.Forms
 		iPos = InStr(sLine, "'")
 		If iPos = 0 Then iPos = Len(sLine) Else iPos -= 1
 		For i As Integer = 0 To UBound(Constructions)
+			sLineTrim = Trim(LCase(sLine), Any !"\t ") & " "
 			With Constructions(i)
-				If CInt(CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name0 & " "))) OrElse _
-					CInt(CInt(CInt(.Name01 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name01 & " "))) OrElse _
-					CInt(.Name02 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name02 & " "))) OrElse _
-					CInt(.Name03 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name03 & " "))) OrElse _
-					CInt(.Name04 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name04 & " "))) OrElse _
-					CInt(.Name05 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name05 & " "))) OrElse _
-					CInt(.Name06 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name06 & " "))) OrElse _
-					CInt(.Name07 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name07 & " "))) OrElse _
-					CInt(.Name08 <> "" AndAlso StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name08 & " ")))))) AndAlso _
+				If CInt(CInt(StartsWith(sLineTrim, LCase(.Name0 & " "))) OrElse _
+					CInt(CInt(CInt(.Name01 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name01 & " "))) OrElse _
+					CInt(.Name02 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name02 & " "))) OrElse _
+					CInt(.Name03 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name03 & " "))) OrElse _
+					CInt(.Name04 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name04 & " "))) OrElse _
+					CInt(.Name05 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name05 & " "))) OrElse _
+					CInt(.Name06 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name06 & " "))) OrElse _
+					CInt(.Name07 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name07 & " "))) OrElse _
+					CInt(.Name08 <> "" AndAlso StartsWith(sLineTrim, LCase(.Name08 & " ")))))) AndAlso _
 					CInt(CInt(.Exception = "") OrElse CInt(InStr(LCase(Trim(..Left(Replace(sLine, !"\t", " "), iPos), Any !"\t ")), LCase(.Exception)) = 0)) AndAlso _
-					CInt(..Left(LTrim(Mid(LTrim(sLine, Any !"\t "), Len(Trim(.Name0)) + 1), Any !"\t "), 1) <> "=") AndAlso _
-					CInt(LCase(..Left(LTrim(Mid(LTrim(sLine, Any !"\t "), Len(Trim(.Name0)) + 1), Any !"\t "), 3)) <> "as " OrElse InStr(Trim(.Name0), " ") > 0) Then
+					CInt(..Left(LTrim(Mid(sLineTrim, Len(Trim(.Name0)) + 1), Any !"\t "), 1) <> "=") AndAlso _
+					CInt(LCase(..Left(LTrim(Mid(sLineTrim, Len(Trim(.Name0)) + 1), Any !"\t "), 3)) <> "as " OrElse InStr(Trim(.Name0), " ") > 0) Then
 					iType = 0
 					Return i
-				ElseIf CInt(CInt(CInt(.Name1 <> "") AndAlso (CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name1) & " ")) OrElse CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & ":", LCase(.Name1))))) OrElse _
-					CInt(CInt(.Name2 <> "") AndAlso (CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name2) & " ")) OrElse CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & ":", LCase(.Name2))))) OrElse _
-					CInt(CInt(.Name3 <> "") AndAlso (CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.Name3) & " ")) OrElse CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & ":", LCase(.Name3)))))) AndAlso _
+				ElseIf CInt(CInt(CInt(.Name1 <> "") AndAlso (CInt(StartsWith(sLineTrim, LCase(.Name1) & " ")) OrElse CInt(StartsWith(Trim(sLineTrim), LCase(.Name1))))) OrElse _
+					CInt(CInt(.Name2 <> "") AndAlso (CInt(StartsWith(sLineTrim, LCase(.Name2) & " ")) OrElse CInt(StartsWith(Trim(sLineTrim) & ":", LCase(.Name2))))) OrElse _
+					CInt(CInt(.Name3 <> "") AndAlso (CInt(StartsWith(sLineTrim, LCase(.Name3) & " ")) OrElse CInt(StartsWith(Trim(sLineTrim) & ":", LCase(.Name3)))))) AndAlso _
 					CInt(CInt(.Exception = "") OrElse CInt(InStr(LCase(Trim(..Left(sLine, iPos), Any !"\t ")), LCase(.Exception)) = 0)) Then
 					iType = 1
 					Return i
-				ElseIf CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", LCase(.EndName & " "))) OrElse _
-					CInt(CInt(i = 0) AndAlso CInt(StartsWith(Trim(LCase(sLine), Any !"\t ") & " ", "endif "))) Then
+				ElseIf CInt(StartsWith(sLineTrim, LCase(.EndName & " "))) OrElse _
+					CInt(CInt(i = 0) AndAlso CInt(StartsWith(sLineTrim, "endif "))) Then
 					iType = 2
 					Return i
 				End If
@@ -1732,11 +1734,11 @@ Namespace My.Sys.Forms
 	
 	Sub EditControl.LoadFromFile(ByRef FileName As WString, ByRef FileEncoding As FileEncodings, ByRef NewLineType As NewLineTypes, WithoutScroll As Boolean = False)
 		Dim As WString Ptr pBuff
-		Dim As String Buff, EncodingStr, NewLineStr
+		Dim As String Buff, EncodingStr, NewLineStr, InContinueStr, InContinueStrOld, InContinueStrTmp
 		Dim As WString Ptr BuffRead
 		Dim As Integer Result = -1, Fn, FileSize
 		Dim As FileEncodings OldFileEncoding
-		Dim As Integer iC = 0, OldiC = 0, i = 0
+		Dim As Integer iC = 0, OldiC = 0, i = 0, OldConsIndex, OldConsPart, OldConsNextCount
 		Dim As Boolean InAsm = False, FileLoaded
 		Dim As Double  timeElapse = Timer
 		'check the Newlinetype again for missing Cr in AsicII file
@@ -1808,8 +1810,9 @@ Namespace My.Sys.Forms
 					Dim As WString Ptr FText
 					Dim As EditControlLine Ptr FECLine
 					WLet(FText, "")
+					InContinueStrOld = " "
 					Dim As Integer j = 0, jCount = Len(*wsFileContents)
-					Do While j <= jCount - 1
+					Do While j <= jCount
 						WAdd FText, WChr((*wsFileContents)[j])
 						If (*wsFileContents)[j] = 13 OrElse (*wsFileContents)[j] = 10 OrElse (*wsFileContents)[j] = 0 Then
 							FECLine = _New(EditControlLine)
@@ -1820,16 +1823,33 @@ Namespace My.Sys.Forms
 							pBuff = 0
 							WLet(pBuff, Trim(Trim(Mid(*FText, 1, Len(*FText)), Any WChr(10)), Any WChr(13)))
 							FECLine->Text = pBuff 'Do not Deallocate the pointer. transffer the point to FECLine->Text already.
-							iC = FindCommentIndex(*pBuff, OldiC)
-							FECLine->CommentIndex = iC
-							FECLine->InAsm = InAsm
 							Content.Lines.Add(FECLine)
-							ChangeCollapsibility i
-							If FECLine->ConstructionIndex = C_Asm Then
-								InAsm = FECLine->ConstructionPart = 0
-							End If
-							FECLine->InAsm = InAsm
-							OldiC = iC
+							iC = FindCommentIndex(*pBuff, OldiC)
+					FECLine->CommentIndex = iC
+					If FECLine->ConstructionIndex = C_Asm Then
+						InAsm = FECLine->ConstructionPart = 0
+					End If
+					FECLine->InAsm = InAsm
+					OldiC = iC
+					InContinueStr = Trim(*pBuff, Any !"\t ")
+					InContinueStrTmp = Right(InContinueStr, 2)
+					If InContinueStrTmp = " _" Then
+						InContinueStr = InContinueStrTmp
+					Else
+						InContinueStrTmp = LCase(..Left(InContinueStr, 5)) 
+						If InContinueStrTmp = "data " Then InContinueStr = InContinueStrTmp Else InContinueStr = ""
+					End If
+					If InContinueStr = InContinueStrOld Then
+						FECLine->ConstructionIndex = -1 ' OldConsIndex 
+						FECLine->ConstructionPart = OldConsPart
+						FECLine->ConstructionNextCount = OldConsNextCount
+					Else
+						ChangeCollapsibility i
+						OldConsIndex = FECLine->ConstructionIndex
+						OldConsPart = FECLine->ConstructionPart
+						OldConsNextCount = FECLine->ConstructionNextCount
+						InContinueStrOld = IIf(InContinueStr = "",  Str("  "), InContinueStr)
+					End If
 							i += 1
 							WLet(FText, "")
 							If (*wsFileContents)[j] = 13 AndAlso (*wsFileContents)[j + 1] = 10 Then j += 1
@@ -1900,6 +1920,7 @@ Namespace My.Sys.Forms
 			Content.Lines.Clear
 			'VisibleLines.Clear
 			i = 0
+			InContinueStrOld = " "
 			Fn = FreeFile_
 			Result = Open(FileName For Input Encoding EncodingStr As #Fn)
 			If Result = 0 Then
@@ -1924,16 +1945,33 @@ Namespace My.Sys.Forms
 						WLet(pBuff, *BuffRead)
 					End If
 					FECLine->Text = pBuff 'Do not Deallocate the pointer. transffer the point to FECLine->Text already.
+					Content.Lines.Add(FECLine)
 					iC = FindCommentIndex(*pBuff, OldiC)
 					FECLine->CommentIndex = iC
-					FECLine->InAsm = InAsm
-					Content.Lines.Add(FECLine)
-					ChangeCollapsibility i
 					If FECLine->ConstructionIndex = C_Asm Then
 						InAsm = FECLine->ConstructionPart = 0
 					End If
 					FECLine->InAsm = InAsm
 					OldiC = iC
+					InContinueStr = Trim(*pBuff, Any !"\t ")
+					InContinueStrTmp = Right(InContinueStr, 2)
+					If InContinueStrTmp = " _" Then
+						InContinueStr = InContinueStrTmp
+					Else
+						InContinueStrTmp = LCase(..Left(InContinueStr, 5)) 
+						If InContinueStrTmp = "data " Then InContinueStr = InContinueStrTmp Else InContinueStr = ""
+					End If
+					If InContinueStr = InContinueStrOld Then
+						FECLine->ConstructionIndex = -1 ' OldConsIndex 
+						FECLine->ConstructionPart = OldConsPart
+						FECLine->ConstructionNextCount = OldConsNextCount
+					Else
+						ChangeCollapsibility i
+						OldConsIndex = FECLine->ConstructionIndex
+						OldConsPart = FECLine->ConstructionPart
+						OldConsNextCount = FECLine->ConstructionNextCount
+						InContinueStrOld = IIf(InContinueStr = "",  Str("  "), InContinueStr)
+					End If
 					i += 1
 				Loop
 				CalculateLeftMargin
@@ -2013,17 +2051,30 @@ Namespace My.Sys.Forms
 		#endif
 		If Not FileSaved Then
 			If Open(FileName For Output Encoding FileEncodingText As #Fn) = 0 Then
+				Var iCount = Content.Lines.Count - 1
 				If FileEncoding = FileEncodings.Utf8 Then
-					For i As Integer = 0 To Content.Lines.Count - 1
-						Print #Fn, ToUtf8(*Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text) & NewLine;
+					For i As Integer = 0 To iCount
+						If i = iCount Then
+							Print #Fn, ToUtf8(*Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text);
+						Else
+							Print #Fn, ToUtf8(*Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text) & NewLine;
+						End If
 					Next
 				ElseIf FileEncoding = FileEncodings.PlainText  Then
-					For i As Integer = 0 To Content.Lines.Count - 1
-						Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & NewLine;
+					For i As Integer = 0 To iCount
+						If i = iCount Then
+							Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text;
+						Else
+							Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & NewLine;
+						End If
 					Next
 				Else
-					For i As Integer = 0 To Content.Lines.Count - 1
-						Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & NewLine;
+					For i As Integer = 0 To iCount
+						If i = iCount Then
+							Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text;
+						Else
+							Print #Fn, *Cast(EditControlLine Ptr, Content.Lines.Item(i))->Text & NewLine;
+						End If
 					Next
 				End If
 			Else
@@ -2189,7 +2240,7 @@ Namespace My.Sys.Forms
 	Sub EditControl.FormatCode(WithoutUpdate As Boolean = False)
 		Dim As Integer iIndents, CurIndents, iCount, iComment, ConstructionIndex, ConstructionPart
 		Dim As EditControlLine Ptr ECLine2
-		Dim As UString LineParts(Any), LineQuotes(Any)
+		Dim As WString Ptr LineParts(Any), LineQuotes(Any)
 		Dim As Integer iType = -1 '
 		If Not WithoutUpdate Then UpdateLock
 		Changing("Format")
@@ -2198,7 +2249,6 @@ Namespace My.Sys.Forms
 			FECLine->Ends.Clear
 			FECLine->EndsCompleted = False
 			If Trim(*FECLine->Text, Any !"\t ") <> "" Then WLet(FECLine->Text, Trim(*FECLine->Text, Any !"\t "))
-			'If *FECLine->Text = "" Then Continue For
 			If .Left(Trim(LCase(*FECLine->Text), Any !"\t "), 3) = "if(" Then WLet(FECLine->Text, "If (" & Mid(*FECLine->Text, 4))
 			If LCase(Trim(*FECLine->Text, Any !"\t ")) = "endif" Then WLet(FECLine->Text, "End If")
 			If iComment = 0 Then
@@ -2206,12 +2256,14 @@ Namespace My.Sys.Forms
 					Split(*FECLine->Text, """", LineQuotes())
 					WLet(FLine, "")
 					For k As Integer = 0 To UBound(LineQuotes) Step 2
-						WAdd FLine, LineQuotes(k)
+						WAdd FLine, *LineQuotes(k)
+						_Deallocate(LineQuotes(k))
 					Next
+					Erase LineQuotes
 					iPos = InStr(*FLine, "'") - 1
 					If iPos = -1 Then iPos = Len(*FLine)
 					Split(.Left(*FLine, iPos), ":", LineParts())
-					ConstructionIndex = Content.GetConstruction(LineParts(0), ConstructionPart, 0, FECLine->InAsm)
+					ConstructionIndex = Content.GetConstruction(*LineParts(0), ConstructionPart, 0, FECLine->InAsm)
 					If ConstructionIndex > -1 AndAlso ConstructionPart > 0 Then
 						iIndents = Max(0, iIndents - 1)
 					End If
@@ -2251,14 +2303,16 @@ Namespace My.Sys.Forms
 			If iComment = 0 Then
 				If FECLine->Statements.Count > 1 Then
 					For k As Integer = 0 To UBound(LineParts)
-						ConstructionIndex = Content.GetConstruction(LineParts(k), ConstructionPart, 0, FECLine->InAsm)
+						ConstructionIndex = Content.GetConstruction(*LineParts(k), ConstructionPart, 0, FECLine->InAsm)
 						If k > 0 AndAlso ConstructionIndex > -1 AndAlso ConstructionPart > 0 Then
 							iIndents = Max(0, iIndents - 1)
 						End If
 						If ConstructionIndex > -1 AndAlso ConstructionPart < 2 Then
 							iIndents += 1
 						End If
+						_Deallocate(LineParts(k))
 					Next k
+					Erase LineParts
 				Else
 					If FECLine->ConstructionIndex > -1 AndAlso FECLine->ConstructionPart < 2 Then
 						iIndents += 1
@@ -3150,16 +3204,22 @@ Namespace My.Sys.Forms
 		Private Sub EditControl.ReleaseDirect2D
 			If pRenderTarget <> 0 Then
 				pRenderTarget->lpVtbl->SetTarget(pRenderTarget, 0)
+			End If
+			If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
+			If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
+			If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
+			If pRenderTarget <> 0 Then
 				pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
 			End If
-			If pFormat Then pFormat->lpVtbl->Release(pFormat): pFormat = 0
-			If pTargetBitmap Then pTargetBitmap->lpVtbl->Release(pTargetBitmap): pTargetBitmap = 0
-			If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
-			If pSurface Then pSurface->lpVtbl->Release(pSurface): pSurface = 0
+			If pD3D11DeviceContext Then
+			    pD3D11DeviceContext->lpVtbl->ClearState(pD3D11DeviceContext)
+			    pD3D11DeviceContext->lpVtbl->Flush(pD3D11DeviceContext)
+			End If
 			If pSwapChain Then
 				pSwapChain->lpVtbl->SetFullscreenState(pSwapChain, False, NULL)
 				pSwapChain->lpVtbl->Release(pSwapChain): pSwapChain = 0
 			End If
+			If pTexture Then pTexture->lpVtbl->Release(pTexture): pTexture = 0
 		End Sub
 		
 		Sub EditControl.SetClientSize()
@@ -3205,6 +3265,9 @@ Namespace My.Sys.Forms
 						swapChainDesc.Scaling = DXGI_SCALING_NONE
 						swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL ' all apps must use This SwapEffect
 						swapChainDesc.Flags = 0
+						
+						pD3D11DeviceContext->lpVtbl->ClearState(pD3D11DeviceContext)
+						pD3D11DeviceContext->lpVtbl->Flush(pD3D11DeviceContext)
 						
 						Var hr = pDXGIFactory2->lpVtbl->CreateSwapChainForHwnd(pDXGIFactory2, Cast(IUnknown Ptr, pD3D11Device), FHandle, @swapChainDesc, 0, 0, @pSwapChain)
 						
@@ -4019,9 +4082,6 @@ Namespace My.Sys.Forms
 					SetTimer FHandle, 2, BlinkTime, @EC_TimerProcBlink
 				End If
 			End If
-			If pRenderTarget = 0 Then
-				hd = GetDC(FHandle)
-			End If
 			If CurrentFontSize <> EditorFontSize OrElse *CurrentFontName <> *EditorFontName Then
 				This.Font.Name = *EditorFontName
 				This.Font.Size = EditorFontSize
@@ -4029,6 +4089,7 @@ Namespace My.Sys.Forms
 				bFull = True
 			End If
 			If pRenderTarget = 0 Then
+				hd = GetDC(FHandle)
 				If bufDC = 0 Then
 					bufDC = CreateCompatibleDC(hd)
 					bufBMP = CreateCompatibleBitmap(hd, ScaleX(dwClientX), ScaleY(dwClientY))
@@ -5437,7 +5498,6 @@ Namespace My.Sys.Forms
 								MoveToEx bufDC, ScaleX(LeftMargin - 13 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY), 0
 								LineTo bufDC, ScaleX(LeftMargin - 8 + CodePaneX), ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)
 							Else
-								pRenderTarget->lpVtbl->CreateSolidColorBrush(pRenderTarget, @Type<D2D1_COLOR_F>(FoldLines.ForegroundRed, FoldLines.ForegroundGreen, FoldLines.ForegroundBlue, 1.0), 0, @pBrushForeground)
 								pRenderTarget->lpVtbl->DrawRectangle(pRenderTarget, @Type<D2D1_RECT_F>(CInt(ScaleX(LeftMargin - 15 + CodePaneX)) + 1, CInt(ScaleY((i - VScrollPos) * dwCharY + 3 + CodePaneY)) + 1, CInt(ScaleX(LeftMargin - 6 + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + 12 + CodePaneY))), pBrushForeground, 1)
 								pRenderTarget->lpVtbl->DrawLine(pRenderTarget, Type<D2D1_POINT_2F>(CInt(ScaleX(LeftMargin - 13 + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)) + 1), Type<D2D1_POINT_2F>(CInt(ScaleX(LeftMargin - 8 + CodePaneX)), CInt(ScaleY((i - VScrollPos) * dwCharY + 7 + CodePaneY)) + 1), pBrushForeground, 1)
 							End If
@@ -8398,8 +8458,6 @@ Namespace My.Sys.Forms
 			If bufDC Then DeleteDC bufDC
 			If bufBMP Then DeleteObject bufBMP
 			ReleaseDirect2D
-			If pRenderTarget Then Cast(Sub(ByVal As Any Ptr), COM_METHOD(pRenderTarget, 2))(pRenderTarget): pRenderTarget = 0
-			If pFormat Then Cast(Sub(ByVal As Any Ptr), COM_METHOD(pFormat, 2))(pFormat): pFormat = 0
 		#endif
 		WDeAllocate(FLine)
 		WDeAllocate(FLineLeft)
@@ -8471,4 +8529,3 @@ Sub LoadKeyWords
 	'	Loop
 	'	Close #Fn
 End Sub
-
