@@ -651,6 +651,9 @@ Sub OnMouseHoverEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, M
 	Var tb = Cast(TabWindow Ptr, Sender.Tag)
 	If tb = 0  OrElse tb->txtCode.LinesCount < 1 Then Exit Sub
 	'If tb->txtCode.DropDownShowed Then Exit Sub
+	#ifdef __USE_GTK__
+		Return
+	#endif
 	If tb->txtCode.MouseHoverToolTipShowed Then
 		If CBool((Abs(OldY - y) > 0 OrElse Abs(OldX - x) > 0)) Then
 			tb->txtCode.CloseMouseHoverToolTip
@@ -3224,7 +3227,7 @@ Sub OnLineChangeEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, B
 	Var tb = Cast(TabWindow Ptr, Sender.Tag)
 	If tb = 0 Then Exit Sub
 	bNotFunctionChange = True
-	If tb->txtCode.SyntaxEdit Then
+	If tb->txtCode.SyntaxEdit AndAlso Not tb->txtCode.Content.CStyle Then
 		If CurrentLine > -1 AndAlso CurrentLine < tb->txtCode.Content.Lines.Count Then
 			Dim As EditControlLine Ptr ecl = Cast(EditControlLine Ptr, tb->txtCode.Content.Lines.Items[CurrentLine])
 			ecl->OldConstructionIndex = ecl->ConstructionIndex
@@ -5091,7 +5094,7 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 			ParametersList.Add te->Parameters
 			If te->Comment <> "" Then Comments &= "" & IIf(te->ElementType = E_Keyword  OrElse te->ElementType = E_KeywordFunction OrElse te->ElementType = E_KeywordOperator OrElse te->ElementType = E_KeywordSub, te->Comment, MC(te->Name))
 		End If
-		If (FECLine > 0) AndAlso FECLine->InAsm Then
+		If CBool(FECLine > 0) AndAlso FECLine->InAsm AndAlso ShowKeywordsToolTip Then
 			Index = GlobalAsmFunctionsHelp.IndexOf(sWord)
 			If Index > -1 Then
 				te = GlobalAsmFunctionsHelp.Object(Index)
@@ -5141,7 +5144,10 @@ Function GetParameters(sWord As String, te As TypeElement Ptr, teOld As TypeElem
 			If Index > -1 Then
 				For i As Integer = Index To pGlobalFunctions->Count - 1
 					te = pGlobalFunctions->Object(i)
-					If CBool(te <> 0) AndAlso CBool(LCase(te->Name) = LCase(sWord)) Then 'AndAlso CBool(Not te->TypeProcedure)
+					If CBool(te <> 0) AndAlso CBool(LCase(te->Name) = LCase(sWord)) Then 'AndAlso CBool(Not te->TypeProcedure) Then
+						If Not ShowKeywordsToolTip Then
+							If te->ElementType = E_Keyword Then Continue For
+						End If
 						If CInt(Not ParametersList.Contains(te->Parameters)) Then
 							Dim As WString Ptr res(Any)
 							Split te->Parameters, !"\r", res()
@@ -5262,7 +5268,7 @@ Sub OnSelChangeEdit(ByRef Designer As My.Sys.Object, ByRef Sender As Control, By
 	MouseHoverTimerVal = Timer
 	Dim As Integer iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
 	tb->txtCode.GetSelection iSelStartLine, iSelEndLine, iSelStartChar, iSelEndChar
-	Dim As String UnicodeStr = Hex(tb->txtCode.Lines(iSelEndLine)[iSelEndChar], 4)
+	Dim As String UnicodeStr = Hex(Asc(Mid(tb->txtCode.Lines(iSelEndLine), iSelEndChar + 1, 1)), 4)
 	If Len(UnicodeStr) > 3 Then
 		If Mid(UnicodeStr, 1, 2) = "00" Then
 			UnicodeStr = " HEX: " & UnicodeStr & " (ASC: " & Val("&H" & UnicodeStr) & ")"
@@ -10120,7 +10126,10 @@ Sub TabWindow.FormDesign(NotForms As Boolean = False)
 													If CurrentStatusBarName = CtrlName Then pfMenuEditor->CurrentStatusBar = Ctrl
 												End If
 												#ifdef __USE_GTK__
-													gtk_widget_show(st->ReadPropertyFunc(Ctrl, "Widget"))
+													Var CtrlWidget = st->ReadPropertyFunc(Ctrl, "Widget")
+													If GTK_IS_WIDGET(CtrlWidget) Then
+														gtk_widget_show(CtrlWidget)
+													End If
 												#endif
 											End If
 										End If

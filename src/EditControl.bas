@@ -1800,6 +1800,27 @@ Namespace My.Sys.Forms
 					OldFileEncoding = FileEncoding
 					If FileEncoding = FileEncodings.PlainText Then
 						WLet(wsFileContents, sFileContents)
+					ElseIf FileEncoding = FileEncodings.Utf16BOM Then
+						WLet(wsFileContents, Mid(*Cast(WString Ptr, @sFileContents[0]), 2))
+					ElseIf FileEncoding = FileEncodings.Utf32BOM Then
+						Dim As Integer charCount = dwBytesToRead / 4 - 1
+						Dim As UInteger Ptr dwordPtr = Cast(UInteger Ptr, @sFileContents[4])
+						WReAllocate(wsFileContents, charCount * 2)
+						Dim wi As Integer = 0
+						For i As Integer = 0 To charCount - 1
+							Dim codepoint As UInteger = dwordPtr[i]
+							If codepoint <= &HFFFF Then
+								wsFileContents[wi] = codepoint
+								wi += 1
+							Else
+								' surrogate pair
+								codepoint -= &H10000
+								wsFileContents[wi]     = &HD800 + (codepoint Shr 10)
+								wsFileContents[wi + 1] = &HDC00 + (codepoint And &H3FF)
+								wi += 2
+							End If
+						Next
+						wsFileContents[wi] = 0
 					Else
 						If BOMSymbolsCount Then
 							sFileContents = Mid(sFileContents, BOMSymbolsCount + 1)
@@ -1812,6 +1833,19 @@ Namespace My.Sys.Forms
 					WLet(FText, "")
 					InContinueStrOld = " "
 					Dim As Integer j = 0, jCount = Len(*wsFileContents)
+					If InStr(*wsFileContents, Chr(13, 10)) Then
+						NewLineType= NewLineTypes.WindowsCRLF
+						NewLineStr = Chr(10)
+					ElseIf InStr(*wsFileContents, Chr(10)) Then
+						NewLineType= NewLineTypes.LinuxLF
+						NewLineStr = Chr(10)
+					ElseIf InStr(*wsFileContents, Chr(13)) Then
+						NewLineType= NewLineTypes.MacOSCR
+						NewLineStr = Chr(13)
+					Else
+						NewLineType= NewLineTypes.WindowsCRLF
+						NewLineStr = Chr(10)
+					End If
 					Do While j <= jCount
 						WAdd FText, WChr((*wsFileContents)[j])
 						If (*wsFileContents)[j] = 13 OrElse (*wsFileContents)[j] = 10 OrElse (*wsFileContents)[j] = 0 Then
@@ -1825,31 +1859,31 @@ Namespace My.Sys.Forms
 							FECLine->Text = pBuff 'Do not Deallocate the pointer. transffer the point to FECLine->Text already.
 							Content.Lines.Add(FECLine)
 							iC = FindCommentIndex(*pBuff, OldiC)
-					FECLine->CommentIndex = iC
-					If FECLine->ConstructionIndex = C_Asm Then
-						InAsm = FECLine->ConstructionPart = 0
-					End If
-					FECLine->InAsm = InAsm
-					OldiC = iC
-					InContinueStr = Trim(*pBuff, Any !"\t ")
-					InContinueStrTmp = Right(InContinueStr, 2)
-					If InContinueStrTmp = " _" Then
-						InContinueStr = InContinueStrTmp
-					Else
-						InContinueStrTmp = LCase(..Left(InContinueStr, 5)) 
-						If InContinueStrTmp = "data " Then InContinueStr = InContinueStrTmp Else InContinueStr = ""
-					End If
-					If InContinueStr = InContinueStrOld Then
-						FECLine->ConstructionIndex = -1 ' OldConsIndex 
-						FECLine->ConstructionPart = OldConsPart
-						FECLine->ConstructionNextCount = OldConsNextCount
-					Else
-						ChangeCollapsibility i
-						OldConsIndex = FECLine->ConstructionIndex
-						OldConsPart = FECLine->ConstructionPart
-						OldConsNextCount = FECLine->ConstructionNextCount
-						InContinueStrOld = IIf(InContinueStr = "",  Str("  "), InContinueStr)
-					End If
+							FECLine->CommentIndex = iC
+							If FECLine->ConstructionIndex = C_Asm Then
+								InAsm = FECLine->ConstructionPart = 0
+							End If
+							FECLine->InAsm = InAsm
+							OldiC = iC
+							'InContinueStr = Trim(*pBuff, Any !"\t ")
+							'InContinueStrTmp = Right(InContinueStr, 2)
+							'If InContinueStrTmp = " _" Then
+							'	InContinueStr = InContinueStrTmp
+							'Else
+							'	InContinueStrTmp = LCase(..Left(InContinueStr, 5))
+							'	If InContinueStrTmp = "data " Then InContinueStr = InContinueStrTmp Else InContinueStr = ""
+							'End If
+							'If InContinueStr = InContinueStrOld Then
+							'	FECLine->ConstructionIndex = -1 ' OldConsIndex
+							'	FECLine->ConstructionPart = OldConsPart
+							'	FECLine->ConstructionNextCount = OldConsNextCount
+							'Else
+							ChangeCollapsibility i
+							'OldConsIndex = FECLine->ConstructionIndex
+							'OldConsPart = FECLine->ConstructionPart
+							'OldConsNextCount = FECLine->ConstructionNextCount
+							'InContinueStrOld = IIf(InContinueStr = "",  Str("  "), InContinueStr)
+							'End If
 							i += 1
 							WLet(FText, "")
 							If (*wsFileContents)[j] = 13 AndAlso (*wsFileContents)[j + 1] = 10 Then j += 1
@@ -1958,11 +1992,11 @@ Namespace My.Sys.Forms
 					If InContinueStrTmp = " _" Then
 						InContinueStr = InContinueStrTmp
 					Else
-						InContinueStrTmp = LCase(..Left(InContinueStr, 5)) 
+						InContinueStrTmp = LCase(..Left(InContinueStr, 5))
 						If InContinueStrTmp = "data " Then InContinueStr = InContinueStrTmp Else InContinueStr = ""
 					End If
 					If InContinueStr = InContinueStrOld Then
-						FECLine->ConstructionIndex = -1 ' OldConsIndex 
+						FECLine->ConstructionIndex = -1 ' OldConsIndex
 						FECLine->ConstructionPart = OldConsPart
 						FECLine->ConstructionNextCount = OldConsNextCount
 					Else
@@ -3212,8 +3246,8 @@ Namespace My.Sys.Forms
 				pRenderTarget->lpVtbl->Release(pRenderTarget): pRenderTarget = 0
 			End If
 			If pD3D11DeviceContext Then
-			    pD3D11DeviceContext->lpVtbl->ClearState(pD3D11DeviceContext)
-			    pD3D11DeviceContext->lpVtbl->Flush(pD3D11DeviceContext)
+				pD3D11DeviceContext->lpVtbl->ClearState(pD3D11DeviceContext)
+				pD3D11DeviceContext->lpVtbl->Flush(pD3D11DeviceContext)
 			End If
 			If pSwapChain Then
 				pSwapChain->lpVtbl->SetFullscreenState(pSwapChain, False, NULL)
@@ -5035,8 +5069,9 @@ Namespace My.Sys.Forms
 															Mid(*FECLine->Text, MatnBoshi, j - MatnBoshi + 1) = KeyWord
 														End If
 													ElseIf (Not bKeyWord) AndAlso ChangeIdentifiersCase AndAlso MatnLCase = LCase(OriginalCaseWord) AndAlso tIndex <> -1 AndAlso FSelEndLine <> z Then
-														If MatnWithoutOldSymbol <> OriginalCaseWord Then
-															Mid(*FECLine->Text, MatnBoshi + IIf(WithOldSymbol, 1, 0), j - MatnBoshi + 1) = OriginalCaseWord
+														IdentifierWord = GetIdentifierCase(MatnWithoutOldSymbol, OriginalCaseWord)
+														If IdentifierWord <> MatnWithoutOldSymbol Then
+															Mid(*FECLine->Text, MatnBoshi + IIf(WithOldSymbol, 1, 0), j - MatnBoshi + 1) = IdentifierWord
 														End If
 													ElseIf tIndex = -1 Then
 														If IsNumeric(Matn) OrElse IsNumeric(MatnWithoutOldSymbol) OrElse LCase(.Left(Matn, 2)) = "&h" Then
@@ -6441,6 +6476,18 @@ Namespace My.Sys.Forms
 		#endif
 	End Sub
 	
+	Function GetIdentifierCase(ByRef IdentifierWord As String, ByRef OriginalCaseWord As String) As String
+		If ChangeIdentifiersCase Then
+			Select Case ChoosedIdentifiersCase
+			Case IdentifiersCase.OriginalCase: Return OriginalCaseWord
+			Case IdentifiersCase.CapitalizedCase: Return UCase(Left(IdentifierWord, 1)) & LCase(Mid(IdentifierWord, 2))
+			Case IdentifiersCase.LowerCase: Return LCase(IdentifierWord)
+			Case IdentifiersCase.UpperCase: Return UCase(IdentifierWord)
+			End Select
+		End If
+		Return IdentifierWord
+	End Function
+	
 	Function GetKeyWordCase(ByRef KeyWord As String, KeyWordsList As WStringOrStringList Ptr = 0, OriginalCaseWord As String = "") As String
 		If ChangeKeyWordsCase Then
 			Select Case ChoosedKeyWordsCase
@@ -7528,8 +7575,9 @@ Namespace My.Sys.Forms
 				WLet(FLineLeft, "")
 				WLet(FLineRight, "")
 				WLet(FLineTemp, "")
+				Var c = IIf(FSelEndLine <= 0, 0, Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->CommentIndex)
 				Dim j As Integer = 0
-				Dim i As Integer = Content.GetConstruction(RTrim(*FLine, Any !"\t "), j, IIf(FSelEndLine <= 0, 0, Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine - 1])->CommentIndex), Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->InAsm)
+				Dim i As Integer = Content.GetConstruction(RTrim(*FLine, Any !"\t "), j, c, Cast(EditControlLine Ptr, Content.Lines.Items[FSelEndLine])->InAsm)
 				Var d = Len(*FLine) - Len(LTrim(*FLine, Any !"\t "))
 				WLet(FLineSpace, ..Left(*FLine, d))
 				Var k = 0
@@ -7584,7 +7632,8 @@ Namespace My.Sys.Forms
 							End If
 						End If
 						If i = 0 And (j = 0 Or j = 1) Then
-							If (StartsWith(LTrim(LCase(*FLine), Any !"\t "), "if ") Or StartsWith(LTrim(LCase(*FLine), Any !"\t "), "elseif ")) And (Not EndsWith(RTrim(LCase(*FLine), Any !"\t "), "then")) And (Not EndsWith(RTrim(LCase(*FLine), Any !"\t "), "_")) Then
+							WLet(FLineTemp,  Trim(LCase(TextWithoutQuotesAndComments(*FLine, c, True, True, True)), Any !"\t "))
+							If (StartsWith(*FLineTemp, "if ") Or StartsWith(*FLineTemp, "elseif ")) And (Not EndsWith(*FLineTemp, "then")) And (Not EndsWith(*FLineTemp, "_")) Then
 								p = Len(RTrim(*FLine, Any !"\t ")) - Len(*FLine)
 								WLet(FLineLeft, GetKeyWordCase(" Then"))
 							End If
